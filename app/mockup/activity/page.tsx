@@ -1,14 +1,17 @@
 import Link from "next/link";
-import { MockNav } from "../_components/MockNav";
-import { PollCard } from "../_components/Cards";
-import { Avatar, AvatarStack } from "../_components/Avatar";
-import { activities, polls, sampleComments, findMember, members } from "../_data";
+import { MockNav } from "../_layout/MockNav";
+import { Avatar, AvatarStack, findMember, listMembers } from "@/modules/core/members";
+import { listActivities } from "@/modules/core/activities";
+import { listPolls, sampleComments, PollCard } from "@/modules/core/polls";
+import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 
 export default function ActivityDetailMockup() {
-  const a = activities[0];
+  const a = listActivities()[0];
   const host = findMember(a.hostId);
-  const poll = polls[0];
+  const poll = listPolls()[0];
+  const members = listMembers();
   const goingIds = ["u1", "u2", "u3", "u4"];
+  const cats = findCategoriesByIds(a.categoryIds);
 
   return (
     <main>
@@ -26,14 +29,11 @@ export default function ActivityDetailMockup() {
             </span>
           </div>
           <div className="p-6">
-            <div className="flex flex-wrap items-start gap-4 mb-4">
-              <div className="flex-1 min-w-0">
-                <h1 className="serif text-3xl text-ink mb-2">{a.title}</h1>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-ink/60">
-                  <span>🗓️ {a.startsAt}</span>
-                  <span>📍 {a.location}</span>
-                </div>
-              </div>
+            <div className="mb-3"><CategoryChipList categories={cats} /></div>
+            <h1 className="serif text-3xl text-ink mb-2">{a.title}</h1>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-ink/60 mb-4">
+              <span>🗓️ {a.startsAt}</span>
+              <span>📍 {a.location}</span>
             </div>
 
             <div className="flex items-center gap-2 mb-5">
@@ -43,7 +43,6 @@ export default function ActivityDetailMockup() {
 
             <p className="text-ink/80 leading-relaxed mb-6">{a.description}</p>
 
-            {/* RSVP buttons */}
             <div className="flex flex-wrap gap-2 mb-5">
               <button className="px-5 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition">
                 ✓ 我會去 ({a.rsvp.going})
@@ -65,13 +64,11 @@ export default function ActivityDetailMockup() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {/* Embedded poll */}
             <div>
               <h2 className="serif text-xl text-ink mb-3">📊 活動內投票</h2>
               <PollCard poll={poll} />
             </div>
 
-            {/* Comments */}
             <div>
               <h2 className="serif text-xl text-ink mb-3">💬 留言 ({sampleComments.length})</h2>
               <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5 space-y-5">
@@ -111,7 +108,6 @@ export default function ActivityDetailMockup() {
             </div>
           </div>
 
-          {/* Sidebar */}
           <aside className="space-y-5">
             <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
               <h3 className="serif text-base text-ink mb-3">活動清單</h3>
@@ -138,7 +134,7 @@ export default function ActivityDetailMockup() {
             <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
               <h3 className="serif text-base text-ink mb-3">相關活動</h3>
               <div className="space-y-3 text-sm">
-                {activities.slice(1).map((other) => (
+                {listActivities().slice(1, 3).map((other) => (
                   <Link key={other.id} href="/mockup/activity" className="block hover:text-terracotta">
                     <div className="text-xs text-ink/50">{other.startsAt.slice(0, 10)}</div>
                     <div className="text-ink">{other.title}</div>

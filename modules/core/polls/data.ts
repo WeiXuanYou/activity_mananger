@@ -1,0 +1,66 @@
+import type { Comment, Poll } from "./types";
+
+export const polls: Poll[] = [
+  {
+    id: "p1",
+    question: "中秋烤肉要訂哪一家肉品？🍖",
+    authorId: "u1",
+    options: [
+      { id: "o1", label: "好市多套餐 A", votes: 8 },
+      { id: "o2", label: "傳統肉舖阿伯店", votes: 11 },
+      { id: "o3", label: "海鮮為主", votes: 3 },
+      { id: "o4", label: "素食組合（雅婷補的）", votes: 4, addedById: "u4" },
+    ],
+    totalVotes: 26,
+    closesAt: "2026-09-20",
+    closesIn: "還有 3 天",
+    multiSelect: false,
+    anonymous: false,
+    allowAddOption: true,
+    status: "CLOSING_SOON",
+    categoryIds: ["c-food", "c-family"],
+  },
+  {
+    id: "p2",
+    question: "家族旅遊地點投票 🏝️",
+    authorId: "u2",
+    options: [
+      { id: "o1", label: "宜蘭兩天一夜", votes: 6 },
+      { id: "o2", label: "墾丁三天兩夜", votes: 9 },
+      { id: "o3", label: "日本京都五天", votes: 4 },
+      { id: "o4", label: "在家就好", votes: 2 },
+    ],
+    totalVotes: 21,
+    closesAt: "2026-07-01",
+    closesIn: "還有 9 天",
+    multiSelect: true,
+    anonymous: true,
+    allowAddOption: false,
+    status: "OPEN",
+    categoryIds: ["c-travel", "c-family"],
+  },
+  {
+    id: "p3",
+    question: "下次家庭聚餐想吃什麼？🍱",
+    authorId: "u3",
+    options: [
+      { id: "o1", label: "火鍋", votes: 7 },
+      { id: "o2", label: "燒肉", votes: 5 },
+      { id: "o3", label: "在家煮", votes: 4 },
+    ],
+    totalVotes: 16,
+    closesAt: "2026-05-26",
+    closesIn: "今天截止 ⏰",
+    multiSelect: false,
+    anonymous: false,
+    allowAddOption: true,
+    status: "CLOSING_SOON",
+    categoryIds: ["c-food", "c-weekend"],
+  },
+];
+
+export const sampleComments: Comment[] = [
+  { id: "c1", authorId: "u1", body: "好懷念這個味道～阿嬤等你回來煮給我吃。", createdAt: "1 小時前" },
+  { id: "c2", authorId: "u3", body: "求食譜！我下週也想試試看。", createdAt: "30 分鐘前" },
+  { id: "c3", authorId: "u4", body: "我來訂醬油，最近發現一家很好的釀造廠。", createdAt: "10 分鐘前" },
+];

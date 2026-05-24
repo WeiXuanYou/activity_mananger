@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { MockNav } from "../_components/MockNav";
-import { Avatar } from "../_components/Avatar";
-import { permissionRequests, findMember } from "../_data";
+import { MockNav } from "../_layout/MockNav";
+import { Avatar, findMember } from "@/modules/core/members";
+import { listDecidedRequests, listPendingRequests, RoleBadge } from "@/modules/permissions";
 
 export default function InboxMockup() {
-  const pending = permissionRequests.filter((r) => r.status === "PENDING");
-  const decided = permissionRequests.filter((r) => r.status !== "PENDING");
+  const pending = listPendingRequests();
+  const decided = listDecidedRequests();
 
   return (
     <main>
@@ -35,9 +35,7 @@ export default function InboxMockup() {
                         <span className="font-medium text-ink">{user.name}</span>
                         <span className="text-xs text-ink/40">@{user.handle}</span>
                         <span className="text-xs text-ink/60">想升級為</span>
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-terracotta-soft text-terracotta-dark text-xs font-medium">
-                          {r.requestedRole}
-                        </span>
+                        <RoleBadge role={r.requestedRole} />
                         <span className="text-xs text-ink/40 ml-auto">{r.createdAt}</span>
                       </div>
                       <p className="text-sm text-ink/75 bg-cream/40 rounded-soft p-3 mt-2 mb-3 leading-relaxed">
@@ -53,10 +51,7 @@ export default function InboxMockup() {
                         <button className="px-4 py-2 rounded-soft bg-white border border-sand text-ink/70 text-sm hover:bg-cream/40">
                           💬 詢問
                         </button>
-                        <Link
-                          href="/mockup/profile"
-                          className="ml-auto text-xs text-ink/50 hover:text-terracotta self-center"
-                        >
+                        <Link href="/mockup/profile" className="ml-auto text-xs text-ink/50 hover:text-terracotta self-center">
                           查看完整檔案 →
                         </Link>
                       </div>
@@ -101,7 +96,7 @@ export default function InboxMockup() {
             <p className="text-xs text-ink/60 mb-3">產生新邀請碼給家人朋友（管理員專屬）</p>
             <div className="flex gap-2">
               <code className="flex-1 px-3 py-2 bg-cream/50 rounded-soft border border-sand font-mono text-sm">
-                FAMILY-2026-XXXX
+                TOGETHER-2026-XXXX
               </code>
               <button className="px-3 py-2 rounded-soft bg-terracotta text-white text-sm font-medium hover:bg-terracotta-dark">
                 產生

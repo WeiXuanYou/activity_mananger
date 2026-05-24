@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { MockNav } from "../_components/MockNav";
-import { polls, members, findMember } from "../_data";
-import { Avatar, AvatarStack } from "../_components/Avatar";
+import { MockNav } from "../_layout/MockNav";
+import { Avatar, AvatarStack, findMember, listMembers } from "@/modules/core/members";
+import { listPolls } from "@/modules/core/polls";
+import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 
 export default function PollMockup() {
-  const poll = polls[1];
+  const poll = listPolls()[1];
   const author = findMember(poll.authorId);
+  const members = listMembers();
+  const cats = findCategoriesByIds(poll.categoryIds);
   const voterIdsByOption: Record<string, string[]> = {
     o1: ["u1", "u3", "u4"],
     o2: ["u2", "u3", "u4", "u5"],
@@ -22,7 +25,6 @@ export default function PollMockup() {
         </Link>
 
         <div className="bg-white rounded-soft shadow-soft border border-sand/60 overflow-hidden">
-          {/* Line-style top bar */}
           <div className="h-1.5 bg-gradient-to-r from-sage via-terracotta-soft to-terracotta" />
 
           <div className="p-7">
@@ -41,12 +43,15 @@ export default function PollMockup() {
 
             <h1 className="serif text-2xl md:text-3xl text-ink mb-2 leading-snug">{poll.question}</h1>
 
-            <div className="flex items-center gap-2 mb-6 text-sm text-ink/60">
+            <div className="flex items-center gap-2 mb-3 text-sm text-ink/60">
               <Avatar member={author} size={24} />
               <span>{author.name} 發起 · {poll.totalVotes} 票 · 截止 {poll.closesAt}</span>
             </div>
 
-            {/* Countdown banner */}
+            {cats.length > 0 && (
+              <div className="mb-5"><CategoryChipList categories={cats} /></div>
+            )}
+
             <div className="mb-6 flex items-center gap-4 bg-gradient-to-r from-terracotta-soft/40 to-cream rounded-soft p-4 border border-terracotta/20">
               <div className="text-3xl">⏳</div>
               <div className="flex-1">
@@ -106,7 +111,7 @@ export default function PollMockup() {
                       </div>
                     )}
                     {poll.anonymous && voters.length > 0 && (
-                      <div className="text-xs text-ink/40">{voters.length} 位家人投了這個</div>
+                      <div className="text-xs text-ink/40">{voters.length} 位投了這個</div>
                     )}
                   </button>
                 );
@@ -134,14 +139,13 @@ export default function PollMockup() {
           </div>
         </div>
 
-        {/* Settings preview */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
             <h3 className="serif text-base text-ink mb-3">⚙️ 投票設定</h3>
             <ul className="text-sm space-y-1.5 text-ink/70">
               <li className="flex justify-between"><span>類型</span><span className="text-ink">{poll.multiSelect ? "多選" : "單選"}</span></li>
               <li className="flex justify-between"><span>匿名</span><span className="text-ink">{poll.anonymous ? "是" : "否"}</span></li>
-              <li className="flex justify-between"><span>家人可新增選項</span><span className="text-ink">{poll.allowAddOption ? "可以" : "不行"}</span></li>
+              <li className="flex justify-between"><span>可新增選項</span><span className="text-ink">{poll.allowAddOption ? "可以" : "不行"}</span></li>
               <li className="flex justify-between"><span>截止時間</span><span className="text-ink">{poll.closesAt} 23:59</span></li>
             </ul>
           </div>
@@ -151,7 +155,7 @@ export default function PollMockup() {
               <span className="text-xs text-sage-dark font-medium">📈 分析模組</span>
             </div>
             <p className="text-sm text-ink/70 mb-3 leading-relaxed">
-              這次投票的趨勢、家人的投票歷史比較，可在分析模組查看。
+              這次投票的趨勢、家人朋友的投票歷史比較，可在分析模組查看。
             </p>
             <Link
               href="/mockup/analytics"

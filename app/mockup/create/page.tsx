@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { MockNav } from "../_components/MockNav";
+import { MockNav } from "../_layout/MockNav";
+import { CategoryPicker, listCategories } from "@/modules/core/categories";
 
 type Tab = "post" | "activity" | "poll";
 
 export default function CreateMockup() {
+  const categories = listCategories();
   const [tab, setTab] = useState<Tab>("post");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -21,14 +23,11 @@ export default function CreateMockup() {
     <main>
       <MockNav active="/mockup/create" />
       <div className="max-w-5xl mx-auto px-5 py-6">
-        <div className="flex items-end gap-3 mb-2">
-          <div>
-            <h1 className="serif text-3xl text-ink">建立內容</h1>
-            <p className="text-ink/60 text-sm">分享給家人和朋友 · 一切都是公開的（家圈內）</p>
-          </div>
+        <div>
+          <h1 className="serif text-3xl text-ink">建立內容</h1>
+          <p className="text-ink/60 text-sm">分享給家人和朋友 · 一切都是公開的（相聚內）</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 mb-5 mt-5 bg-cream/50 p-1 rounded-soft inline-flex">
           {([
             { k: "post", l: "📝 文章 / 推薦" },
@@ -68,7 +67,7 @@ export default function CreateMockup() {
                   onChange={(e) => setBody(e.target.value)}
                   placeholder="寫下你想分享的內容..."
                   className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta resize-none"
-                  rows={10}
+                  rows={8}
                 />
                 <div className="flex gap-2 text-ink/60 text-sm">
                   <button className="px-3 py-1.5 rounded-soft bg-cream/50 hover:bg-cream">📷 圖片</button>
@@ -76,11 +75,13 @@ export default function CreateMockup() {
                   <button className="px-3 py-1.5 rounded-soft bg-cream/50 hover:bg-cream">📊 嵌入投票</button>
                 </div>
 
+                <div className="pt-2 border-t border-sand">
+                  <CategoryPicker categories={categories} max={3} />
+                </div>
+
                 <label
                   className={`flex items-start gap-3 px-3 py-2.5 rounded-soft border transition cursor-pointer ${
-                    pinAfterPost
-                      ? "bg-terracotta-soft/30 border-terracotta/40"
-                      : "bg-cream/30 border-sand"
+                    pinAfterPost ? "bg-terracotta-soft/30 border-terracotta/40" : "bg-cream/30 border-sand"
                   }`}
                 >
                   <input
@@ -92,7 +93,7 @@ export default function CreateMockup() {
                   <div className="flex-1">
                     <div className="text-sm font-medium text-ink">📌 發布後置頂於 Feed 最上方</div>
                     <div className="text-xs text-ink/55 mt-0.5">
-                      需要 <strong>Editor</strong> 權限。所有家人首頁都會優先看到。
+                      需要 <strong>Editor</strong> 權限（<code>post.pin</code>）。
                     </div>
                   </div>
                 </label>
@@ -101,46 +102,37 @@ export default function CreateMockup() {
 
             {tab === "activity" && (
               <div className="space-y-4">
-                <input
-                  placeholder="活動名稱"
-                  className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta serif text-xl"
-                />
+                <input placeholder="活動名稱" className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta serif text-xl" />
                 <div className="grid grid-cols-2 gap-3">
                   <input type="datetime-local" className="px-3 py-2.5 rounded-soft border border-sand bg-cream/30" />
                   <input placeholder="地點" className="px-3 py-2.5 rounded-soft border border-sand bg-cream/30" />
                 </div>
-                <textarea
-                  placeholder="活動描述..."
-                  className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta resize-none"
-                  rows={6}
-                />
+                <textarea placeholder="活動描述..." className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta resize-none" rows={5} />
+                <div className="pt-2 border-t border-sand">
+                  <CategoryPicker categories={categories} max={3} />
+                </div>
                 <label className="flex items-center gap-2 text-sm text-ink/70 bg-sage-soft/30 px-3 py-2 rounded-soft border border-sage/20">
                   <input type="checkbox" className="rounded text-terracotta" defaultChecked />
                   <span>同時建立內嵌投票</span>
                 </label>
                 <div className="text-xs text-ink/55 bg-terracotta-soft/30 px-3 py-2 rounded-soft border border-terracotta/20">
-                  💡 「建立活動」需要 <strong>Editor</strong> 權限。你目前是 Member ——
-                  <Link href="/mockup/permissions" className="text-terracotta hover:underline ml-1">
-                    申請更高權限
-                  </Link>
+                  💡 「建立活動」需要 <strong>Editor</strong> 權限——
+                  <Link href="/mockup/permissions" className="text-terracotta hover:underline ml-1">申請更高權限</Link>
                 </div>
               </div>
             )}
 
             {tab === "poll" && (
               <div className="space-y-4">
-                {/* Line-style intro */}
                 <div className="bg-gradient-to-r from-sage-soft/40 to-cream rounded-soft border border-sage/20 p-3 text-xs text-ink/65 flex items-start gap-2">
                   <span className="text-lg">📊</span>
-                  <span>
-                    類似 Line 的投票工具——支援單選/多選、匿名、可由家人新增選項、自動截止。
-                  </span>
+                  <span>類似 Line 的投票工具——支援單選/多選、匿名、可由家人朋友新增選項、自動截止。</span>
                 </div>
 
                 <input
                   value={pollQuestion}
                   onChange={(e) => setPollQuestion(e.target.value)}
-                  placeholder="想問家人什麼？（例：下次聚餐吃什麼？）"
+                  placeholder="想問家人朋友什麼？（例：下次聚餐吃什麼？）"
                   className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta serif text-xl"
                 />
 
@@ -168,16 +160,12 @@ export default function CreateMockup() {
                         )}
                       </div>
                     ))}
-                    <button
-                      onClick={() => setPollOptions([...pollOptions, ""])}
-                      className="text-sm text-terracotta hover:underline ml-7"
-                    >
+                    <button onClick={() => setPollOptions([...pollOptions, ""])} className="text-sm text-terracotta hover:underline ml-7">
                       ＋ 新增選項
                     </button>
                   </div>
                 </div>
 
-                {/* Deadline */}
                 <div>
                   <div className="text-xs text-ink/60 font-medium mb-2">⏰ 截止時間</div>
                   <div className="flex flex-wrap gap-2">
@@ -201,33 +189,18 @@ export default function CreateMockup() {
                     ))}
                   </div>
                   {deadline === "custom" && (
-                    <input
-                      type="datetime-local"
-                      className="mt-2 px-3 py-2 rounded-soft border border-sand bg-cream/30 text-sm"
-                    />
+                    <input type="datetime-local" className="mt-2 px-3 py-2 rounded-soft border border-sand bg-cream/30 text-sm" />
                   )}
                 </div>
 
-                {/* Options toggles */}
+                <div className="pt-2 border-t border-sand">
+                  <CategoryPicker categories={categories} max={2} />
+                </div>
+
                 <div className="space-y-2 pt-2 border-t border-sand">
-                  <ToggleRow
-                    label="允許多選"
-                    desc="家人可以勾選多個選項"
-                    on={multiSelect}
-                    onChange={setMultiSelect}
-                  />
-                  <ToggleRow
-                    label="🕶 匿名投票"
-                    desc="不公開誰投了什麼，只看到票數"
-                    on={anonymous}
-                    onChange={setAnonymous}
-                  />
-                  <ToggleRow
-                    label="允許家人新增選項"
-                    desc="例如「素食組合」這種你沒想到的"
-                    on={allowAdd}
-                    onChange={setAllowAdd}
-                  />
+                  <ToggleRow label="允許多選" desc="可以勾選多個選項" on={multiSelect} onChange={setMultiSelect} />
+                  <ToggleRow label="🕶 匿名投票" desc="不公開誰投了什麼，只看到票數" on={anonymous} onChange={setAnonymous} />
+                  <ToggleRow label="允許新增選項" desc="例如「素食組合」這種你沒想到的" on={allowAdd} onChange={setAllowAdd} />
                 </div>
               </div>
             )}
@@ -237,25 +210,21 @@ export default function CreateMockup() {
                 {tab === "poll" ? "發起投票" : "發布"}
               </button>
               <button className="px-4 py-2.5 rounded-soft text-ink/70 hover:bg-cream/50">儲存草稿</button>
-              <span className="ml-auto text-xs text-ink/40">公開給所有家人</span>
+              <span className="ml-auto text-xs text-ink/40">公開給所有人（相聚內）</span>
             </div>
           </section>
 
           {/* Preview */}
           <section>
             <div className="text-xs text-ink/50 mb-2 font-medium tracking-wider">即時預覽</div>
-            <div
-              className={`rounded-soft border p-5 ${
-                pinAfterPost && tab === "post"
-                  ? "bg-gradient-to-br from-terracotta-soft/30 to-cream shadow-soft border-terracotta/30"
-                  : "bg-white shadow-card border-sand/60"
-              }`}
-            >
+            <div className={`rounded-soft border p-5 ${
+              pinAfterPost && tab === "post"
+                ? "bg-gradient-to-br from-terracotta-soft/30 to-cream shadow-soft border-terracotta/30"
+                : "bg-white shadow-card border-sand/60"
+            }`}>
               {tab === "post" && (
                 <>
-                  {pinAfterPost && (
-                    <div className="text-xs text-terracotta-dark font-medium mb-3">📌 將會置頂顯示</div>
-                  )}
+                  {pinAfterPost && <div className="text-xs text-terracotta-dark font-medium mb-3">📌 將會置頂顯示</div>}
                   <div className="flex items-center gap-2 mb-3 text-sm text-ink/60">
                     <div className="w-8 h-8 rounded-full bg-sage flex items-center justify-center text-white text-xs">媽</div>
                     <span>媽媽 · 剛剛</span>
@@ -292,7 +261,7 @@ export default function CreateMockup() {
                     ))}
                     {allowAdd && (
                       <div className="px-4 py-2 rounded-soft border-2 border-dashed border-sand text-sm text-ink/40">
-                        ＋ 家人可新增選項
+                        ＋ 可新增選項
                       </div>
                     )}
                   </div>
@@ -306,9 +275,7 @@ export default function CreateMockup() {
   );
 }
 
-function ToggleRow({
-  label, desc, on, onChange,
-}: { label: string; desc: string; on: boolean; onChange: (v: boolean) => void }) {
+function ToggleRow({ label, desc, on, onChange }: { label: string; desc: string; on: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex items-center gap-3 py-2 cursor-pointer">
       <div className="flex-1">
@@ -321,11 +288,7 @@ function ToggleRow({
         className={`w-10 h-6 rounded-full transition relative ${on ? "bg-terracotta" : "bg-sand"}`}
         aria-pressed={on}
       >
-        <span
-          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
-            on ? "left-[18px]" : "left-0.5"
-          }`}
-        />
+        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
       </button>
     </label>
   );

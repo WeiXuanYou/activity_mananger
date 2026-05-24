@@ -1,4 +1,4 @@
-import { Member } from "../_data";
+import type { Member } from "../types";
 
 export function Avatar({ member, size = 40 }: { member: Member; size?: number }) {
   return (
@@ -17,7 +17,15 @@ export function Avatar({ member, size = 40 }: { member: Member; size?: number })
   );
 }
 
-export function AvatarStack({ memberIds, members, max = 4 }: { memberIds: string[]; members: Member[]; max?: number }) {
+export function AvatarStack({
+  memberIds,
+  members,
+  max = 4,
+}: {
+  memberIds: string[];
+  members: Member[];
+  max?: number;
+}) {
   const shown = memberIds.slice(0, max);
   const rest = memberIds.length - shown.length;
   return (

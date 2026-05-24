@@ -10,10 +10,10 @@ type Screen = {
 
 const screens: Screen[] = [
   { href: "/mockup/login", title: "登入（邀請碼）", group: "入口", desc: "封閉社群只有受邀者能進", preview: "🔑" },
-  { href: "/mockup/feed", title: "動態首頁", group: "社群核心", desc: "活動、文章、投票混合時間軸", preview: "🏠" },
+  { href: "/mockup/feed", title: "動態首頁（含分類篩選）", group: "社群核心", desc: "活動、文章、投票混合 + 分類切換", preview: "🏠" },
   { href: "/mockup/activity", title: "活動詳情", group: "社群核心", desc: "RSVP + 內嵌投票 + 留言", preview: "🍖" },
   { href: "/mockup/poll", title: "Line 風格投票", group: "社群核心", desc: "倒數截止、單/多選、匿名、可新增選項", preview: "📊" },
-  { href: "/mockup/create", title: "建立內容（含置頂）", group: "社群核心", desc: "Post / Activity / Poll 分頁 + 置頂選項", preview: "✏️" },
+  { href: "/mockup/create", title: "建立內容（含置頂、分類）", group: "社群核心", desc: "Post / Activity / Poll + 置頂 + 分類選擇", preview: "✏️" },
   { href: "/mockup/pages", title: "自訂頁面書架", group: "自訂頁面", desc: "成員建立的 CMS 頁面集合", preview: "📚" },
   { href: "/mockup/page-detail", title: "自訂頁面範例", group: "自訂頁面", desc: "多種 block 渲染示範", preview: "📖" },
   { href: "/mockup/permissions", title: "權限申請", group: "權限", desc: "申請更高權限的表單", preview: "🛡️" },
@@ -30,9 +30,9 @@ export default function MockupIndex() {
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="mb-10">
           <p className="text-sage-dark font-medium tracking-widest text-xs mb-2">PHASE A · INTERACTIVE MOCKUP</p>
-          <h1 className="serif text-5xl text-ink mb-3">家圈 · 視覺原型</h1>
+          <h1 className="serif text-5xl text-ink mb-3">相聚 · 視覺原型</h1>
           <p className="text-ink/70 max-w-2xl">
-            點選任一畫面進入。所有頁面為純前端假資料，尚未接資料庫與權限機制。
+            點選任一畫面進入。所有頁面為純前端假資料，已模組化（<code className="text-terracotta">modules/</code>）。
             看完整體流程後即可進入 Phase B（認證 + 權限骨架）。
           </p>
         </div>
@@ -67,9 +67,9 @@ export default function MockupIndex() {
         </div>
 
         <footer className="mt-16 pt-6 border-t border-sand text-sm text-ink/50 flex flex-wrap gap-4">
-          <span>Next.js 14 · Tailwind · TypeScript</span>
+          <span>Next.js 15 · Tailwind · TypeScript</span>
           <span>·</span>
-          <span>架構：模組化 (core / analytics / custom-pages / permissions / auth)</span>
+          <span>架構：modules/ (core / analytics / custom-pages / permissions / auth)</span>
           <span className="ml-auto"><Link href="/" className="hover:text-terracotta">← 回首頁</Link></span>
         </footer>
       </div>

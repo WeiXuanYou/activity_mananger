@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Avatar } from "./Avatar";
-import { findMember } from "../_data";
+import { Avatar } from "@/modules/core/members";
+import { getCurrentUser } from "@/modules/auth";
 
 const links = [
   { href: "/mockup/feed", label: "動態" },
@@ -11,12 +11,13 @@ const links = [
 ];
 
 export function MockNav({ active }: { active?: string }) {
-  const me = findMember("u2");
+  const me = getCurrentUser();
   return (
     <header className="border-b border-sand bg-paper/80 backdrop-blur sticky top-0 z-30">
       <div className="max-w-6xl mx-auto px-5 py-3 flex items-center gap-6">
-        <Link href="/mockup" className="serif text-2xl text-terracotta font-semibold tracking-tight">
-          家圈
+        <Link href="/mockup" className="serif text-2xl text-terracotta font-semibold tracking-tight flex items-baseline gap-2">
+          <span>相聚</span>
+          <span className="text-xs text-ink/40 font-sans tracking-widest">Together</span>
         </Link>
         <nav className="flex items-center gap-1 ml-2">
           {links.map((l) => {

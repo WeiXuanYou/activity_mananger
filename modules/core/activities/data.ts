@@ -1,0 +1,48 @@
+import type { Activity } from "./types";
+
+export const activities: Activity[] = [
+  {
+    id: "a1",
+    title: "中秋家族烤肉大會",
+    hostId: "u1",
+    startsAt: "2026-09-25 18:00",
+    location: "外公家後院",
+    cover: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)",
+    rsvp: { going: 12, maybe: 3, declined: 1 },
+    description: "今年我們一樣在外公家後院烤肉，請大家準時到，阿嬤會準備柚子湯！",
+    categoryIds: ["c-family", "c-food"],
+  },
+  {
+    id: "a2",
+    title: "週末爬山——七星山",
+    hostId: "u2",
+    startsAt: "2026-06-07 07:30",
+    location: "七星山苗圃登山口",
+    cover: "linear-gradient(135deg, #C5D1BB 0%, #7A8E6E 100%)",
+    rsvp: { going: 5, maybe: 4, declined: 2 },
+    description: "天氣涼爽適合爬山，路線約 2.5 小時，新手友善。",
+    categoryIds: ["c-health", "c-weekend"],
+  },
+  {
+    id: "a3",
+    title: "表姐生日驚喜派對",
+    hostId: "u3",
+    startsAt: "2026-06-15 19:00",
+    location: "信義區 Cafe Belle",
+    cover: "linear-gradient(135deg, #F4D6BA 0%, #D4A574 100%)",
+    rsvp: { going: 8, maybe: 2, declined: 0 },
+    description: "別讓表姐知道！我們提前 30 分到場佈置。",
+    categoryIds: ["c-gift", "c-friends"],
+  },
+  {
+    id: "a4",
+    title: "大學同學聚會",
+    hostId: "u6",
+    startsAt: "2026-06-22 19:00",
+    location: "公館 居酒屋角落",
+    cover: "linear-gradient(135deg, #F4D4DA 0%, #D98090 100%)",
+    rsvp: { going: 7, maybe: 5, declined: 1 },
+    description: "畢業十年聚會，Andy 揪。",
+    categoryIds: ["c-friends"],
+  },
+];
