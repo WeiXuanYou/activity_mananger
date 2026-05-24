@@ -62,26 +62,40 @@ export const activities: Activity[] = [
 export type Poll = {
   id: string;
   question: string;
-  options: { id: string; label: string; votes: number }[];
+  authorId: string;
+  options: { id: string; label: string; votes: number; addedById?: string }[];
   totalVotes: number;
-  closesAt: string;
+  closesAt: string;          // ISO date
+  closesIn: string;           // human "還有 3 天" / "今天截止"
+  multiSelect: boolean;
+  anonymous: boolean;
+  allowAddOption: boolean;
+  status: "OPEN" | "CLOSING_SOON" | "CLOSED";
 };
 
 export const polls: Poll[] = [
   {
     id: "p1",
-    question: "中秋烤肉要訂哪一家肉品？",
+    question: "中秋烤肉要訂哪一家肉品？🍖",
+    authorId: "u1",
     options: [
       { id: "o1", label: "好市多套餐 A", votes: 8 },
       { id: "o2", label: "傳統肉舖阿伯店", votes: 11 },
       { id: "o3", label: "海鮮為主", votes: 3 },
+      { id: "o4", label: "素食組合（雅婷補的）", votes: 4, addedById: "u4" },
     ],
-    totalVotes: 22,
+    totalVotes: 26,
     closesAt: "2026-09-20",
+    closesIn: "還有 3 天",
+    multiSelect: false,
+    anonymous: false,
+    allowAddOption: true,
+    status: "CLOSING_SOON",
   },
   {
     id: "p2",
-    question: "家族旅遊地點投票",
+    question: "家族旅遊地點投票 🏝️",
+    authorId: "u2",
     options: [
       { id: "o1", label: "宜蘭兩天一夜", votes: 6 },
       { id: "o2", label: "墾丁三天兩夜", votes: 9 },
@@ -90,6 +104,28 @@ export const polls: Poll[] = [
     ],
     totalVotes: 21,
     closesAt: "2026-07-01",
+    closesIn: "還有 9 天",
+    multiSelect: true,
+    anonymous: true,
+    allowAddOption: false,
+    status: "OPEN",
+  },
+  {
+    id: "p3",
+    question: "下次家庭聚餐想吃什麼？🍱",
+    authorId: "u3",
+    options: [
+      { id: "o1", label: "火鍋", votes: 7 },
+      { id: "o2", label: "燒肉", votes: 5 },
+      { id: "o3", label: "在家煮", votes: 4 },
+    ],
+    totalVotes: 16,
+    closesAt: "2026-05-26",
+    closesIn: "今天截止 ⏰",
+    multiSelect: false,
+    anonymous: false,
+    allowAddOption: true,
+    status: "CLOSING_SOON",
   },
 ];
 
@@ -102,9 +138,23 @@ export type Post = {
   likes: number;
   comments: number;
   createdAt: string;
+  isPinned?: boolean;
+  pinnedById?: string;
 };
 
 export const posts: Post[] = [
+  {
+    id: "po0",
+    authorId: "u1",
+    kind: "NOTE",
+    title: "📌 家圈使用小提醒",
+    body: "歡迎新加入的家人～這裡是我們家專屬的小天地，可以發文、辦活動、投票。要更多權限隨時跟阿嬤說。記得：這裡所有人都看得到，要私訊請走 Line ♡",
+    likes: 32,
+    comments: 5,
+    createdAt: "置頂中",
+    isPinned: true,
+    pinnedById: "u1",
+  },
   {
     id: "po1",
     authorId: "u2",
