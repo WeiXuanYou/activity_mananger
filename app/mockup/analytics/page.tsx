@@ -80,9 +80,9 @@ export default function AnalyticsMockup() {
             </div>
             <div className="h-48 flex items-end gap-2 border-b border-slate-200 pb-2">
               {[34, 48, 52, 40, 62, 71, 58, 80, 92, 68, 76, 88].map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col gap-1 items-stretch">
+                <div key={i} className="flex-1 h-full flex flex-col justify-end gap-0.5">
                   <div className="bg-slate-ink rounded-t" style={{ height: `${h}%` }} />
-                  <div className="bg-slate-300 rounded-t" style={{ height: `${h * 0.4}%` }} />
+                  <div className="bg-slate-300 rounded-t" style={{ height: `${Math.round(h * 0.4)}%` }} />
                 </div>
               ))}
             </div>
