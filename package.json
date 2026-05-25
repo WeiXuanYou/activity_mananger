@@ -6,10 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "^15.5.18",
+    "prisma": "^6.19.3",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -20,6 +28,7 @@
     "autoprefixer": "10.4.19",
     "postcss": "8.4.39",
     "tailwindcss": "3.4.6",
+    "tsx": "^4.22.3",
     "typescript": "5.5.3"
   }
 }

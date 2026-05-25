@@ -52,14 +52,14 @@ export default function PollMockup() {
               <div className="mb-5"><CategoryChipList categories={cats} /></div>
             )}
 
-            <div className="mb-6 flex items-center gap-4 bg-gradient-to-r from-terracotta-soft/40 to-cream rounded-soft p-4 border border-terracotta/20">
-              <div className="text-3xl">⏳</div>
-              <div className="flex-1">
+            <div className="mb-6 flex items-center gap-3 sm:gap-4 bg-gradient-to-r from-terracotta-soft/40 to-cream rounded-soft p-3 sm:p-4 border border-terracotta/20">
+              <div className="text-2xl sm:text-3xl shrink-0">⏳</div>
+              <div className="flex-1 min-w-0">
                 <div className="text-xs text-terracotta-dark font-medium mb-0.5">距離截止還有</div>
-                <div className="flex items-baseline gap-3 serif text-ink">
-                  <span><span className="text-2xl font-semibold">9</span> 天</span>
-                  <span><span className="text-2xl font-semibold">14</span> 小時</span>
-                  <span><span className="text-2xl font-semibold">23</span> 分</span>
+                <div className="flex items-baseline gap-2 sm:gap-3 serif text-ink flex-wrap">
+                  <span><span className="text-xl sm:text-2xl font-semibold">9</span> 天</span>
+                  <span><span className="text-xl sm:text-2xl font-semibold">14</span> 小時</span>
+                  <span><span className="text-xl sm:text-2xl font-semibold">23</span> 分</span>
                 </div>
               </div>
             </div>

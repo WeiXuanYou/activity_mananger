@@ -11,5 +11,10 @@ export {
   listDecidedRequests,
   listRequestsByUser,
 } from "./queries";
-export { requirePermission, roleHas } from "./guard";
+export {
+  requirePermission,
+  roleHas,
+  canCurrentUser,
+  PermissionDeniedError,
+} from "./guard";
 export { RoleBadge } from "./components/RoleBadge";

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { Avatar } from "@/modules/core/members";
-import { getCurrentUser } from "@/modules/auth";
+import { Avatar, getMockCurrentUser } from "@/modules/core/members";
 import { findNextActivity } from "@/modules/core/activities";
 import { formatShortDate } from "@/lib/date";
 
@@ -10,11 +9,12 @@ const links = [
   { href: "/mockup/pages", label: "自訂頁面" },
   { href: "/mockup/create", label: "建立" },
   { href: "/mockup/permissions", label: "權限" },
+  { href: "/mockup/assistant", label: "✨ AI" },
   { href: "/mockup/analytics", label: "分析" },
 ];
 
 export function MockNav({ active }: { active?: string }) {
-  const me = getCurrentUser();
+  const me = getMockCurrentUser();
   const next = findNextActivity();
 
   return (
@@ -24,7 +24,7 @@ export function MockNav({ active }: { active?: string }) {
           <span>相聚</span>
           <span className="text-xs text-ink/40 font-sans tracking-widest">Together</span>
         </Link>
-        <nav className="flex items-center gap-1 ml-2 overflow-x-auto">
+        <nav className="hidden md:flex items-center gap-1 ml-2 overflow-x-auto">
           {links.map((l) => {
             const isActive = active === l.href;
             return (

@@ -8,3 +8,7 @@ export const findMember = (id: string): Member => {
 };
 
 export const listMembers = (): Member[] => members;
+
+/** Mockup helper — returns a fixed "current user" synchronously.
+ *  Real session lives in modules/auth/session.ts (async). */
+export const getMockCurrentUser = (): Member => findMember("u2");

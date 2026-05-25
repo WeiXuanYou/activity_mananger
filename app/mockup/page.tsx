@@ -3,7 +3,7 @@ import Link from "next/link";
 type Screen = {
   href: string;
   title: string;
-  group: "入口" | "社群核心" | "自訂頁面" | "權限" | "分析";
+  group: "入口" | "社群核心" | "自訂頁面" | "權限" | "AI 助手" | "分析";
   desc: string;
   preview: string;
 };
@@ -19,11 +19,12 @@ const screens: Screen[] = [
   { href: "/mockup/page-detail", title: "自訂頁面範例", group: "自訂頁面", desc: "多種 block 渲染示範", preview: "📖" },
   { href: "/mockup/permissions", title: "權限申請", group: "權限", desc: "申請更高權限的表單", preview: "🛡️" },
   { href: "/mockup/inbox", title: "管理員收件夾", group: "權限", desc: "審批待處理的權限申請", preview: "📥" },
+  { href: "/mockup/assistant", title: "AI 助手（骨架）", group: "AI 助手", desc: "草擬、分類、摘要——stub，等 Phase G 接 Anthropic SDK", preview: "✨" },
   { href: "/mockup/analytics", title: "分析儀表板", group: "分析", desc: "獨立模組——視覺刻意區隔", preview: "📈" },
   { href: "/mockup/profile", title: "成員檔案", group: "社群核心", desc: "個人活動、文章、頁面", preview: "👤" },
 ];
 
-const groups: Screen["group"][] = ["入口", "社群核心", "自訂頁面", "權限", "分析"];
+const groups: Screen["group"][] = ["入口", "社群核心", "自訂頁面", "權限", "AI 助手", "分析"];
 
 export default function MockupIndex() {
   return (

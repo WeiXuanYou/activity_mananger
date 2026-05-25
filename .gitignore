@@ -8,3 +8,7 @@ out/
 next-env.d.ts
 screenshots/
 shoot*.mjs
+
+# SQLite dev DB (recreate with `npm run db:push && npm run db:seed`)
+prisma/dev.db
+prisma/dev.db-journal

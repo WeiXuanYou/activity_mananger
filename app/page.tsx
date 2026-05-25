@@ -25,17 +25,21 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/mockup"
+              href="/login"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-soft bg-terracotta text-white font-medium shadow-soft hover:bg-terracotta-dark transition"
             >
-              進入 Mockup 預覽 <span>→</span>
+              用邀請碼登入 <span>→</span>
             </Link>
             <Link
-              href="/mockup/login"
+              href="/mockup"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-soft bg-white text-ink border border-sand hover:bg-cream/50 transition"
             >
-              我已有邀請碼
+              先看 Mockup 預覽
             </Link>
+          </div>
+          <div className="mt-3 text-xs text-ink/50">
+            <code className="bg-cream/60 px-1.5 py-0.5 rounded">/login</code> 已接資料庫·
+            <code className="bg-cream/60 px-1.5 py-0.5 rounded">/app/feed</code> 真實 Prisma 查詢
           </div>
         </div>
 
@@ -46,7 +50,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-12 text-center text-ink/45 text-sm">
-          Phase A · 純前端互動原型（尚未接資料庫）
+          Phase A 視覺原型 · Phase B 認證 + Prisma 已上線
         </p>
       </div>
     </main>

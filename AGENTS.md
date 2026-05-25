@@ -93,7 +93,12 @@ Three rules an agent should never break:
 - Categories use emoji + named color from the small palette in `modules/core/categories/types.ts`
 
 ## 7. Phase
-Currently **Phase A** — frontend mockup with mock data only. No DB, no real auth, no real permission enforcement. Mock data lives in each module's `data.ts`. Phase B introduces Prisma + invite-code login + real `requirePermission()`. The module structure is identical in both phases — only `data.ts` swaps for `queries.ts/actions.ts` hitting Prisma.
+- ✅ **Phase A** mockup with mock data (under `/mockup/*`)
+- ✅ **Phase B** Prisma + SQLite + invite-code login + real `requirePermission()` (under `/login` and `/app/*`)
+- ⬜ Phase C: move social core (activities, posts, polls, comments, reactions) from mock to DB
+- ⬜ Phase G: AI assistant — skeleton at `modules/ai-assistant/` is ready (see its README)
+
+**Both mock and real coexist:** `/mockup/*` pages use `getMockCurrentUser()` and `modules/*/data.ts`. Real `/app/*` pages use `getCurrentUser()` (async, reads session) and `db` directly. The module structure is identical; only `data.ts` becomes the source of truth for now while `queries.ts` (real) only exists for some modules. As each module gets Phase C-style migration, its `data.ts` shrinks and `queries.ts` grows.
 
 ## 8. Quick command reference
 ```bash

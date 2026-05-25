@@ -100,8 +100,8 @@ function NextActivityHero({ activity }: { activity: Activity }) {
   return (
     <div className="bg-white rounded-soft shadow-soft overflow-hidden border border-sand/60">
       <div className="grid grid-cols-1 md:grid-cols-5">
-        <div className="md:col-span-2 h-40 md:h-auto" style={{ background: activity.cover }} />
-        <div className="md:col-span-3 p-6 flex flex-col">
+        <div className="md:col-span-2 h-32 md:h-auto" style={{ background: activity.cover }} />
+        <div className="md:col-span-3 p-5 md:p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[10px] tracking-widest text-sage-dark font-medium">NEXT GATHERING</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-terracotta-soft text-terracotta-dark font-medium animate-pulse">

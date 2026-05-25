@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { MockNav } from "../_layout/MockNav";
-import { getCurrentUser } from "@/modules/auth";
-import { Avatar, listMembers } from "@/modules/core/members";
+import { Avatar, getMockCurrentUser, listMembers } from "@/modules/core/members";
 import {
   CategoryFilterBar,
   CategoryChip,
@@ -29,7 +28,7 @@ export default async function FeedMockup({ searchParams }: Search) {
   const { cat: categorySlug } = await searchParams;
   const activeCategory = categorySlug ? findCategoryBySlug(categorySlug) : undefined;
 
-  const me = getCurrentUser();
+  const me = getMockCurrentUser();
   const members = listMembers();
   const categories = listCategories();
   const feedItems = buildFeed({ categorySlug });
@@ -54,15 +53,22 @@ export default async function FeedMockup({ searchParams }: Search) {
           />
         </div>
 
+        {/* Mobile-only NEXT GATHERING above the fold */}
+        {nextActivity && (
+          <div className="lg:hidden mb-5">
+            <NextGatheringCountdown activity={nextActivity} />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <aside className="lg:col-span-3 space-y-5">
+          <aside className="hidden lg:block lg:col-span-3 space-y-5 order-2 lg:order-1">
             {nextActivity && <NextGatheringCountdown activity={nextActivity} />}
             <UpcomingActivitiesCard />
             <MembersCard members={members} />
             <QuoteCard />
           </aside>
 
-          <section className="lg:col-span-6 space-y-5">
+          <section className="lg:col-span-6 space-y-5 order-1 lg:order-2">
             <ComposerCard meName={me.name} meAvatar={me} />
 
             {!activeCategory && <PinnedSection />}
@@ -80,7 +86,7 @@ export default async function FeedMockup({ searchParams }: Search) {
             ))}
           </section>
 
-          <aside className="lg:col-span-3 space-y-5">
+          <aside className="lg:col-span-3 space-y-5 order-3">
             <div className="bg-white rounded-soft shadow-card border border-sand/60 p-4">
               <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">
                 <span>📊</span> 進行中投票
@@ -92,6 +98,12 @@ export default async function FeedMockup({ searchParams }: Search) {
 
             <PermissionTip />
             <BirthdayCard />
+            {/* Mobile-only — sidebar cards from the left rail */}
+            <div className="lg:hidden space-y-5">
+              <UpcomingActivitiesCard />
+              <MembersCard members={members} />
+              <QuoteCard />
+            </div>
           </aside>
         </div>
       </div>

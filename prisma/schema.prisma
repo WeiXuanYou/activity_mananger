@@ -1,0 +1,361 @@
+// 相聚 Together — full data schema for Phase B+.
+// Provider: SQLite for dev (file-based, no infra). Swap to PostgreSQL in prod.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Identity & Sessions
+// =====================================================================
+
+model User {
+  id          String   @id @default(cuid())
+  handle      String   @unique
+  name        String
+  bio         String?
+  avatarColor String
+  initial     String
+  roleId      String
+  role        Role     @relation(fields: [roleId], references: [id])
+  createdAt   DateTime @default(now())
+
+  sessions          Session[]
+  invitesCreated    InviteCode[]    @relation("InviteCreator")
+  inviteRedeemed    InviteCode?     @relation("InviteRedeemer")
+  posts             Post[]
+  activities        Activity[]
+  pollsCreated      Poll[]          @relation("PollAuthor")
+  votes             PollVote[]
+  rsvps             ActivityParticipant[]
+  comments          Comment[]
+  reactions         Reaction[]
+  customPages       CustomPage[]
+  requestsMade      PermissionRequest[]  @relation("RequestUser")
+  requestsDecided   PermissionRequest[]  @relation("RequestDecider")
+  categoriesCreated Category[]
+
+  @@index([roleId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model InviteCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  createdById String
+  createdBy   User     @relation("InviteCreator", fields: [createdById], references: [id])
+  usedById    String?  @unique
+  usedBy      User?    @relation("InviteRedeemer", fields: [usedById], references: [id])
+  defaultRoleId String
+  defaultRole Role     @relation(fields: [defaultRoleId], references: [id])
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([createdById])
+}
+
+// =====================================================================
+// Roles & Permissions
+// =====================================================================
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique  // Guest | Member | Editor | Admin
+  description String?
+  isSystem    Boolean @default(true)
+
+  users           User[]
+  invitesDefault  InviteCode[]
+  permissions     RolePermission[]
+  requestsTarget  PermissionRequest[] @relation("RequestTarget")
+  requestsCurrent PermissionRequest[] @relation("RequestCurrent")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique  // post.create, activity.create, admin.approve, ...
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model PermissionRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("RequestUser", fields: [userId], references: [id])
+  currentRoleId   String
+  currentRole     Role     @relation("RequestCurrent", fields: [currentRoleId], references: [id])
+  requestedRoleId String
+  requestedRole   Role     @relation("RequestTarget", fields: [requestedRoleId], references: [id])
+  reason          String
+  status          String   @default("PENDING")   // PENDING | APPROVED | REJECTED
+  decidedById     String?
+  decidedBy       User?    @relation("RequestDecider", fields: [decidedById], references: [id])
+  decidedAt       DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+// =====================================================================
+// Categories
+// =====================================================================
+
+model Category {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  emoji       String
+  color       String              // see modules/core/categories/types.ts
+  isDefault   Boolean @default(false)
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  description String?
+  createdAt   DateTime @default(now())
+
+  activities  ActivityCategory[]
+  posts       PostCategory[]
+  polls       PollCategory[]
+  customPages CustomPageCategory[]
+}
+
+// =====================================================================
+// Activities, RSVPs
+// =====================================================================
+
+model Activity {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  location    String
+  cover       String                            // CSS gradient or image URL
+  startsAt    DateTime
+  endsAt      DateTime?
+  visibility  String   @default("PUBLIC")        // PUBLIC | MEMBERS
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  pollId      String?  @unique
+  poll        Poll?    @relation(fields: [pollId], references: [id])
+  createdAt   DateTime @default(now())
+
+  participants ActivityParticipant[]
+  categories   ActivityCategory[]
+
+  @@index([startsAt])
+  @@index([authorId])
+}
+
+model ActivityParticipant {
+  activityId  String
+  userId      String
+  status      String   // GOING | MAYBE | DECLINED
+  respondedAt DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, userId])
+}
+
+model ActivityCategory {
+  activityId String
+  categoryId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, categoryId])
+}
+
+// =====================================================================
+// Polls
+// =====================================================================
+
+model Poll {
+  id             String   @id @default(cuid())
+  question       String
+  authorId       String
+  author         User     @relation("PollAuthor", fields: [authorId], references: [id])
+  multiSelect    Boolean  @default(false)
+  anonymous      Boolean  @default(false)
+  allowAddOption Boolean  @default(true)
+  closesAt       DateTime?
+  createdAt      DateTime @default(now())
+
+  options    PollOption[]
+  activity   Activity?
+  categories PollCategory[]
+}
+
+model PollOption {
+  id         String     @id @default(cuid())
+  pollId     String
+  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label      String
+  order      Int        @default(0)
+  addedById  String?
+  votes      PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id        String     @id @default(cuid())
+  optionId  String
+  userId    String
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([optionId, userId])
+}
+
+model PollCategory {
+  pollId     String
+  categoryId String
+  poll       Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([pollId, categoryId])
+}
+
+// =====================================================================
+// Posts, Comments, Reactions
+// =====================================================================
+
+model Post {
+  id         String   @id @default(cuid())
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  kind       String   // ARTICLE | RECOMMENDATION | NOTE
+  title      String?
+  body       String
+  visibility String   @default("PUBLIC")
+  isPinned   Boolean  @default(false)
+  pinnedById String?
+  createdAt  DateTime @default(now())
+
+  categories PostCategory[]
+
+  @@index([authorId])
+  @@index([isPinned])
+}
+
+model PostCategory {
+  postId     String
+  categoryId String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+}
+
+model Comment {
+  id              String   @id @default(cuid())
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id])
+  parentType      String   // POST | ACTIVITY | PAGE | COMMENT
+  parentId        String
+  body            String
+  parentCommentId String?
+  createdAt       DateTime @default(now())
+
+  @@index([parentType, parentId])
+}
+
+model Reaction {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  parentType String   // POST | ACTIVITY | COMMENT | PAGE
+  parentId   String
+  kind       String   @default("LIKE")  // LIKE | HEART | LAUGH | ...
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, parentType, parentId, kind])
+  @@index([parentType, parentId])
+}
+
+// =====================================================================
+// Custom Pages (CMS)
+// =====================================================================
+
+model CustomPage {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  cover       String
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  visibility  String   @default("PUBLIC")
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  blocks     CustomPageBlock[]
+  categories CustomPageCategory[]
+}
+
+model CustomPageBlock {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type      String   // richtext | markdown | html | image | embed-poll
+  data      String   // JSON-encoded; Phase A SQLite, swap to Json column on Postgres
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([pageId, order])
+}
+
+model CustomPageCategory {
+  pageId     String
+  categoryId String
+  page       CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, categoryId])
+}
+
+// =====================================================================
+// Analytics (firewall — never JOINs into core)
+// =====================================================================
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  kind        String   // vote.cast, activity.rsvp, post.viewed, ...
+  userId      String?
+  subjectType String
+  subjectId   String
+  properties  String   // JSON-encoded
+  createdAt   DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([subjectType, subjectId])
+}

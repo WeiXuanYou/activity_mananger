@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MockNav } from "../_layout/MockNav";
 import { CategoryPicker, listCategories } from "@/modules/core/categories";
+import { AssistantSuggestions, COMPOSER_SUGGESTIONS } from "@/modules/ai-assistant";
 
 type Tab = "post" | "activity" | "poll";
 
@@ -51,6 +52,7 @@ export default function CreateMockup() {
           <section className="bg-white rounded-soft shadow-card border border-sand/60 p-6">
             {tab === "post" && (
               <div className="space-y-4">
+                <AssistantSuggestions suggestions={COMPOSER_SUGGESTIONS["composer-post"]} />
                 <select className="w-full px-3 py-2 rounded-soft border border-sand bg-cream/30 text-sm">
                   <option>📝 文章</option>
                   <option>⭐ 推薦</option>
@@ -102,6 +104,7 @@ export default function CreateMockup() {
 
             {tab === "activity" && (
               <div className="space-y-4">
+                <AssistantSuggestions suggestions={COMPOSER_SUGGESTIONS["composer-activity"]} />
                 <input placeholder="活動名稱" className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta serif text-xl" />
                 <div className="grid grid-cols-2 gap-3">
                   <input type="datetime-local" className="px-3 py-2.5 rounded-soft border border-sand bg-cream/30" />
@@ -124,6 +127,7 @@ export default function CreateMockup() {
 
             {tab === "poll" && (
               <div className="space-y-4">
+                <AssistantSuggestions suggestions={COMPOSER_SUGGESTIONS["composer-poll"]} />
                 <div className="bg-gradient-to-r from-sage-soft/40 to-cream rounded-soft border border-sage/20 p-3 text-xs text-ink/65 flex items-start gap-2">
                   <span className="text-lg">📊</span>
                   <span>類似 Line 的投票工具——支援單選/多選、匿名、可由家人朋友新增選項、自動截止。</span>
