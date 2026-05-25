@@ -1,24 +1,35 @@
+/**
+ * Feed query — composes the mixed timeline from multiple core sources.
+ *
+ * The feed module is **read-only and stateless**: it owns no data of its
+ * own, only joins outputs from {@link listActivities}, {@link listPosts},
+ * {@link listPolls} into a typed union ({@link FeedItem}).
+ *
+ * Phase A: synchronous join of mock data.
+ * Phase C: this function becomes async and queries the DB through Prisma,
+ *          ordered by `createdAt` desc with pagination. The signature
+ *          (`opts: FeedBuildOptions → FeedItem[]`) stays the same, so
+ *          callers don't change.
+ */
 import { listActivities } from "@/modules/core/activities";
 import { listPosts } from "@/modules/core/posts";
 import { listPolls } from "@/modules/core/polls";
 import { findCategoryBySlug } from "@/modules/core/categories";
-import type { Activity } from "@/modules/core/activities";
-import type { Post } from "@/modules/core/posts";
-import type { Poll } from "@/modules/core/polls";
-
-export type FeedItem =
-  | { kind: "activity"; data: Activity }
-  | { kind: "post"; data: Post }
-  | { kind: "poll"; data: Poll };
+import type { FeedItem, FeedBuildOptions } from "./types";
 
 /**
- * Build the mixed timeline. Filter by category slug if provided.
- * Phase A: interleaves all sources; B+ swaps for a DB query.
+ * Build the mixed timeline. Skips pinned posts because the page renders
+ * them in a dedicated section above the main feed.
  *
- * Extend by adding another listX() source + pushing into items.
+ * Adding a new content type:
+ *   1. Add a branch to `FeedItem` in `types.ts`
+ *   2. Push items from the new source into `all` here
+ *   3. Render the new branch in `components/FeedItem.tsx`
  */
-export function buildFeed(opts: { categorySlug?: string } = {}): FeedItem[] {
+export function buildFeed(opts: FeedBuildOptions = {}): FeedItem[] {
   const activities = listActivities();
+  // Pinned posts are surfaced separately by <PinnedSection/>, so we
+  // exclude them here to avoid duplicating them in the main timeline.
   const posts = listPosts().filter((p) => !p.isPinned);
   const polls = listPolls();
 
@@ -30,6 +41,8 @@ export function buildFeed(opts: { categorySlug?: string } = {}): FeedItem[] {
 
   if (!opts.categorySlug || opts.categorySlug === "all") return all;
 
+  // Slug lookup is cheap (linear scan over ~12 categories). We resolve the
+  // slug to an ID here so each item only does a simple `includes(id)` check.
   const cat = findCategoryBySlug(opts.categorySlug);
   if (!cat) return all;
 

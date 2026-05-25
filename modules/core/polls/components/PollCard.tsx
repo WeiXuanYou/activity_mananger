@@ -1,8 +1,19 @@
+/**
+ * Poll card — used in feed, in activity detail (embedded poll), and
+ * in poll list views. Two visual variants:
+ *
+ *   - `compact={true}`  : small tile for sidebars (no progress bars)
+ *   - `compact={false}` : full card with up to 4 option bars
+ *
+ * The thin gradient ribbon on top is the visual signature of "this is
+ * a poll" — quickly recognizable even when scrolling fast.
+ */
 import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Poll } from "../types";
 
+/** Pill that conveys urgency. `CLOSING_SOON` pulses for attention. */
 function CountdownBadge({ poll }: { poll: Poll }) {
   const tone =
     poll.status === "CLOSED"

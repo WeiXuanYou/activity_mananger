@@ -26,18 +26,19 @@ model User {
   createdAt   DateTime @default(now())
 
   sessions          Session[]
-  invitesCreated    InviteCode[]    @relation("InviteCreator")
-  inviteRedeemed    InviteCode?     @relation("InviteRedeemer")
-  posts             Post[]
+  invitesCreated    InviteCode[]          @relation("InviteCreator")
+  inviteRedeemed    InviteCode?           @relation("InviteRedeemer")
+  posts             Post[]                @relation("PostAuthor")
+  postsPinned       Post[]                @relation("PostPinner")
   activities        Activity[]
-  pollsCreated      Poll[]          @relation("PollAuthor")
+  pollsCreated      Poll[]                @relation("PollAuthor")
   votes             PollVote[]
   rsvps             ActivityParticipant[]
   comments          Comment[]
   reactions         Reaction[]
   customPages       CustomPage[]
-  requestsMade      PermissionRequest[]  @relation("RequestUser")
-  requestsDecided   PermissionRequest[]  @relation("RequestDecider")
+  requestsMade      PermissionRequest[]   @relation("RequestUser")
+  requestsDecided   PermissionRequest[]   @relation("RequestDecider")
   categoriesCreated Category[]
 
   @@index([roleId])
@@ -56,16 +57,16 @@ model Session {
 }
 
 model InviteCode {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  createdById String
-  createdBy   User     @relation("InviteCreator", fields: [createdById], references: [id])
-  usedById    String?  @unique
-  usedBy      User?    @relation("InviteRedeemer", fields: [usedById], references: [id])
+  id            String    @id @default(cuid())
+  code          String    @unique
+  createdById   String
+  createdBy     User      @relation("InviteCreator", fields: [createdById], references: [id])
+  usedById      String?   @unique
+  usedBy        User?     @relation("InviteRedeemer", fields: [usedById], references: [id])
   defaultRoleId String
-  defaultRole Role     @relation(fields: [defaultRoleId], references: [id])
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
+  defaultRole   Role      @relation(fields: [defaultRoleId], references: [id])
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
 
   @@index([createdById])
 }
@@ -76,7 +77,7 @@ model InviteCode {
 
 model Role {
   id          String  @id @default(cuid())
-  name        String  @unique  // Guest | Member | Editor | Admin
+  name        String  @unique // Guest | Member | Editor | Admin
   description String?
   isSystem    Boolean @default(true)
 
@@ -89,7 +90,7 @@ model Role {
 
 model Permission {
   id          String  @id @default(cuid())
-  key         String  @unique  // post.create, activity.create, admin.approve, ...
+  key         String  @unique // post.create, activity.create, admin.approve, ...
   description String?
 
   roles RolePermission[]
@@ -105,19 +106,19 @@ model RolePermission {
 }
 
 model PermissionRequest {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
-  user            User     @relation("RequestUser", fields: [userId], references: [id])
+  user            User      @relation("RequestUser", fields: [userId], references: [id])
   currentRoleId   String
-  currentRole     Role     @relation("RequestCurrent", fields: [currentRoleId], references: [id])
+  currentRole     Role      @relation("RequestCurrent", fields: [currentRoleId], references: [id])
   requestedRoleId String
-  requestedRole   Role     @relation("RequestTarget", fields: [requestedRoleId], references: [id])
+  requestedRole   Role      @relation("RequestTarget", fields: [requestedRoleId], references: [id])
   reason          String
-  status          String   @default("PENDING")   // PENDING | APPROVED | REJECTED
+  status          String    @default("PENDING") // PENDING | APPROVED | REJECTED
   decidedById     String?
-  decidedBy       User?    @relation("RequestDecider", fields: [decidedById], references: [id])
+  decidedBy       User?     @relation("RequestDecider", fields: [decidedById], references: [id])
   decidedAt       DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   @@index([userId])
   @@index([status])
@@ -128,14 +129,14 @@ model PermissionRequest {
 // =====================================================================
 
 model Category {
-  id          String  @id @default(cuid())
-  slug        String  @unique
+  id          String   @id @default(cuid())
+  slug        String   @unique
   name        String
   emoji       String
-  color       String              // see modules/core/categories/types.ts
-  isDefault   Boolean @default(false)
+  color       String // see modules/core/categories/types.ts
+  isDefault   Boolean  @default(false)
   createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdBy   User?    @relation(fields: [createdById], references: [id])
   description String?
   createdAt   DateTime @default(now())
 
@@ -150,19 +151,19 @@ model Category {
 // =====================================================================
 
 model Activity {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String
   location    String
-  cover       String                            // CSS gradient or image URL
+  cover       String // CSS gradient or image URL
   startsAt    DateTime
   endsAt      DateTime?
-  visibility  String   @default("PUBLIC")        // PUBLIC | MEMBERS
+  visibility  String    @default("PUBLIC") // PUBLIC | MEMBERS
   authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  pollId      String?  @unique
-  poll        Poll?    @relation(fields: [pollId], references: [id])
-  createdAt   DateTime @default(now())
+  author      User      @relation(fields: [authorId], references: [id])
+  pollId      String?   @unique
+  poll        Poll?     @relation(fields: [pollId], references: [id])
+  createdAt   DateTime  @default(now())
 
   participants ActivityParticipant[]
   categories   ActivityCategory[]
@@ -174,7 +175,7 @@ model Activity {
 model ActivityParticipant {
   activityId  String
   userId      String
-  status      String   // GOING | MAYBE | DECLINED
+  status      String // GOING | MAYBE | DECLINED
   respondedAt DateTime @default(now())
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
@@ -197,15 +198,15 @@ model ActivityCategory {
 // =====================================================================
 
 model Poll {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   question       String
   authorId       String
-  author         User     @relation("PollAuthor", fields: [authorId], references: [id])
-  multiSelect    Boolean  @default(false)
-  anonymous      Boolean  @default(false)
-  allowAddOption Boolean  @default(true)
+  author         User      @relation("PollAuthor", fields: [authorId], references: [id])
+  multiSelect    Boolean   @default(false)
+  anonymous      Boolean   @default(false)
+  allowAddOption Boolean   @default(true)
   closesAt       DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   options    PollOption[]
   activity   Activity?
@@ -213,13 +214,13 @@ model Poll {
 }
 
 model PollOption {
-  id         String     @id @default(cuid())
-  pollId     String
-  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  label      String
-  order      Int        @default(0)
-  addedById  String?
-  votes      PollVote[]
+  id        String     @id @default(cuid())
+  pollId    String
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label     String
+  order     Int        @default(0)
+  addedById String?
+  votes     PollVote[]
 
   @@index([pollId])
 }
@@ -251,13 +252,14 @@ model PollCategory {
 model Post {
   id         String   @id @default(cuid())
   authorId   String
-  author     User     @relation(fields: [authorId], references: [id])
-  kind       String   // ARTICLE | RECOMMENDATION | NOTE
+  author     User     @relation("PostAuthor", fields: [authorId], references: [id])
+  kind       String // ARTICLE | RECOMMENDATION | NOTE
   title      String?
   body       String
   visibility String   @default("PUBLIC")
   isPinned   Boolean  @default(false)
   pinnedById String?
+  pinnedBy   User?    @relation("PostPinner", fields: [pinnedById], references: [id])
   createdAt  DateTime @default(now())
 
   categories PostCategory[]
@@ -276,25 +278,30 @@ model PostCategory {
 }
 
 model Comment {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   authorId        String
-  author          User     @relation(fields: [authorId], references: [id])
-  parentType      String   // POST | ACTIVITY | PAGE | COMMENT
+  author          User      @relation(fields: [authorId], references: [id])
+  parentType      String // POST | ACTIVITY | PAGE | COMMENT
   parentId        String
   body            String
+  // Self-relation for threading. parentCommentId points at another Comment;
+  // `replies` is the back-reference. Empty for top-level comments.
   parentCommentId String?
-  createdAt       DateTime @default(now())
+  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies         Comment[] @relation("CommentReplies")
+  createdAt       DateTime  @default(now())
 
   @@index([parentType, parentId])
+  @@index([parentCommentId])
 }
 
 model Reaction {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  parentType String   // POST | ACTIVITY | COMMENT | PAGE
+  parentType String // POST | ACTIVITY | COMMENT | PAGE
   parentId   String
-  kind       String   @default("LIKE")  // LIKE | HEART | LAUGH | ...
+  kind       String   @default("LIKE") // LIKE | HEART | LAUGH | ...
   createdAt  DateTime @default(now())
 
   @@unique([userId, parentType, parentId, kind])
@@ -306,30 +313,30 @@ model Reaction {
 // =====================================================================
 
 model CustomPage {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String    @id @default(cuid())
+  slug        String    @unique
   title       String
   excerpt     String
   cover       String
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  visibility  String   @default("PUBLIC")
+  owner       User      @relation(fields: [ownerId], references: [id])
+  visibility  String    @default("PUBLIC")
   publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   blocks     CustomPageBlock[]
   categories CustomPageCategory[]
 }
 
 model CustomPageBlock {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   pageId    String
   page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  type      String   // richtext | markdown | html | image | embed-poll
-  data      String   // JSON-encoded; Phase A SQLite, swap to Json column on Postgres
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  type      String // richtext | markdown | html | image | embed-poll
+  data      String // JSON-encoded; Phase A SQLite, swap to Json column on Postgres
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
 
   @@index([pageId, order])
 }
@@ -349,11 +356,11 @@ model CustomPageCategory {
 
 model AnalyticsEvent {
   id          String   @id @default(cuid())
-  kind        String   // vote.cast, activity.rsvp, post.viewed, ...
+  kind        String // vote.cast, activity.rsvp, post.viewed, ...
   userId      String?
   subjectType String
   subjectId   String
-  properties  String   // JSON-encoded
+  properties  String // JSON-encoded
   createdAt   DateTime @default(now())
 
   @@index([kind, createdAt])

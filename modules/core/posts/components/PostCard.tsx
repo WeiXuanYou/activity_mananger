@@ -1,7 +1,16 @@
+/**
+ * Post card — renders a single post in the feed.
+ *
+ * Pinned posts get a warm terracotta gradient + an explicit "📌 由管理員置頂"
+ * header so they don't feel like spam. They're rendered separately in
+ * <PinnedSection/> at the top of the feed; the main timeline filters
+ * them out (see `modules/core/feed/queries.ts`).
+ */
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Post } from "../types";
 
+/** Short prefix shown in the top-right kind chip. */
 const KIND_LABEL = {
   ARTICLE: "📝 文章",
   RECOMMENDATION: "⭐ 推薦",

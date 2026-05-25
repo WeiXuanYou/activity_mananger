@@ -1,14 +1,20 @@
+/**
+ * The ONE function `core` is allowed to call inside `analytics`.
+ *
+ * This is the **single seam** between the social core and the analytics
+ * module (see /AGENTS.md, rule 1). If this file is the only edge,
+ * `analytics` can be lifted into its own service later without touching
+ * any core code:
+ *
+ *   - Phase A (now): no-op (logs in dev only)
+ *   - Phase E:       writes a row to the AnalyticsEvent table via Prisma
+ *   - Phase E+:      enqueues to a background worker / external service
+ *
+ * Callers never need to await the return value; analytics ingestion
+ * is intentionally fire-and-forget.
+ */
 import type { AnalyticsEventKind } from "./types";
 
-/**
- * The ONE function `core` may call into `analytics` with.
- * Phase A: no-op (logs in dev).
- * Phase B+: inserts an AnalyticsEvent row.
- *
- * If this file is the only edge between `core` and `analytics`,
- * the analytics module can be lifted into its own service
- * without touching `core`.
- */
 export function emit(
   kind: AnalyticsEventKind,
   subject: { type: string; id: string },
@@ -16,6 +22,19 @@ export function emit(
   userId?: string,
 ) {
   if (process.env.NODE_ENV !== "production") {
+    // Dev visibility — keeps the seam observable without yet needing
+    // a real backend. Phase E will replace this body with:
+    //
+    //   await db.analyticsEvent.create({
+    //     data: {
+    //       kind,
+    //       userId,
+    //       subjectType: subject.type,
+    //       subjectId: subject.id,
+    //       properties: JSON.stringify(properties),
+    //     },
+    //   });
+    //
     // eslint-disable-next-line no-console
     console.debug("[analytics.emit]", { kind, subject, properties, userId });
   }

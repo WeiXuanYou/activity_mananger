@@ -1,3 +1,14 @@
+/**
+ * Activity card — used in feed, /activities listings, profile pages.
+ *
+ * Visual cues for time:
+ *   - Upper-left chip:  "活動" (future) or "已結束" (past)
+ *   - Upper-right chip: short date "09/25 (五)" or "今天"/"明天"
+ *   - Lower-right chip: countdown "還有 3 天" (future only)
+ *   - Whole card dimmed (opacity-75) for past activities
+ *
+ * Categories appear as a row of small chips between title and host strip.
+ */
 import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
@@ -7,6 +18,7 @@ import type { Activity } from "../types";
 export function ActivityCard({ activity }: { activity: Activity }) {
   const host = findMember(activity.hostId);
   const cats = findCategoriesByIds(activity.categoryIds);
+  // Derived once; used in three places (border opacity / chip label / chip visibility)
   const isPast = daysFromNow(activity.startsAt) < 0;
   const rel = relativeFromNow(activity.startsAt);
   const short = formatShortDate(activity.startsAt);
