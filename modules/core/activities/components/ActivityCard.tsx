@@ -1,23 +1,35 @@
 import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
+import { formatShortDate, relativeFromNow, daysFromNow } from "@/lib/date";
 import type { Activity } from "../types";
 
 export function ActivityCard({ activity }: { activity: Activity }) {
   const host = findMember(activity.hostId);
   const cats = findCategoriesByIds(activity.categoryIds);
+  const isPast = daysFromNow(activity.startsAt) < 0;
+  const rel = relativeFromNow(activity.startsAt);
+  const short = formatShortDate(activity.startsAt);
+
   return (
     <Link
       href="/mockup/activity"
-      className="block bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 hover:shadow-soft transition group"
+      className={`block bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 hover:shadow-soft transition group ${
+        isPast ? "opacity-75" : ""
+      }`}
     >
       <div className="h-32 relative" style={{ background: activity.cover }}>
         <span className="absolute top-3 left-3 bg-white/90 text-terracotta text-xs font-medium px-2 py-1 rounded-full">
-          活動
+          {isPast ? "已結束" : "活動"}
         </span>
-        <span className="absolute bottom-3 right-3 bg-black/30 text-white text-xs px-2 py-1 rounded-full backdrop-blur">
-          {activity.startsAt.slice(5, 10).replace("-", "/")}
+        <span className="absolute top-3 right-3 bg-black/30 text-white text-xs px-2 py-1 rounded-full backdrop-blur">
+          {short}
         </span>
+        {!isPast && (
+          <span className="absolute bottom-3 right-3 bg-terracotta text-white text-[10px] font-medium px-2 py-1 rounded-full shadow-card">
+            {rel}
+          </span>
+        )}
       </div>
       <div className="p-4">
         <h3 className="serif text-lg text-ink mb-1 group-hover:text-terracotta transition">

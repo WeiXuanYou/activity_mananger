@@ -4,6 +4,7 @@ export {
   listCustomPages,
   findCustomPage,
   filterCustomPagesByCategory,
+  filterCustomPagesByCategorySlug,
   filterCustomPagesByOwner,
 } from "./queries";
 export {

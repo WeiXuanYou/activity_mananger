@@ -10,8 +10,9 @@ type Screen = {
 
 const screens: Screen[] = [
   { href: "/mockup/login", title: "登入（邀請碼）", group: "入口", desc: "封閉社群只有受邀者能進", preview: "🔑" },
-  { href: "/mockup/feed", title: "動態首頁（含分類篩選）", group: "社群核心", desc: "活動、文章、投票混合 + 分類切換", preview: "🏠" },
-  { href: "/mockup/activity", title: "活動詳情", group: "社群核心", desc: "RSVP + 內嵌投票 + 留言", preview: "🍖" },
+  { href: "/mockup/feed", title: "動態首頁", group: "社群核心", desc: "活動、文章、投票混合 + 分類即時篩選 + 下次相聚倒數", preview: "🏠" },
+  { href: "/mockup/activities", title: "活動列表", group: "社群核心", desc: "下次活動 hero + 即將到來/已過去 + 分類", preview: "📅" },
+  { href: "/mockup/activity", title: "活動詳情", group: "社群核心", desc: "RSVP + 內嵌投票 + 留言 + 待辦清單", preview: "🍖" },
   { href: "/mockup/poll", title: "Line 風格投票", group: "社群核心", desc: "倒數截止、單/多選、匿名、可新增選項", preview: "📊" },
   { href: "/mockup/create", title: "建立內容（含置頂、分類）", group: "社群核心", desc: "Post / Activity / Poll + 置頂 + 分類選擇", preview: "✏️" },
   { href: "/mockup/pages", title: "自訂頁面書架", group: "自訂頁面", desc: "成員建立的 CMS 頁面集合", preview: "📚" },

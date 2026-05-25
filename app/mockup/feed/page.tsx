@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/modules/auth";
 import { Avatar, listMembers } from "@/modules/core/members";
 import {
   CategoryFilterBar,
+  CategoryChip,
+  findCategoryBySlug,
   listCategories,
 } from "@/modules/core/categories";
 import {
@@ -12,16 +14,27 @@ import {
   FeedItem,
   PinnedSection,
 } from "@/modules/core/feed";
-import { listPolls, PollCard } from "@/modules/core/polls";
-import { listActivities } from "@/modules/core/activities";
+import {
+  listActivities,
+  listUpcomingActivities,
+  findNextActivity,
+} from "@/modules/core/activities";
 import type { Activity } from "@/modules/core/activities";
+import { listPolls, PollCard } from "@/modules/core/polls";
+import { formatShortDate, relativeFromNow } from "@/lib/date";
 
-export default function FeedMockup() {
+type Search = { searchParams: Promise<{ cat?: string }> };
+
+export default async function FeedMockup({ searchParams }: Search) {
+  const { cat: categorySlug } = await searchParams;
+  const activeCategory = categorySlug ? findCategoryBySlug(categorySlug) : undefined;
+
   const me = getCurrentUser();
   const members = listMembers();
   const categories = listCategories();
-  const feedItems = buildFeed();
+  const feedItems = buildFeed({ categorySlug });
   const polls = listPolls();
+  const nextActivity = findNextActivity();
 
   return (
     <main>
@@ -29,41 +42,44 @@ export default function FeedMockup() {
       <FeedHero member={me} newThisVisit={3} />
 
       <div className="max-w-6xl mx-auto px-5 py-6">
-        {/* Category filter bar */}
         <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="serif text-sm text-ink/70 font-medium">🏷 依分類瀏覽</h2>
             <Link href="#" className="text-xs text-ink/50 hover:text-terracotta">管理分類 →</Link>
           </div>
-          <CategoryFilterBar categories={categories} />
+          <CategoryFilterBar
+            categories={categories}
+            activeSlug={categorySlug}
+            basePath="/mockup/feed"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left rail */}
           <aside className="lg:col-span-3 space-y-5">
+            {nextActivity && <NextGatheringCountdown activity={nextActivity} />}
             <UpcomingActivitiesCard />
             <MembersCard members={members} />
             <QuoteCard />
           </aside>
 
-          {/* Main feed */}
           <section className="lg:col-span-6 space-y-5">
             <ComposerCard meName={me.name} meAvatar={me} />
 
-            <PinnedSection />
+            {!activeCategory && <PinnedSection />}
 
             <div className="flex items-center gap-2 text-xs text-ink/40 px-1 pt-2">
-              <span>最新動態</span>
+              <span>{activeCategory ? `「${activeCategory.name}」分類` : "最新動態"}</span>
               <div className="flex-1 divider-dashed" />
               <span>{feedItems.length} 則</span>
             </div>
+
+            {feedItems.length === 0 && <EmptyFilterState />}
 
             {feedItems.map((item) => (
               <FeedItem key={`${item.kind}-${item.data.id}`} item={item} />
             ))}
           </section>
 
-          {/* Right rail */}
           <aside className="lg:col-span-3 space-y-5">
             <div className="bg-white rounded-soft shadow-card border border-sand/60 p-4">
               <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">
@@ -83,7 +99,37 @@ export default function FeedMockup() {
   );
 }
 
-/* ---- Small composable pieces. Could move to modules/core/feed/components if reused ---- */
+/* ---- Composable pieces ---- */
+
+function NextGatheringCountdown({ activity }: { activity: Activity }) {
+  return (
+    <Link
+      href="/mockup/activity"
+      className="block bg-gradient-to-br from-terracotta to-terracotta-dark text-white rounded-soft shadow-soft p-4 hover:shadow-lg transition"
+    >
+      <div className="text-[10px] tracking-widest opacity-80 mb-1">⏳ 下次相聚</div>
+      <div className="serif text-lg leading-snug">{activity.title}</div>
+      <div className="text-xs opacity-80 mt-1">{formatShortDate(activity.startsAt)} · {activity.location}</div>
+      <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between">
+        <span className="text-xs opacity-80">距離</span>
+        <span className="font-semibold text-white">{relativeFromNow(activity.startsAt)}</span>
+      </div>
+    </Link>
+  );
+}
+
+function EmptyFilterState() {
+  return (
+    <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
+      <div className="text-4xl mb-2">🌿</div>
+      <p className="serif text-lg text-ink/70 mb-1">這個分類還沒有內容</p>
+      <p className="text-sm text-ink/50 mb-4">換一個分類，或<Link href="/mockup/create" className="text-terracotta hover:underline">建立第一篇</Link></p>
+      <Link href="/mockup/feed" className="inline-block text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/60">
+        ← 看全部動態
+      </Link>
+    </div>
+  );
+}
 
 function ComposerCard({ meName, meAvatar }: { meName: string; meAvatar: Parameters<typeof Avatar>[0]["member"] }) {
   return (
@@ -108,16 +154,19 @@ function ComposerCard({ meName, meAvatar }: { meName: string; meAvatar: Paramete
 }
 
 function UpcomingActivitiesCard() {
-  const activities: Activity[] = listActivities().slice(0, 2);
+  const activities = listUpcomingActivities().slice(0, 3);
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-4">
-      <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">
-        <span>🗓</span> 即將到來
-      </h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="serif text-base text-ink flex items-center gap-2">
+          <span>🗓</span> 即將到來
+        </h3>
+        <Link href="/mockup/activities" className="text-xs text-ink/50 hover:text-terracotta">全部 →</Link>
+      </div>
       <div className="space-y-3">
         {activities.map((a) => (
           <Link key={a.id} href="/mockup/activity" className="block group">
-            <div className="text-xs text-terracotta font-medium mb-0.5">{a.startsAt.slice(0, 10)}</div>
+            <div className="text-xs text-terracotta font-medium mb-0.5">{formatShortDate(a.startsAt)}</div>
             <div className="text-sm text-ink group-hover:text-terracotta">{a.title}</div>
             <div className="text-xs text-ink/50">{a.location}</div>
           </Link>
@@ -188,7 +237,7 @@ function BirthdayCard() {
       <div className="text-2xl mb-1">🎂</div>
       <div className="text-xs text-ink/50 mb-1">本月生日</div>
       <div className="serif text-base text-ink">爸爸 · 5/28</div>
-      <div className="text-xs text-ink/50 mt-0.5">還有 4 天</div>
+      <div className="text-xs text-ink/50 mt-0.5">還有 3 天</div>
     </div>
   );
 }

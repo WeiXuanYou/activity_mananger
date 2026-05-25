@@ -1,22 +1,14 @@
 import type { Activity } from "./types";
 
+// "Today" in mock data = 2026-05-25 (synced with lib/date REFERENCE).
+// Dates here are picked so the demo always has a clear "next event".
+
 export const activities: Activity[] = [
-  {
-    id: "a1",
-    title: "中秋家族烤肉大會",
-    hostId: "u1",
-    startsAt: "2026-09-25 18:00",
-    location: "外公家後院",
-    cover: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)",
-    rsvp: { going: 12, maybe: 3, declined: 1 },
-    description: "今年我們一樣在外公家後院烤肉，請大家準時到，阿嬤會準備柚子湯！",
-    categoryIds: ["c-family", "c-food"],
-  },
   {
     id: "a2",
     title: "週末爬山——七星山",
     hostId: "u2",
-    startsAt: "2026-06-07 07:30",
+    startsAt: "2026-05-31 07:30",
     location: "七星山苗圃登山口",
     cover: "linear-gradient(135deg, #C5D1BB 0%, #7A8E6E 100%)",
     rsvp: { going: 5, maybe: 4, declined: 2 },
@@ -44,5 +36,27 @@ export const activities: Activity[] = [
     rsvp: { going: 7, maybe: 5, declined: 1 },
     description: "畢業十年聚會，Andy 揪。",
     categoryIds: ["c-friends"],
+  },
+  {
+    id: "a1",
+    title: "中秋家族烤肉大會",
+    hostId: "u1",
+    startsAt: "2026-09-25 18:00",
+    location: "外公家後院",
+    cover: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)",
+    rsvp: { going: 12, maybe: 3, declined: 1 },
+    description: "今年我們一樣在外公家後院烤肉，請大家準時到，阿嬤會準備柚子湯！",
+    categoryIds: ["c-family", "c-food"],
+  },
+  {
+    id: "a0-past",
+    title: "母親節聚餐",
+    hostId: "u2",
+    startsAt: "2026-05-10 12:00",
+    location: "晶華酒店",
+    cover: "linear-gradient(135deg, #F4D4DA 0%, #B58FBF 100%)",
+    rsvp: { going: 10, maybe: 0, declined: 0 },
+    description: "已經結束了，大家都吃得很開心 💐",
+    categoryIds: ["c-family", "c-food"],
   },
 ];

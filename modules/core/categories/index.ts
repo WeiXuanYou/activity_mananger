@@ -6,6 +6,7 @@ export {
   listDefaultCategories,
   listCustomCategories,
   findCategory,
+  findCategoryBySlug,
   findCategoriesByIds,
 } from "./queries";
 export { CategoryChip, CategoryChipList } from "./components/CategoryChip";

@@ -20,19 +20,37 @@ export default function PermissionsMockup() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          {ROLE_ORDER.map((role) => (
-            <div key={role} className="bg-white rounded-soft shadow-card border border-sand/60 p-4">
-              <RoleBadge role={role} />
-              <ul className="space-y-1.5 text-sm text-ink/75 mt-3">
-                {ROLE_DESCRIPTIONS[role].map((p) => (
-                  <li key={p} className="flex gap-1.5">
-                    <span className="text-sage-dark shrink-0">·</span>
-                    <span>{p}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {ROLE_ORDER.map((role, i) => {
+            const isCurrent = role === "Member"; // mock current user role
+            return (
+              <div
+                key={role}
+                className={`rounded-soft border p-4 transition relative ${
+                  isCurrent
+                    ? "bg-gradient-to-br from-sage-soft/40 to-cream border-sage shadow-soft"
+                    : "bg-white border-sand/60 shadow-card"
+                }`}
+              >
+                {isCurrent && (
+                  <span className="absolute -top-2 right-3 bg-sage text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
+                    你目前 ↓
+                  </span>
+                )}
+                <div className="flex items-center gap-2 mb-3">
+                  <RoleBadge role={role} />
+                  <span className="text-[10px] text-ink/40">Lv. {i}</span>
+                </div>
+                <ul className="space-y-1.5 text-sm text-ink/75">
+                  {ROLE_DESCRIPTIONS[role].map((p) => (
+                    <li key={p} className="flex gap-1.5">
+                      <span className="text-sage-dark shrink-0">·</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
 
         <div className="bg-white rounded-soft shadow-card border border-sand/60 p-6 mb-8">

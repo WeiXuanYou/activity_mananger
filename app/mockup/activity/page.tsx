@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { MockNav } from "../_layout/MockNav";
 import { Avatar, AvatarStack, findMember, listMembers } from "@/modules/core/members";
-import { listActivities } from "@/modules/core/activities";
+import {
+  findActivity,
+  findNextActivity,
+  listUpcomingActivities,
+} from "@/modules/core/activities";
 import { listPolls, sampleComments, PollCard } from "@/modules/core/polls";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
+import { formatLongDate, relativeFromNow } from "@/lib/date";
 
 export default function ActivityDetailMockup() {
-  const a = listActivities()[0];
+  // Demo links to "next" activity by default
+  const a = findActivity("a1") ?? findNextActivity()!;
   const host = findMember(a.hostId);
   const poll = listPolls()[0];
   const members = listMembers();
@@ -29,10 +35,15 @@ export default function ActivityDetailMockup() {
             </span>
           </div>
           <div className="p-6">
-            <div className="mb-3"><CategoryChipList categories={cats} /></div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs px-2 py-1 rounded-full bg-terracotta-soft/60 text-terracotta-dark font-medium animate-pulse">
+                ⏳ {relativeFromNow(a.startsAt)}
+              </span>
+              <CategoryChipList categories={cats} size="xs" />
+            </div>
             <h1 className="serif text-3xl text-ink mb-2">{a.title}</h1>
             <div className="flex flex-wrap items-center gap-4 text-sm text-ink/60 mb-4">
-              <span>🗓️ {a.startsAt}</span>
+              <span>🗓️ {formatLongDate(a.startsAt)}</span>
               <span>📍 {a.location}</span>
             </div>
 
@@ -134,9 +145,9 @@ export default function ActivityDetailMockup() {
             <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
               <h3 className="serif text-base text-ink mb-3">相關活動</h3>
               <div className="space-y-3 text-sm">
-                {listActivities().slice(1, 3).map((other) => (
+                {listUpcomingActivities().filter((x) => x.id !== a.id).slice(0, 3).map((other) => (
                   <Link key={other.id} href="/mockup/activity" className="block hover:text-terracotta">
-                    <div className="text-xs text-ink/50">{other.startsAt.slice(0, 10)}</div>
+                    <div className="text-xs text-ink/50">{relativeFromNow(other.startsAt)}</div>
                     <div className="text-ink">{other.title}</div>
                   </Link>
                 ))}
