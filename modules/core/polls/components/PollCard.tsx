@@ -29,8 +29,8 @@ function CountdownBadge({ poll }: { poll: Poll }) {
 }
 
 export function PollCard({ poll, compact = false }: { poll: Poll; compact?: boolean }) {
-  const author = findMember(poll.authorId);
-  const cats = findCategoriesByIds(poll.categoryIds);
+  const author = poll.author ?? findMember(poll.authorId);
+  const cats = poll.categories ?? findCategoriesByIds(poll.categoryIds);
 
   return (
     <Link

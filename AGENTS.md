@@ -95,10 +95,14 @@ Three rules an agent should never break:
 ## 7. Phase
 - ✅ **Phase A** mockup with mock data (under `/mockup/*`)
 - ✅ **Phase B** Prisma + SQLite + invite-code login + real `requirePermission()` (under `/login` and `/app/*`)
-- ⬜ Phase C: move social core (activities, posts, polls, comments, reactions) from mock to DB
+- ✅ **Phase C** social core via Prisma + real CRUD mutations (`/app/feed`, `/app/activities`, `/app/activity/[id]` w/ RSVP, `/app/poll/[id]` w/ vote, `/app/posts/new`, `/app/permissions` w/ admin inbox)
 - ⬜ Phase G: AI assistant — skeleton at `modules/ai-assistant/` is ready (see its README)
 
-**Both mock and real coexist:** `/mockup/*` pages use `getMockCurrentUser()` and `modules/*/data.ts`. Real `/app/*` pages use `getCurrentUser()` (async, reads session) and `db` directly. The module structure is identical; only `data.ts` becomes the source of truth for now while `queries.ts` (real) only exists for some modules. As each module gets Phase C-style migration, its `data.ts` shrinks and `queries.ts` grows.
+**Mock and real coexist:**
+- `/mockup/*` pages use `getMockCurrentUser()` (sync) + module `data.ts` sync helpers like `listPosts()`.
+- `/app/*` pages use `getCurrentUser()` (async) + module `db.ts` async helpers like `listPostsDb()`.
+- Cards (`PostCard`, `ActivityCard`, `PollCard`) accept the same `Post`/`Activity`/`Poll` TS type — DB sources pre-resolve `author`/`host`/`categories` via the adapter; mock sources leave them undefined and the card falls back to sync mock lookups.
+- Server actions live in `modules/<x>/actions.ts` ("use server") and gate every mutation with `await requirePermission(...)`.
 
 ## 8. Quick command reference
 ```bash

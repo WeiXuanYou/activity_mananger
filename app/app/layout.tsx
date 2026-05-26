@@ -31,10 +31,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="text-xs text-ink/40 font-sans tracking-widest">Together</span>
           </Link>
           <span className="text-xs bg-sage-soft/60 text-sage-dark px-2 py-1 rounded-full font-medium">
-            ● Phase B · Live DB
+            ● Phase C · Live DB
           </span>
           <nav className="hidden md:flex items-center gap-1 ml-2">
             <Link href="/app/feed" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
+            <Link href="/app/activities" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
+            <Link href="/app/posts/new" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">建立</Link>
+            <Link href="/app/permissions" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 text-sm">

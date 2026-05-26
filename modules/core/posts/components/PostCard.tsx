@@ -18,8 +18,9 @@ const KIND_LABEL = {
 } as const;
 
 export function PostCard({ post }: { post: Post }) {
-  const author = findMember(post.authorId);
-  const cats = findCategoriesByIds(post.categoryIds);
+  // Prefer pre-resolved fields (DB source); fall back to sync mock lookup
+  const author = post.author ?? findMember(post.authorId);
+  const cats = post.categories ?? findCategoriesByIds(post.categoryIds);
   return (
     <article
       className={`rounded-soft border p-5 hover:shadow-soft transition ${

@@ -16,8 +16,8 @@ import { formatShortDate, relativeFromNow, daysFromNow } from "@/lib/date";
 import type { Activity } from "../types";
 
 export function ActivityCard({ activity }: { activity: Activity }) {
-  const host = findMember(activity.hostId);
-  const cats = findCategoriesByIds(activity.categoryIds);
+  const host = activity.host ?? findMember(activity.hostId);
+  const cats = activity.categories ?? findCategoriesByIds(activity.categoryIds);
   // Derived once; used in three places (border opacity / chip label / chip visibility)
   const isPast = daysFromNow(activity.startsAt) < 0;
   const rel = relativeFromNow(activity.startsAt);

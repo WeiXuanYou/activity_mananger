@@ -1,198 +1,155 @@
-import Link from "next/link";
-import { db } from "@/lib/db";
-import { requireCurrentUser } from "@/modules/auth";
-import { canCurrentUser } from "@/modules/permissions";
-import { formatShortDate, relativeFromNow } from "@/lib/date";
-
 /**
- * Real DB-backed feed. Proves the Phase B end-to-end pipeline:
+ * Real DB-backed feed. End-to-end Phase C demo:
  *
  *   browser → middleware (cookie check) → AppLayout (session lookup)
- *   → page (real query via @/lib/db) → render
+ *   → THIS page → module queries (modules/core/x/db.ts) → Prisma → render
  *
- * Modules used: auth (session), permissions (canCurrentUser), Prisma (db).
+ * No direct Prisma calls in this file — everything goes through module barrels.
  */
-export default async function AppFeedPage() {
-  const me = await requireCurrentUser();
-  const canPost = await canCurrentUser("post.create");
-  const canCreateActivity = await canCurrentUser("activity.create");
-  const canViewAnalytics = await canCurrentUser("analytics.view");
+import Link from "next/link";
+import { requireCurrentUser } from "@/modules/auth";
+import { canCurrentUser } from "@/modules/permissions";
+import {
+  listPostsDb,
+  PostCard,
+} from "@/modules/core/posts";
+import {
+  listUpcomingActivitiesDb,
+  ActivityCard,
+} from "@/modules/core/activities";
+import { listPollsDb, PollCard } from "@/modules/core/polls";
+import { listCategoriesDb, findCategoryBySlugDb, CategoryFilterBar } from "@/modules/core/categories";
+import { formatShortDate, relativeFromNow } from "@/lib/date";
 
-  const [posts, activities, polls] = await Promise.all([
-    db.post.findMany({
-      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      include: {
-        author: true,
-        categories: { include: { category: true } },
-      },
-      take: 10,
-    }),
-    db.activity.findMany({
-      where: { startsAt: { gte: new Date() } },
-      orderBy: { startsAt: "asc" },
-      include: {
-        author: true,
-        categories: { include: { category: true } },
-        participants: true,
-      },
-      take: 5,
-    }),
-    db.poll.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: true,
-        options: { include: { votes: true } },
-        categories: { include: { category: true } },
-      },
-      take: 3,
-    }),
-  ]);
+type Search = { searchParams: Promise<{ cat?: string }> };
+
+export default async function AppFeedPage({ searchParams }: Search) {
+  const { cat: slug } = await searchParams;
+  const me = await requireCurrentUser();
+
+  // Fetch everything in parallel — they're independent queries
+  const [posts, activities, polls, categories, activeCategory, canPost, canCreateActivity] =
+    await Promise.all([
+      listPostsDb(),
+      listUpcomingActivitiesDb(),
+      listPollsDb(),
+      listCategoriesDb(),
+      slug ? findCategoryBySlugDb(slug) : null,
+      canCurrentUser("post.create"),
+      canCurrentUser("activity.create"),
+    ]);
+
+  // Apply category filter on the joined client-side; cheap given dataset size
+  const filteredPosts = activeCategory
+    ? posts.filter((p) => p.categoryIds.includes(activeCategory.id))
+    : posts;
 
   return (
     <main className="max-w-6xl mx-auto px-5 py-6">
       <div className="mb-6">
-        <div className="flex items-end gap-3 flex-wrap">
-          <div>
-            <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · /app</p>
-            <h1 className="serif text-3xl text-ink">嗨，{me.name}</h1>
-            <p className="text-ink/60 text-sm mt-1">
-              你的角色：<strong className="text-ink/80">{me.role.name}</strong> ·
-              權限：{me.role.permissions.length} 項
-            </p>
-          </div>
-          <div className="ml-auto flex gap-2 flex-wrap text-xs">
-            <PermPill label="post.create"     allowed={canPost} />
-            <PermPill label="activity.create" allowed={canCreateActivity} />
-            <PermPill label="analytics.view"  allowed={canViewAnalytics} />
-          </div>
+        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · /app</p>
+        <h1 className="serif text-3xl text-ink">嗨，{me.name}</h1>
+        <p className="text-ink/60 text-sm mt-1">
+          你的角色：<strong className="text-ink/80">{me.role.name}</strong> ·
+          資料完全來自 Prisma；按 RSVP / 投票 / 發文都會真的寫進 DB
+        </p>
+        <div className="mt-3 flex gap-2 flex-wrap">
+          {canPost && (
+            <Link
+              href="/app/posts/new"
+              className="px-3 py-1.5 rounded-soft bg-terracotta text-white text-sm font-medium shadow-card hover:bg-terracotta-dark transition"
+            >
+              + 寫一篇文章
+            </Link>
+          )}
+          {!canCreateActivity && (
+            <Link
+              href="/app/permissions"
+              className="px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 text-sm hover:bg-cream/40"
+            >
+              想建立活動？申請 Editor →
+            </Link>
+          )}
         </div>
+      </div>
+
+      <div className="mb-5">
+        <CategoryFilterBar
+          categories={categories}
+          activeSlug={slug}
+          basePath="/app/feed"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section className="lg:col-span-7 space-y-5">
-          <div className="bg-cream/40 rounded-soft border border-sand p-4 text-xs text-ink/65 leading-relaxed">
-            <strong className="text-ink/80">↓ 以下所有資料都來自 Prisma 查詢 SQLite</strong>——
-            重新整理時會重新拉取。試試 <code className="text-terracotta">npx prisma studio</code> 編輯資料。
+          <div className="flex items-center gap-2 text-xs text-ink/40 px-1">
+            <span>{activeCategory ? `「${activeCategory.name}」分類` : "📌 全部"}</span>
+            <div className="flex-1 divider-dashed" />
+            <span>{filteredPosts.length} 篇</span>
           </div>
 
-          <h2 className="serif text-xl text-ink">📌 最新文章 ({posts.length})</h2>
-          <div className="space-y-3">
-            {posts.map((p) => (
-              <article
-                key={p.id}
-                className={`rounded-soft border p-5 ${
-                  p.isPinned
-                    ? "bg-gradient-to-br from-terracotta-soft/30 to-cream border-terracotta/30 shadow-soft"
-                    : "bg-white shadow-card border-sand/60"
-                }`}
-              >
-                {p.isPinned && (
-                  <div className="text-xs text-terracotta-dark font-medium mb-2">📌 由管理員置頂</div>
-                )}
-                <div className="flex items-center gap-2 mb-2">
-                  <div
-                    className="w-8 h-8 rounded-full text-white text-xs flex items-center justify-center"
-                    style={{ background: p.author.avatarColor }}
-                  >
-                    {p.author.initial}
-                  </div>
-                  <span className="text-sm font-medium text-ink">{p.author.name}</span>
-                  <span className="text-xs text-ink/50">
-                    {new Date(p.createdAt).toLocaleDateString("zh-TW")}
-                  </span>
-                  <span className="ml-auto text-xs text-sage-dark bg-sage/10 px-2 py-0.5 rounded-full">
-                    {p.kind}
-                  </span>
-                </div>
-                {p.title && <h3 className="serif text-lg text-ink mb-1">{p.title}</h3>}
-                <p className="text-sm text-ink/75 leading-relaxed">{p.body}</p>
-                <div className="flex gap-1.5 mt-3">
-                  {p.categories.map((pc) => (
-                    <span key={pc.categoryId} className="text-[10px] bg-cream px-1.5 py-0.5 rounded">
-                      {pc.category.emoji} {pc.category.name}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
+          {filteredPosts.length === 0 ? (
+            <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
+              <div className="text-4xl mb-2">🌿</div>
+              <p className="serif text-lg text-ink/70">這個分類還沒有文章</p>
+              <Link href="/app/feed" className="text-sm text-terracotta hover:underline">← 看全部</Link>
+            </div>
+          ) : (
+            filteredPosts.map((p) => <PostCard key={p.id} post={p} />)
+          )}
         </section>
 
         <aside className="lg:col-span-5 space-y-5">
           <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
-            <h3 className="serif text-base text-ink mb-3">🗓 即將到來</h3>
+            <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">
+              <span>🗓</span> 即將到來
+              <Link href="/app/activities" className="ml-auto text-xs text-ink/50 hover:text-terracotta">
+                全部 →
+              </Link>
+            </h3>
             {activities.length === 0 && <p className="text-sm text-ink/55">沒有未來的活動</p>}
             <div className="space-y-3">
-              {activities.map((a) => (
-                <div key={a.id} className="border-b border-sand pb-3 last:border-0">
+              {activities.slice(0, 3).map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/app/activity/${a.id}`}
+                  className="block group border-b border-sand pb-3 last:border-0"
+                >
                   <div className="text-xs text-terracotta font-medium">
-                    {formatShortDate(a.startsAt.toISOString().slice(0, 10))} · {relativeFromNow(a.startsAt.toISOString().slice(0, 10))}
+                    {formatShortDate(a.startsAt)} · {relativeFromNow(a.startsAt)}
                   </div>
-                  <div className="text-sm text-ink font-medium">{a.title}</div>
+                  <div className="text-sm text-ink group-hover:text-terracotta">{a.title}</div>
                   <div className="text-xs text-ink/55">
-                    📍 {a.location} · {a.participants.filter((p) => p.status === "GOING").length} 人參加
+                    📍 {a.location} · {a.rsvp.going} 人參加
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
 
           <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
-            <h3 className="serif text-base text-ink mb-3">📊 投票</h3>
+            <h3 className="serif text-base text-ink mb-3">📊 進行中投票</h3>
             <div className="space-y-3">
-              {polls.map((p) => {
-                const total = p.options.reduce((s, o) => s + o.votes.length, 0);
-                return (
-                  <div key={p.id} className="border-b border-sand pb-3 last:border-0">
-                    <div className="text-sm font-medium text-ink mb-1">{p.question}</div>
-                    <div className="text-xs text-ink/55 mb-2">{total} 票</div>
-                    {p.options.map((o) => {
-                      const pct = total ? Math.round((o.votes.length / total) * 100) : 0;
-                      return (
-                        <div key={o.id} className="mb-1">
-                          <div className="flex justify-between text-xs">
-                            <span>{o.label}</span>
-                            <span className="text-ink/50">{pct}%</span>
-                          </div>
-                          <div className="h-1.5 bg-sand rounded-full overflow-hidden">
-                            <div className="h-full bg-terracotta-soft" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+              {polls.map((p) => (
+                <Link key={p.id} href={`/app/poll/${p.id}`} className="block">
+                  <PollCard poll={p} compact />
+                </Link>
+              ))}
             </div>
           </div>
 
-          <div className="bg-cream/40 rounded-soft border border-sand p-5 text-xs text-ink/65 leading-relaxed">
-            <strong className="text-ink/80">💡 Phase B 已啟用：</strong>
-            <ul className="mt-2 space-y-1 list-disc list-inside">
-              <li>✅ Prisma + SQLite schema 完整</li>
-              <li>✅ 邀請碼登入 + 簽名 cookie session</li>
-              <li>✅ <code>requirePermission()</code> 真的會 throw</li>
-              <li>⬜ Phase C：所有社群核心 server actions 接 DB</li>
-            </ul>
-            <p className="mt-2">
-              <Link href="/mockup" className="text-terracotta hover:underline">→ 看 mockup 完整設計</Link>
+          <Link
+            href="/app/permissions"
+            className="block bg-sage-soft/40 rounded-soft border border-sage/30 p-5 hover:bg-sage-soft/60 transition"
+          >
+            <div className="text-xs text-sage-dark font-medium mb-1">🛡 權限</div>
+            <p className="text-sm text-ink/75 leading-relaxed">
+              查看你的權限 / 申請升級
             </p>
-          </div>
+          </Link>
         </aside>
       </div>
     </main>
-  );
-}
-
-function PermPill({ label, allowed }: { label: string; allowed: boolean }) {
-  return (
-    <span
-      className={`px-2 py-0.5 rounded-full font-mono ${
-        allowed ? "bg-sage-soft/60 text-sage-dark" : "bg-sand/60 text-ink/40"
-      }`}
-      title={allowed ? "你有這個權限" : "你沒有這個權限"}
-    >
-      {allowed ? "✓" : "✕"} {label}
-    </span>
   );
 }

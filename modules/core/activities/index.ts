@@ -1,4 +1,6 @@
 export type { Activity } from "./types";
+
+// Phase A — sync mock helpers
 export { activities } from "./data";
 export {
   listActivities,
@@ -9,4 +11,17 @@ export {
   listPastActivities,
   findNextActivity,
 } from "./queries";
+
+// Phase C — async DB helpers
+export {
+  prismaActivityToActivity,
+  listActivitiesDb,
+  listUpcomingActivitiesDb,
+  listPastActivitiesDb,
+  findActivityDb,
+  findNextActivityDb,
+  findMyRsvpDb,
+} from "./db";
+
+// UI components
 export { ActivityCard } from "./components/ActivityCard";
