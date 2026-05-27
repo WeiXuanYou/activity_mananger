@@ -24,6 +24,7 @@ export default function LoginPage() {
             <ul className="text-xs text-ink/60 space-y-1 font-mono">
               <li><code className="bg-cream/60 px-1.5 py-0.5 rounded">TOGETHER-DEMO-MEMBER</code> → Member</li>
               <li><code className="bg-cream/60 px-1.5 py-0.5 rounded">TOGETHER-DEMO-EDITOR</code> → Editor</li>
+              <li><code className="bg-cream/60 px-1.5 py-0.5 rounded">TOGETHER-DEMO-ADMIN</code>  → Admin（可看分析）</li>
               <li><code className="bg-cream/60 px-1.5 py-0.5 rounded">TOGETHER-DEMO-GUEST</code>  → Guest</li>
             </ul>
           </div>

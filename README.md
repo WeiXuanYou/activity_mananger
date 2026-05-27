@@ -91,8 +91,8 @@ npm run db:studio    # 開 Prisma Studio
 ## Phase 進度
 - ✅ **Phase A** 視覺原型
 - ✅ **Phase B** 認證 + Prisma + 真實 requirePermission
-- ✅ **Phase C** Social core 真接 DB：`/app/feed` 顯示 DB 內容、`/app/activity/[id]` RSVP、`/app/poll/[id]` 投票、`/app/posts/new` 發文（含分類）、`/app/permissions` 申請+審批
-- ⬜ **Phase D** CMS 區塊渲染器擴充（Markdown / HTML）
-- ⬜ **Phase E** 分析模組接事件流
+- ✅ **Phase C** Social core 真接 DB：feed / activity / poll / posts / permissions
+- ✅ **Phase D** CMS 區塊渲染器：richtext / markdown / html / image / embed-poll；`/app/pages` + `/app/pages/[slug]` + `/app/pages/new` 真實建立
+- ✅ **Phase E** 分析事件流：`emit()` 寫 `AnalyticsEvent`；`/app/analytics` gated by `analytics.view`，即時事件流
 - ⬜ **Phase F** 通知 / 邀請碼產生 UI
 - ⬜ **Phase G** AI 助手接 Anthropic SDK（骨架已備好）

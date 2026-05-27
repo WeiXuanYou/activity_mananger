@@ -4,8 +4,9 @@ import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories
 import type { CustomPage } from "../types";
 
 export function PageCard({ page }: { page: CustomPage }) {
-  const owner = findMember(page.ownerId);
-  const cats = findCategoriesByIds(page.categoryIds);
+  // Prefer DB-pre-resolved fields; fall back to sync mock lookup for /mockup pages
+  const owner = page.owner ?? findMember(page.ownerId);
+  const cats = page.categories ?? findCategoriesByIds(page.categoryIds);
   return (
     <Link
       href="/mockup/page-detail"

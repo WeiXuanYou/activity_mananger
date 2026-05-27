@@ -55,7 +55,7 @@ export async function submitPermissionRequestAction(
     },
   });
 
-  emit("permission.requested", { type: "user", id: me.id }, { from: me.role.name, to: targetRoleName }, me.id);
+  void emit("permission.requested", { type: "user", id: me.id }, { from: me.role.name, to: targetRoleName }, me.id);
 
   revalidatePath("/app/permissions");
   return { success: true };

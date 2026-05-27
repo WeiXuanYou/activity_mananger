@@ -56,7 +56,6 @@ block-renderers/
 
 - ✅ **Phase A** mock data + UI + RichText renderer
 - ✅ Block renderer registry pattern 確立
-- ⬜ **Phase D** Markdown renderer + HTML renderer（sanitized）
-- ⬜ Phase D+ 拖拉式 block 編輯器
-- ⬜ Phase C/D 接 Prisma `CustomPage` / `CustomPageBlock` table（schema 已建好；
-  data 欄位是 JSON-encoded string for SQLite，PostgreSQL 升級時改 Json type）
+- ✅ **Phase D** Markdown（react-markdown + GFM）/ HTML（DOMPurify 安全處理）/ Image / EmbedPoll renderer 全部到位
+- ✅ Phase D 接 Prisma — `db.ts` adapter + 真實 `/app/pages` CRUD（`createCustomPageAction`, `addBlockAction`, `deleteBlockAction`）
+- ⬜ Phase D+ 拖拉式 block 編輯器 / WYSIWYG / 上傳圖片

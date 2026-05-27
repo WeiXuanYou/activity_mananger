@@ -57,7 +57,7 @@ export async function createPostFormAction(
     },
   });
 
-  emit("post.created", { type: "post", id: created.id }, { kind, isPinned }, me.id);
+  void emit("post.created", { type: "post", id: created.id }, { kind, isPinned }, me.id);
 
   revalidatePath("/app/feed");
   // Redirect throws under the hood — must not be inside try/catch
@@ -99,7 +99,7 @@ export async function toggleLikeAction(postId: string) {
     await db.reaction.create({
       data: { userId: me.id, parentType: "POST", parentId: postId, kind: "LIKE" },
     });
-    emit("post.viewed", { type: "post", id: postId }, { reaction: "LIKE" }, me.id);
+    void emit("post.viewed", { type: "post", id: postId }, { reaction: "LIKE" }, me.id);
   }
   revalidatePath("/app/feed");
 }

@@ -96,6 +96,8 @@ Three rules an agent should never break:
 - ✅ **Phase A** mockup with mock data (under `/mockup/*`)
 - ✅ **Phase B** Prisma + SQLite + invite-code login + real `requirePermission()` (under `/login` and `/app/*`)
 - ✅ **Phase C** social core via Prisma + real CRUD mutations (`/app/feed`, `/app/activities`, `/app/activity/[id]` w/ RSVP, `/app/poll/[id]` w/ vote, `/app/posts/new`, `/app/permissions` w/ admin inbox)
+- ✅ **Phase D** CMS block-renderer registry expanded: richtext / markdown (react-markdown + GFM) / html (DOMPurify-sanitized) / image / embed-poll. Real `/app/pages`, `/app/pages/[slug]`, `/app/pages/new`
+- ✅ **Phase E** analytics events real: `emit()` writes to `AnalyticsEvent`; `/app/analytics` reads ONLY that table (no JOIN into core); gated by `analytics.view`
 - ⬜ Phase G: AI assistant — skeleton at `modules/ai-assistant/` is ready (see its README)
 
 **Mock and real coexist:**

@@ -28,7 +28,7 @@ export async function rsvpAction(activityId: string, status: RsvpStatus) {
     update: { status, respondedAt: new Date() },
   });
 
-  emit("activity.rsvp", { type: "activity", id: activityId }, { status }, me.id);
+  void emit("activity.rsvp", { type: "activity", id: activityId }, { status }, me.id);
 
   // Revalidate the affected pages so RSVP counts refresh immediately
   revalidatePath("/app/feed");
@@ -73,7 +73,7 @@ export async function createActivityAction(input: {
     },
   });
 
-  emit("post.created", { type: "activity", id: created.id }, { categoryIds }, me.id);
+  void emit("post.created", { type: "activity", id: created.id }, { categoryIds }, me.id);
 
   revalidatePath("/app/feed");
   revalidatePath("/app/activities");

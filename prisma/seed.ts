@@ -99,6 +99,7 @@ async function main() {
   const codes = [
     { code: "TOGETHER-DEMO-MEMBER", role: "Member", creator: "grandma" },
     { code: "TOGETHER-DEMO-EDITOR", role: "Editor", creator: "grandma" },
+    { code: "TOGETHER-DEMO-ADMIN",  role: "Admin",  creator: "grandma" },
     { code: "TOGETHER-DEMO-GUEST",  role: "Guest",  creator: "grandma" },
   ];
   for (const c of codes) {
@@ -284,14 +285,14 @@ async function main() {
     { slug: "friends-travel-log", title: "朋友圈出遊紀錄", owner: "andy",   excerpt: "Andy 整理的：大學同學歷年出遊照片 + 餐廳清單。",   cover: "linear-gradient(135deg, #F4D4DA 0%, #D98090 100%)", cats: ["friends", "travel"] },
   ];
   for (const p of pageSeed) {
+    // Build varied block content per page to showcase all 5 renderers
+    const blocks = blocksForPage(p.slug);
     await db.customPage.create({
       data: {
         slug: p.slug, title: p.title, ownerId: userRows[p.owner].id,
         excerpt: p.excerpt, cover: p.cover, publishedAt: new Date(),
         categories: { create: p.cats.map((slug) => ({ categoryId: catRows[slug].id })) },
-        blocks: { create: [
-          { type: "richtext", order: 0, data: JSON.stringify({ html: `<h2>${p.title}</h2><p>${p.excerpt}</p>` }) },
-        ] },
+        blocks: { create: blocks },
       },
     });
   }
@@ -300,6 +301,56 @@ async function main() {
   console.log(`   ${MEMBERS.length} users · ${CATEGORIES.length} categories · ${activitySeed.length} activities · ${pollSeed.length} polls · ${postSeed.length} posts`);
   console.log("\n   Try the demo invite codes at /login:");
   for (const c of codes) console.log(`     ${c.code}  →  ${c.role}`);
+}
+
+/**
+ * Hand-crafted block sequences per page so the demo shows off
+ * every renderer (richtext / markdown / html / image / embed-poll).
+ */
+function blocksForPage(slug: string): { type: string; order: number; data: string }[] {
+  if (slug === "family-recipes") {
+    return [
+      { type: "richtext", order: 0,
+        data: JSON.stringify({ html: `<h2>序：為什麼開這個頁面</h2><p>這幾年發現家裡很多菜——尤其是阿嬤、姑姑們的拿手好菜——如果不寫下來，下一代就吃不到了。所以我開了這個頁面，慢慢把它們整理進來。</p>` }),
+      },
+      { type: "markdown", order: 1,
+        data: JSON.stringify({ source: `## 阿嬤的紅燒肉\n\n**材料**\n\n- 五花肉 600g\n- 冰糖 2 大匙\n- 醬油 3 大匙\n- 米酒 100ml\n- 八角、薑、蔥\n\n**步驟**\n\n1. 五花肉切大塊汆燙\n2. 冰糖小火炒成焦糖色\n3. 下肉翻炒上色\n4. 加調味料燉煮 50 分\n\n> 阿嬤的小撇步：冰糖一定要先炒成焦糖色，這樣顏色才會漂亮、香氣才出得來。\n\n| 變化版 | 時間 | 備註 |\n| --- | --- | --- |\n| 加蛋 | +15分 | 提前白煮 |\n| 加豆乾 | 0 | 最後 10 分丟入 |` }),
+      },
+      { type: "image", order: 2,
+        data: JSON.stringify({ url: "linear-gradient(135deg, #F4D6BA 0%, #C75B3A 100%)", caption: "阿嬤做的紅燒肉，是這個頁面的起點。" }),
+      },
+      { type: "html", order: 3,
+        data: JSON.stringify({ source: `<h2>下一道想做的</h2><p>歡迎家人補充。記得加上<strong>份量</strong>跟<em>大概時間</em>。</p><ul><li>三杯雞</li><li>白菜滷</li><li>麻油雞</li></ul>` }),
+      },
+    ];
+  }
+  if (slug === "grandpa-stories") {
+    return [
+      { type: "markdown", order: 0,
+        data: JSON.stringify({ source: `# 外公的軍旅故事\n\n外公在民國 50 年到 60 年代於金門服役。這個頁面紀錄他口述的點點滴滴。\n\n## 第一年：剛到金門\n\n外公說，第一次坐船去金門他暈得不行——船小、海浪大，到岸後吐了三天。\n\n## 砲戰之後\n\n外公服役時 8/23 砲戰已經結束多年，但坑道、防空洞還在。他說最深的記憶是夜裡輪班守海邊...` }),
+      },
+      { type: "image", order: 1,
+        data: JSON.stringify({ url: "linear-gradient(135deg, #D4C4A8 0%, #8B7355 100%)", caption: "外公的舊照片掃描檔（之後上傳）" }),
+      },
+      { type: "richtext", order: 2,
+        data: JSON.stringify({ html: `<h3>下次補充：</h3><p>外公答應下次回老家時會把當年的軍中筆記也找出來。</p>` }),
+      },
+    ];
+  }
+  if (slug === "friends-travel-log") {
+    return [
+      { type: "markdown", order: 0,
+        data: JSON.stringify({ source: `## 大學同學歷年出遊\n\n從 2016 畢業到現在，我們去過：\n\n- [x] 2016 阿里山畢旅\n- [x] 2018 沖繩跨年\n- [x] 2020 環島（疫情前）\n- [x] 2023 立山黑部\n- [ ] **2026 北海道**（規劃中）` }),
+      },
+      { type: "html", order: 1,
+        data: JSON.stringify({ source: `<p><strong>下次出國想去的餐廳清單</strong>：放這裡讓大家補。</p>` }),
+      },
+    ];
+  }
+  // Default — minimal
+  return [
+    { type: "richtext", order: 0, data: JSON.stringify({ html: `<h2>歡迎</h2><p>這個頁面正在編輯中。</p>` }) },
+  ];
 }
 
 main()

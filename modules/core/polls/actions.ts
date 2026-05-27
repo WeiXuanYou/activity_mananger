@@ -48,7 +48,7 @@ export async function castVoteAction(pollId: string, optionId: string) {
       });
     }
     await db.pollVote.create({ data: { optionId, userId: me.id } });
-    emit("vote.cast", { type: "poll", id: pollId }, { optionId }, me.id);
+    void emit("vote.cast", { type: "poll", id: pollId }, { optionId }, me.id);
   }
 
   revalidatePath(`/app/poll/${pollId}`);

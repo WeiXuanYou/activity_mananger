@@ -50,6 +50,8 @@ core (activities/posts/…)─┤                     ├─→ AnalyticsEvent t
 ## Phase 進度
 
 - ✅ **Phase A** dashboard mock data + UI
-- ⬜ **Phase E** `emit()` 改成 `db.analyticsEvent.create(...)`，`queries.ts` 改成
-  真實的 SQL group-by；core 的 server actions 在關鍵點呼叫 `emit`
-- ⬜ Phase E+ 串接「最常一起活動的人」、「家族活動熱度日曆」之類進階分析
+- ✅ **Phase E** `emit()` 真寫 `db.analyticsEvent.create`（fire-and-forget，失敗不阻斷主流程）
+- ✅ Phase E `db.ts` 真實彙整查詢：`computeKpisDb` / `eventsByKindDb` / `recentEventsDb` / `topContributorsDb` / `eventsByHourDb`
+- ✅ Phase E `/app/analytics` 即時事件流儀表板，gated by `analytics.view`，Editor/Member 訪問會被 middleware-style redirect
+- ✅ Core server actions 在關鍵點 `void emit(...)`：post.created / post.viewed / activity.rsvp / vote.cast / permission.requested
+- ⬜ Phase E+ 期間比較（this week vs last）、「最常一起活動的人」、「家族活動熱度日曆」等進階分析
