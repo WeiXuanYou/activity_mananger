@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, signOutAction } from "@/modules/auth";
 import { Avatar } from "@/modules/core/members";
-import { RoleBadge } from "@/modules/permissions";
+import { RoleBadge, canCurrentUser } from "@/modules/permissions";
+import { NotificationBell, unreadCountDb } from "@/modules/notifications";
 
 /**
  * Authenticated shell for the REAL app (Phase B+).
@@ -22,26 +23,35 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     initial: user.initial,
   };
 
+  const [unread, isAdmin] = await Promise.all([
+    unreadCountDb(user.id),
+    canCurrentUser("admin.approve"),
+  ]);
+
   return (
     <div>
       <header className="border-b border-sand bg-paper/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center gap-4">
-          <Link href="/app/feed" className="serif text-2xl text-terracotta font-semibold flex items-baseline gap-2">
+          <Link href="/app/feed" className="serif text-2xl text-terracotta font-semibold flex items-baseline gap-2 shrink-0">
             <span>相聚</span>
             <span className="text-xs text-ink/40 font-sans tracking-widest">Together</span>
           </Link>
-          <span className="text-xs bg-sage-soft/60 text-sage-dark px-2 py-1 rounded-full font-medium">
-            ● Phase E · Live DB + Events
+          <span className="hidden lg:inline text-xs bg-sage-soft/60 text-sage-dark px-2 py-1 rounded-full font-medium">
+            ● Phase F+G
           </span>
-          <nav className="hidden md:flex items-center gap-1 ml-2">
-            <Link href="/app/feed" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
-            <Link href="/app/activities" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
-            <Link href="/app/pages" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
-            <Link href="/app/posts/new" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">建立</Link>
-            <Link href="/app/permissions" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
-            <Link href="/app/analytics" className="px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">分析</Link>
+          <nav className="hidden md:flex items-center gap-1 ml-1 overflow-x-auto">
+            <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
+            <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
+            <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
+            <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">✨ AI</Link>
+            <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
+            <Link href="/app/analytics" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">分析</Link>
+            {isAdmin && (
+              <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
+            )}
           </nav>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <NotificationBell unread={unread} />
             <div className="hidden md:flex items-center gap-2 text-sm">
               <Avatar member={me} size={32} />
               <span className="font-medium text-ink/80">{me.name}</span>

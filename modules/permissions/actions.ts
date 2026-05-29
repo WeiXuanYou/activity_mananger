@@ -16,6 +16,7 @@ import { requireCurrentUser } from "@/modules/auth";
 import type { Role } from "@/modules/auth";
 import { requirePermission } from "./guard";
 import { emit } from "@/modules/analytics";
+import { notify } from "@/modules/notifications";
 
 export type RequestState = { error?: string; success?: boolean };
 
@@ -83,6 +84,15 @@ export async function approveRequestAction(requestId: string) {
     }),
   ]);
 
+  // Tell the requester their request went through
+  void notify({
+    userId: req.userId,
+    kind: "permission.approved",
+    title: "權限申請已核准 🎉",
+    body: `你已升級為 ${req.requestedRole.name}！現在可以使用更多功能了。`,
+    link: "/app/permissions",
+  });
+
   revalidatePath("/app/permissions");
 }
 
@@ -91,9 +101,18 @@ export async function rejectRequestAction(requestId: string) {
   await requirePermission("admin.approve");
   const me = await requireCurrentUser();
 
-  await db.permissionRequest.update({
+  const req = await db.permissionRequest.update({
     where: { id: requestId },
     data: { status: "REJECTED", decidedById: me.id, decidedAt: new Date() },
+    include: { requestedRole: true },
+  });
+
+  void notify({
+    userId: req.userId,
+    kind: "permission.rejected",
+    title: "權限申請未通過",
+    body: `這次申請 ${req.requestedRole.name} 未通過。如有疑問可以再聯絡管理員。`,
+    link: "/app/permissions",
   });
 
   revalidatePath("/app/permissions");

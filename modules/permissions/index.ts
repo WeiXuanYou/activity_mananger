@@ -33,3 +33,8 @@ export {
 } from "./guard";
 
 export { RoleBadge } from "./components/RoleBadge";
+
+// Phase F — admin tools
+export type { InviteCodeRow } from "./admin-db";
+export { listInviteCodesDb, listAllMembersDb } from "./admin-db";
+

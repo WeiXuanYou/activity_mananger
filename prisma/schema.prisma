@@ -40,6 +40,7 @@ model User {
   requestsMade      PermissionRequest[]   @relation("RequestUser")
   requestsDecided   PermissionRequest[]   @relation("RequestDecider")
   categoriesCreated Category[]
+  notifications     Notification[]
 
   @@index([roleId])
 }
@@ -348,6 +349,25 @@ model CustomPageCategory {
   category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([pageId, categoryId])
+}
+
+// =====================================================================
+// Notifications (in-app only — no DMs, per product requirement)
+// =====================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String // recipient
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // permission.approved | permission.rejected | activity.rsvp | post.pinned | ...
+  title     String
+  body      String
+  link      String? // in-app path to open when clicked
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }
 
 // =====================================================================

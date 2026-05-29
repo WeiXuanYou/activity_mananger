@@ -98,7 +98,10 @@ Three rules an agent should never break:
 - ✅ **Phase C** social core via Prisma + real CRUD mutations (`/app/feed`, `/app/activities`, `/app/activity/[id]` w/ RSVP, `/app/poll/[id]` w/ vote, `/app/posts/new`, `/app/permissions` w/ admin inbox)
 - ✅ **Phase D** CMS block-renderer registry expanded: richtext / markdown (react-markdown + GFM) / html (DOMPurify-sanitized) / image / embed-poll. Real `/app/pages`, `/app/pages/[slug]`, `/app/pages/new`
 - ✅ **Phase E** analytics events real: `emit()` writes to `AnalyticsEvent`; `/app/analytics` reads ONLY that table (no JOIN into core); gated by `analytics.view`
-- ⬜ Phase G: AI assistant — skeleton at `modules/ai-assistant/` is ready (see its README)
+- ✅ **Phase F** notifications (`modules/notifications`, `notify()` seam, bell + `/app/notifications`) + admin tools (`/app/admin`: invite-code generation, role management, audit log)
+- ✅ **Phase G** AI assistant wired to Anthropic SDK: `modules/ai-assistant/client.ts` calls Claude Opus 4.8 (adaptive thinking) when `ANTHROPIC_API_KEY` is set, else a deterministic stub. `/app/assistant` is a live playground. The assistant only *suggests* — it never writes to core tables, so it can't bypass `requirePermission`.
+
+**Server-only boundary:** `modules/ai-assistant/client.ts` imports `server-only` + `@anthropic-ai/sdk`. Client components must NOT import the `@/modules/ai-assistant` barrel — import UI pieces from their narrow paths (`.../components/AssistantSuggestions`, `.../data`) instead, or the Node-only SDK leaks into the browser bundle and the build fails.
 
 **Mock and real coexist:**
 - `/mockup/*` pages use `getMockCurrentUser()` (sync) + module `data.ts` sync helpers like `listPosts()`.

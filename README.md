@@ -94,5 +94,5 @@ npm run db:studio    # 開 Prisma Studio
 - ✅ **Phase C** Social core 真接 DB：feed / activity / poll / posts / permissions
 - ✅ **Phase D** CMS 區塊渲染器：richtext / markdown / html / image / embed-poll；`/app/pages` + `/app/pages/[slug]` + `/app/pages/new` 真實建立
 - ✅ **Phase E** 分析事件流：`emit()` 寫 `AnalyticsEvent`；`/app/analytics` gated by `analytics.view`，即時事件流
-- ⬜ **Phase F** 通知 / 邀請碼產生 UI
-- ⬜ **Phase G** AI 助手接 Anthropic SDK（骨架已備好）
+- ✅ **Phase F** 通知系統（`modules/notifications`、`notify()`、bell + `/app/notifications`）+ 管理工具（`/app/admin`：邀請碼產生、角色管理、審計日誌）
+- ✅ **Phase G** AI 助手接 Anthropic SDK：`/app/assistant` 即時 playground；設 `ANTHROPIC_API_KEY` → Claude Opus 4.8，未設 → stub。AI 只建議不寫入，不繞過權限

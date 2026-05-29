@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
 import { requirePermission } from "@/modules/permissions";
 import { emit } from "@/modules/analytics";
+import { notify } from "@/modules/notifications";
 
 export type RsvpStatus = "GOING" | "MAYBE" | "DECLINED";
 
@@ -29,6 +30,23 @@ export async function rsvpAction(activityId: string, status: RsvpStatus) {
   });
 
   void emit("activity.rsvp", { type: "activity", id: activityId }, { status }, me.id);
+
+  // Notify the host (skip if you're RSVPing to your own activity)
+  if (status === "GOING") {
+    const activity = await db.activity.findUnique({
+      where: { id: activityId },
+      select: { authorId: true, title: true },
+    });
+    if (activity && activity.authorId !== me.id) {
+      void notify({
+        userId: activity.authorId,
+        kind: "activity.rsvp",
+        title: "有人要參加你的活動 🎉",
+        body: `${me.name} 報名了「${activity.title}」`,
+        link: `/app/activity/${activityId}`,
+      });
+    }
+  }
 
   // Revalidate the affected pages so RSVP counts refresh immediately
   revalidatePath("/app/feed");

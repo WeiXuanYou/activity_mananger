@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { MockNav } from "../_layout/MockNav";
 import { CategoryPicker, listCategories } from "@/modules/core/categories";
-import { AssistantSuggestions, COMPOSER_SUGGESTIONS } from "@/modules/ai-assistant";
+import { AssistantSuggestions } from "@/modules/ai-assistant/components/AssistantSuggestions";
+import { COMPOSER_SUGGESTIONS } from "@/modules/ai-assistant/data";
 
 type Tab = "post" | "activity" | "poll";
 
