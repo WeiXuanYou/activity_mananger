@@ -11,6 +11,7 @@ import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 import {
   listPostsDb,
+  findLikedPostIdsByUserDb,
   PostCard,
 } from "@/modules/core/posts";
 import {
@@ -43,6 +44,11 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const filteredPosts = activeCategory
     ? posts.filter((p) => p.categoryIds.includes(activeCategory.id))
     : posts;
+
+  // One query for "which of these posts has the current user liked" so the
+  // heart renders in the right state. Driven by the filtered list to avoid
+  // wasted lookups when a category is selected.
+  const likedIds = await findLikedPostIdsByUserDb(me.id, filteredPosts.map((p) => p.id));
 
   return (
     <main className="max-w-6xl mx-auto px-5 py-6">
@@ -96,7 +102,9 @@ export default async function AppFeedPage({ searchParams }: Search) {
               <Link href="/app/feed" className="text-sm text-terracotta hover:underline">← 看全部</Link>
             </div>
           ) : (
-            filteredPosts.map((p) => <PostCard key={p.id} post={p} />)
+            filteredPosts.map((p) => (
+              <PostCard key={p.id} post={p} likedByMe={likedIds.has(p.id)} />
+            ))
           )}
         </section>
 

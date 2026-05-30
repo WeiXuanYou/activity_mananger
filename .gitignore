@@ -15,3 +15,7 @@ prisma/dev.db-journal
 
 # TS incremental build cache
 tsconfig.tsbuildinfo
+
+# Uploaded user images (runtime; keep dir, ignore contents)
+public/uploads/*
+!public/uploads/.gitkeep

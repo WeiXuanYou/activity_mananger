@@ -96,3 +96,4 @@ npm run db:studio    # 開 Prisma Studio
 - ✅ **Phase E** 分析事件流：`emit()` 寫 `AnalyticsEvent`；`/app/analytics` gated by `analytics.view`，即時事件流
 - ✅ **Phase F** 通知系統（`modules/notifications`、`notify()`、bell + `/app/notifications`）+ 管理工具（`/app/admin`：邀請碼產生、角色管理、審計日誌）
 - ✅ **Phase G** AI 助手接 Anthropic SDK：`/app/assistant` 即時 playground；設 `ANTHROPIC_API_KEY` → Claude Opus 4.8，未設 → stub。AI 只建議不寫入，不繞過權限
+- ✅ **Phase H** 社群迴路補完：留言（多型 `Comment`）、按讚（feed 真實接 `toggleLikeAction`）、`/app/activities/new` + `/app/polls/new` 建立表單、本地圖片上傳（`/public/uploads`）、`/app/calendar` 月曆檢視

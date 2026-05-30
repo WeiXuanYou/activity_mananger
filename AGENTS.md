@@ -104,6 +104,9 @@ Three rules an agent should never break:
 - ✅ **Phase E** analytics events real: `emit()` writes to `AnalyticsEvent`; `/app/analytics` reads ONLY that table (no JOIN into core); gated by `analytics.view`
 - ✅ **Phase F** notifications (`modules/notifications`, `notify()` seam, bell + `/app/notifications`) + admin tools (`/app/admin`: invite-code generation, role management, audit log)
 - ✅ **Phase G** AI assistant wired to Anthropic SDK: `modules/ai-assistant/client.ts` calls Claude Opus 4.8 (adaptive thinking) when `ANTHROPIC_API_KEY` is set, else a deterministic stub. `/app/assistant` is a live playground. The assistant only *suggests* — it never writes to core tables, so it can't bypass `requirePermission`.
+- ✅ **Phase H** social-loop completion: comments (`modules/comments`, multi-content polymorphic via `Comment.parentType+parentId`), like button wired to `toggleLikeAction` on feed, `/app/activities/new` + `/app/polls/new` create forms, local image uploads (`modules/uploads`, `/public/uploads`), `/app/calendar` month-grid view of activities.
+
+**Image uploads** (`modules/uploads`) write to `/public/uploads/<random>.<ext>`. MIME-allowlisted (jpg/png/webp/gif), 5 MB cap, filename from server-side random — never trust client name. To swap to S3/Cloudinary later, change `uploadImageAction()` body only — call sites and return shape are stable.
 
 **Server-only boundary:** `modules/ai-assistant/client.ts` imports `server-only` + `@anthropic-ai/sdk`. Client components must NOT import the `@/modules/ai-assistant` barrel — import UI pieces from their narrow paths (`.../components/AssistantSuggestions`, `.../data`) instead, or the Node-only SDK leaks into the browser bundle and the build fails.
 

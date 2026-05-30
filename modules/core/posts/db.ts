@@ -146,3 +146,24 @@ export async function filterPostsByCategorySlugDb(slug: string): Promise<Post[]>
   });
   return loadPostsWithCounts(rows);
 }
+
+/**
+ * For a given user + post id list, return the set of post ids they've liked.
+ * Used by feed pages to render the heart in the "filled" state.
+ */
+export async function findLikedPostIdsByUserDb(
+  userId: string,
+  postIds: string[],
+): Promise<Set<string>> {
+  if (postIds.length === 0) return new Set();
+  const rows = await db.reaction.findMany({
+    where: {
+      userId,
+      parentType: "POST",
+      parentId: { in: postIds },
+      kind: "LIKE",
+    },
+    select: { parentId: true },
+  });
+  return new Set(rows.map((r) => r.parentId));
+}

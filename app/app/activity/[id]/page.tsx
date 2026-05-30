@@ -4,6 +4,8 @@ import { requireCurrentUser } from "@/modules/auth";
 import { findActivityDb, findMyRsvpDb } from "@/modules/core/activities";
 import { Avatar, findMemberDb } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIdsDb } from "@/modules/core/categories";
+import { canCurrentUser } from "@/modules/permissions";
+import { listCommentsDb, CommentList, CommentForm } from "@/modules/comments";
 import { formatLongDate, relativeFromNow } from "@/lib/date";
 import { RsvpButtons } from "./RsvpButtons";
 
@@ -16,11 +18,20 @@ export default async function AppActivityDetailPage({ params }: Params) {
   const activity = await findActivityDb(id);
   if (!activity) notFound();
 
-  const [host, cats, myRsvp] = await Promise.all([
+  const [host, cats, myRsvp, comments, canModerate] = await Promise.all([
     findMemberDb(activity.hostId),
     findCategoriesByIdsDb(activity.categoryIds),
     findMyRsvpDb(activity.id, me.id),
+    listCommentsDb("ACTIVITY", activity.id),
+    canCurrentUser("comment.moderate"),
   ]);
+
+  // Adapt the session user (DB shape) into the Member shape the components want
+  const meMember = {
+    id: me.id, name: me.name, handle: me.handle,
+    role: me.role.name as "Guest" | "Member" | "Editor" | "Admin",
+    avatarColor: me.avatarColor, initial: me.initial,
+  };
 
   return (
     <main className="max-w-4xl mx-auto px-5 py-6">
@@ -62,10 +73,21 @@ export default async function AppActivityDetailPage({ params }: Params) {
         </div>
       </div>
 
+      {/* Comments */}
+      <section className="bg-white rounded-soft shadow-card border border-sand/60 p-6 mb-6">
+        <h2 className="serif text-xl text-ink mb-4 flex items-center gap-2">
+          💬 留言
+          <span className="text-sm text-ink/40 font-sans">({comments.length})</span>
+        </h2>
+        <div className="mb-5">
+          <CommentList comments={comments} currentUserId={me.id} canModerate={canModerate} />
+        </div>
+        <CommentForm me={meMember} parentType="ACTIVITY" parentId={activity.id} />
+      </section>
+
       <div className="bg-cream/40 rounded-soft border border-sand p-4 text-xs text-ink/60 leading-relaxed">
         <strong className="text-ink/80">提示：</strong>
-        點按下「我會去」會真的寫進 <code className="text-terracotta">ActivityParticipant</code> 表——
-        重新整理數字會更新。
+        RSVP 與留言都會立即寫入 DB，留言並會通知活動發起人。
       </div>
     </main>
   );

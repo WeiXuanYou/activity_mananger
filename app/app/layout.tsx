@@ -23,9 +23,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     initial: user.initial,
   };
 
-  const [unread, isAdmin] = await Promise.all([
+  const [unread, isAdmin, canCreateActivity, canCreatePoll] = await Promise.all([
     unreadCountDb(user.id),
     canCurrentUser("admin.approve"),
+    canCurrentUser("activity.create"),
+    canCurrentUser("poll.create"),
   ]);
 
   return (
@@ -42,12 +44,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <nav className="hidden md:flex items-center gap-1 ml-1 overflow-x-auto">
             <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
             <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
+            <Link href="/app/calendar" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">行事曆</Link>
             <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
             <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">✨ AI</Link>
             <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
             <Link href="/app/analytics" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">分析</Link>
             {isAdmin && (
               <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
+            )}
+            {/* Create dropdown (rendered as a tiny inline menu for now) */}
+            <span className="shrink-0 ml-2 text-xs text-ink/40">建立：</span>
+            <Link href="/app/posts/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">文章</Link>
+            {canCreateActivity && (
+              <Link href="/app/activities/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">活動</Link>
+            )}
+            {canCreatePoll && (
+              <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">投票</Link>
             )}
           </nav>
           <div className="ml-auto flex items-center gap-2 shrink-0">

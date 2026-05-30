@@ -19,7 +19,9 @@ export {
   listUnpinnedPostsDb,
   findPostDb,
   filterPostsByCategorySlugDb,
+  findLikedPostIdsByUserDb,
 } from "./db";
 
 // UI components — same Post shape regardless of source
 export { PostCard } from "./components/PostCard";
+export { LikeButton } from "./components/LikeButton";
