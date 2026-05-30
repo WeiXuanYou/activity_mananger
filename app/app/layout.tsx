@@ -5,6 +5,7 @@ import { Avatar } from "@/modules/core/members";
 import { RoleBadge, canCurrentUser } from "@/modules/permissions";
 import { NotificationBell, unreadCountDb } from "@/modules/notifications";
 import { SearchBar } from "./search/SearchBar";
+import { MobileMenu } from "./MobileMenu";
 
 /**
  * Authenticated shell for the REAL app (Phase B+).
@@ -34,10 +35,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div>
       <header className="border-b border-sand bg-paper/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-5 py-3 flex items-center gap-4">
-          <Link href="/app/feed" className="serif text-2xl text-terracotta font-semibold flex items-baseline gap-2 shrink-0">
+        <div className="max-w-6xl mx-auto px-3 md:px-5 py-2.5 md:py-3 flex items-center gap-2 md:gap-4">
+          <Link href="/app/feed" className="serif text-xl md:text-2xl text-terracotta font-semibold flex items-baseline gap-2 shrink-0">
             <span>相聚</span>
-            <span className="text-xs text-ink/40 font-sans tracking-widest">Together</span>
+            <span className="hidden sm:inline text-xs text-ink/40 font-sans tracking-widest">Together</span>
           </Link>
           <span className="hidden lg:inline text-xs bg-sage-soft/60 text-sage-dark px-2 py-1 rounded-full font-medium">
             ● Phase F+G
@@ -63,8 +64,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">投票</Link>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            <SearchBar compact />
+          <div className="ml-auto flex items-center gap-1.5 md:gap-2 shrink-0">
+            {/* Search: full bar on md+, just an icon on mobile that jumps to the search page */}
+            <div className="hidden md:block"><SearchBar compact /></div>
+            <Link
+              href="/app/search"
+              aria-label="搜尋"
+              className="md:hidden w-10 h-10 rounded-soft hover:bg-cream/60 flex items-center justify-center text-lg"
+            >
+              🔍
+            </Link>
             <NotificationBell unread={unread} />
             <Link
               href={`/app/members/${user.id}`}
@@ -75,11 +84,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <span className="font-medium text-ink/80">{me.name}</span>
               <RoleBadge role={me.role} />
             </Link>
-            <form action={signOutAction}>
+            <form action={signOutAction} className="hidden md:block">
               <button className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40">
                 登出
               </button>
             </form>
+            <MobileMenu
+              profileHref={`/app/members/${user.id}`}
+              myName={me.name}
+              myRole={me.role}
+              isAdmin={isAdmin}
+              canCreateActivity={canCreateActivity}
+              canCreatePoll={canCreatePoll}
+              onSignOut={signOutAction}
+            />
           </div>
         </div>
       </header>

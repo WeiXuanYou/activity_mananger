@@ -62,7 +62,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const memories = await listMemoriesForToday();
 
   return (
-    <main className="max-w-6xl mx-auto px-5 py-6">
+    <main className="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-6">
       <div className="mb-6">
         <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · /app</p>
         <h1 className="serif text-3xl text-ink">嗨，{me.name}</h1>

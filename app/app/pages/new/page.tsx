@@ -8,7 +8,7 @@ export default async function NewCustomPagePage() {
   const categories = await listCategoriesDb();
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
+    <main className="max-w-3xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <Link href="/app/pages" className="text-sm text-ink/60 hover:text-terracotta mb-4 inline-block">
         ← 回頁面列表
       </Link>

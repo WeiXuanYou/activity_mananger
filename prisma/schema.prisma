@@ -41,6 +41,7 @@ model User {
   requestsDecided   PermissionRequest[]   @relation("RequestDecider")
   categoriesCreated Category[]
   notifications     Notification[]
+  expensesPaid      Expense[]             @relation("ExpensePayer")
 
   @@index([roleId])
 }
@@ -168,9 +169,30 @@ model Activity {
 
   participants ActivityParticipant[]
   categories   ActivityCategory[]
+  expenses     Expense[]
 
   @@index([startsAt])
   @@index([authorId])
+}
+
+/// One spent line per activity. v1: equal-split across all GOING+MAYBE
+/// participants computed in the app layer — no per-person allocation
+/// table yet. Move to ExpenseSplit when we need uneven splits.
+model Expense {
+  id          String   @id @default(cuid())
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  payerId     String
+  payer       User     @relation("ExpensePayer", fields: [payerId], references: [id])
+  description String
+  /// Amount in 1/100 of currency unit (cents). NT$1,500 = 150000.
+  amountCents Int
+  /// Free-text: "TWD", "JPY" etc. Default TWD for the family demo.
+  currency    String   @default("TWD")
+  createdAt   DateTime @default(now())
+
+  @@index([activityId])
+  @@index([payerId])
 }
 
 model ActivityParticipant {

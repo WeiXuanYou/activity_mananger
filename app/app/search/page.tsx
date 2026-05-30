@@ -44,7 +44,7 @@ export default async function SearchPage({ searchParams }: Search) {
   const hits = query ? await searchAll(query) : [];
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
+    <main className="max-w-3xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="mb-6">
         <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">SEARCH</p>
         <h1 className="serif text-3xl text-ink mb-3">搜尋整個相聚</h1>

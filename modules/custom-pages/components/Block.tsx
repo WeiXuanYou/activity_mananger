@@ -1,6 +1,7 @@
 import { getBlockRenderer } from "../block-renderers";
 import type { CustomPageBlock } from "../types";
 import { BlockToolbar, AddBlockRail } from "./BlockToolbar";
+import { PhotoAlbumEditor } from "./PhotoAlbumEditor";
 
 /**
  * Render a single block by looking up its renderer in the registry.
@@ -41,6 +42,14 @@ export function Block({
         {renderer.label.toUpperCase()}
       </div>
       {renderer.render(block.data)}
+      {/* Block-type-specific inline editor — only in edit mode */}
+      {edit && block.type === "photo-album" && (
+        <PhotoAlbumEditor
+          blockId={block.id}
+          initialPhotos={(Array.isArray(block.data.photos) ? block.data.photos : []) as { url: string; caption?: string }[]}
+          initialCols={Number(block.data.cols ?? 3)}
+        />
+      )}
     </section>
   );
 }

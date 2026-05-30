@@ -14,7 +14,7 @@ export default async function AppAssistantPage() {
   const providerLabel = describeProvider();
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
+    <main className="max-w-3xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-end gap-4 mb-2">
         <div className="text-4xl">✨</div>
         <div>

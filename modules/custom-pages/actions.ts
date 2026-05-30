@@ -155,11 +155,37 @@ export async function moveBlockAction(blockId: string, direction: "up" | "down")
  */
 export async function addStarterBlockAction(pageId: string, type: BlockType) {
   const defaults: Record<BlockType, Record<string, unknown>> = {
-    markdown:    { source: "## 新段落\n\n你想分享什麼..." },
-    richtext:    { html: "<p>新段落…</p>" },
-    html:        { html: "<div><!-- 寫進你的 HTML --></div>" },
-    image:       { url: "", caption: "" },
-    "embed-poll":{ pollId: "" },
+    markdown:      { source: "## 新段落\n\n你想分享什麼..." },
+    richtext:      { html: "<p>新段落…</p>" },
+    html:          { html: "<div><!-- 寫進你的 HTML --></div>" },
+    image:         { url: "", caption: "" },
+    "embed-poll":  { pollId: "" },
+    "photo-album": { photos: [], cols: 3 },
   };
   return addBlockAction(pageId, type, defaults[type] ?? {});
+}
+
+/**
+ * Update an arbitrary block's `data` JSON. Owner-or-page.publish gated
+ * like the other block actions. Used by the photo-album editor to push
+ * uploads + reorders + caption edits back to the DB.
+ */
+export async function updateBlockDataAction(
+  blockId: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const me = await requireCurrentUser();
+  const block = await db.customPageBlock.findUnique({
+    where: { id: blockId },
+    include: { page: { select: { ownerId: true, slug: true } } },
+  });
+  if (!block) throw new Error("找不到 block");
+  if (block.page.ownerId !== me.id) {
+    await requirePermission("page.publish");
+  }
+  await db.customPageBlock.update({
+    where: { id: blockId },
+    data: { data: JSON.stringify(data) },
+  });
+  revalidatePath(`/app/pages/${block.page.slug}`);
 }

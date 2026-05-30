@@ -17,7 +17,7 @@ export default async function NotificationsPage() {
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
+    <main className="max-w-3xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-end gap-3 mb-6">
         <div>
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">NOTIFICATIONS</p>

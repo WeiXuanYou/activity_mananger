@@ -10,6 +10,7 @@ import { formatLongDate, relativeFromNow } from "@/lib/date";
 import { RsvpButtons } from "./RsvpButtons";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
 import { deleteActivityAction } from "@/modules/core/activities/actions";
+import { getActivityExpenseSummary, ExpensePanel } from "@/modules/core/expenses";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,13 +21,14 @@ export default async function AppActivityDetailPage({ params }: Params) {
   const activity = await findActivityDb(id);
   if (!activity) notFound();
 
-  const [host, cats, myRsvp, comments, canModerate, canActivityModerate] = await Promise.all([
+  const [host, cats, myRsvp, comments, canModerate, canActivityModerate, expenseSummary] = await Promise.all([
     findMemberDb(activity.hostId),
     findCategoriesByIdsDb(activity.categoryIds),
     findMyRsvpDb(activity.id, me.id),
     listCommentsDb("ACTIVITY", activity.id),
     canCurrentUser("comment.moderate"),
     canCurrentUser("activity.moderate"),
+    getActivityExpenseSummary(activity.id),
   ]);
 
   const canEditActivity = activity.hostId === me.id || canActivityModerate;
@@ -46,18 +48,18 @@ export default async function AppActivityDetailPage({ params }: Params) {
   };
 
   return (
-    <main className="max-w-4xl mx-auto px-5 py-6">
+    <main className="max-w-4xl mx-auto px-3 sm:px-5 py-4 sm:py-6">
       <Link href="/app/activities" className="text-sm text-ink/60 hover:text-terracotta mb-4 inline-block">
         ← 回活動列表
       </Link>
 
       <div className="bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 mb-6">
-        <div className="h-48 md:h-64 relative" style={{ background: activity.cover }}>
+        <div className="h-32 sm:h-48 md:h-64 relative" style={{ background: activity.cover }}>
           <span className="absolute top-4 left-4 bg-white/90 text-terracotta text-xs font-medium px-2.5 py-1 rounded-full">
             即將舉行
           </span>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-xs px-2 py-1 rounded-full bg-terracotta-soft/60 text-terracotta-dark font-medium animate-pulse">
               ⏳ {relativeFromNow(activity.startsAt)}
@@ -73,7 +75,7 @@ export default async function AppActivityDetailPage({ params }: Params) {
               </div>
             )}
           </div>
-          <h1 className="serif text-3xl text-ink mb-2">{activity.title}</h1>
+          <h1 className="serif text-2xl sm:text-3xl text-ink mb-2">{activity.title}</h1>
           <div className="flex flex-wrap items-center gap-4 text-sm text-ink/60 mb-4">
             <span>🗓️ {formatLongDate(activity.startsAt)}</span>
             <span>📍 {activity.location}</span>
@@ -94,9 +96,18 @@ export default async function AppActivityDetailPage({ params }: Params) {
         </div>
       </div>
 
+      {/* Expenses / split */}
+      <ExpensePanel
+        activityId={activity.id}
+        summary={expenseSummary}
+        currentUserId={me.id}
+        hostId={activity.hostId}
+        canModerate={canActivityModerate}
+      />
+
       {/* Comments */}
-      <section className="bg-white rounded-soft shadow-card border border-sand/60 p-6 mb-6">
-        <h2 className="serif text-xl text-ink mb-4 flex items-center gap-2">
+      <section className="bg-white rounded-soft shadow-card border border-sand/60 p-4 sm:p-6 mb-6">
+        <h2 className="serif text-lg sm:text-xl text-ink mb-4 flex items-center gap-2">
           💬 留言
           <span className="text-sm text-ink/40 font-sans">({comments.length})</span>
         </h2>

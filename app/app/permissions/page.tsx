@@ -29,7 +29,7 @@ export default async function AppPermissionsPage() {
   const usersById = new Map(pendingUsers.map((u) => [u.id, u]));
 
   return (
-    <main className="max-w-4xl mx-auto px-5 py-8">
+    <main className="max-w-4xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">PERMISSIONS · LIVE DB</p>
       <h1 className="serif text-3xl text-ink mb-2">你的權限</h1>
       <p className="text-ink/60 mb-8">

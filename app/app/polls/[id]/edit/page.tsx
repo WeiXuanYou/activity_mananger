@@ -31,7 +31,7 @@ export default async function EditPollPage({ params }: Params) {
   const hasVotes = poll.totalVotes > 0;
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
+    <main className="max-w-3xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <Link href={`/app/poll/${id}`} className="text-sm text-ink/60 hover:text-terracotta mb-4 inline-block">
         ← 回投票
       </Link>

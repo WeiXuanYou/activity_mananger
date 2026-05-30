@@ -60,14 +60,14 @@ export default async function AppCalendarPage({ searchParams }: Search) {
   ).length;
 
   return (
-    <main className="max-w-6xl mx-auto px-5 py-8">
-      <div className="flex items-end gap-4 mb-6 flex-wrap">
+    <main className="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
+      <div className="flex items-end gap-4 mb-4 sm:mb-6 flex-wrap">
         <div>
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CALENDAR</p>
-          <h1 className="serif text-3xl text-ink">{year} 年 {month + 1} 月</h1>
+          <h1 className="serif text-2xl sm:text-3xl text-ink">{year} 年 {month + 1} 月</h1>
           <p className="text-ink/60 text-sm mt-1">本月有 <strong className="text-ink/80">{monthCount}</strong> 場活動</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <Link
             href={`/app/calendar?month=${fmtMonth(prevMonth.y, prevMonth.m)}`}
             className="px-3 py-1.5 rounded-soft bg-white border border-sand text-sm text-ink/70 hover:bg-cream/40"
@@ -111,31 +111,44 @@ export default async function AppCalendarPage({ searchParams }: Search) {
             return (
               <div
                 key={i}
-                className={`min-h-[88px] border-b border-r border-sand last-of-type:border-r-0 p-1.5 ${
+                className={`min-h-[56px] sm:min-h-[88px] border-b border-r border-sand last-of-type:border-r-0 p-1 sm:p-1.5 ${
                   inMonth ? "bg-white" : "bg-cream/30"
                 } ${isToday ? "ring-2 ring-terracotta ring-inset" : ""}`}
               >
                 <div
-                  className={`text-xs mb-1 ${
+                  className={`text-[10px] sm:text-xs mb-1 ${
                     inMonth ? "text-ink/70" : "text-ink/30"
                   } ${isToday ? "font-bold text-terracotta" : ""}`}
                 >
                   {d.getDate()}
                 </div>
                 <div className="space-y-0.5">
-                  {events.slice(0, 3).map((a) => (
-                    <Link
-                      key={a.id}
-                      href={`/app/activity/${a.id}`}
-                      className="block text-[10px] leading-tight px-1.5 py-0.5 rounded bg-terracotta-soft/60 text-terracotta-dark hover:bg-terracotta hover:text-white transition truncate"
-                      title={a.title}
-                    >
-                      {a.startsAt.slice(11, 16)} {a.title}
-                    </Link>
-                  ))}
-                  {events.length > 3 && (
-                    <div className="text-[10px] text-ink/40">+{events.length - 3}</div>
-                  )}
+                  {/* Mobile shows only a dot per event (saves space); md+ shows full title */}
+                  <div className="sm:hidden flex flex-wrap gap-0.5">
+                    {events.slice(0, 4).map((a) => (
+                      <Link
+                        key={a.id}
+                        href={`/app/activity/${a.id}`}
+                        title={a.title}
+                        className="w-1.5 h-1.5 rounded-full bg-terracotta"
+                      />
+                    ))}
+                  </div>
+                  <div className="hidden sm:block space-y-0.5">
+                    {events.slice(0, 3).map((a) => (
+                      <Link
+                        key={a.id}
+                        href={`/app/activity/${a.id}`}
+                        className="block text-[10px] leading-tight px-1.5 py-0.5 rounded bg-terracotta-soft/60 text-terracotta-dark hover:bg-terracotta hover:text-white transition truncate"
+                        title={a.title}
+                      >
+                        {a.startsAt.slice(11, 16)} {a.title}
+                      </Link>
+                    ))}
+                    {events.length > 3 && (
+                      <div className="text-[10px] text-ink/40">+{events.length - 3}</div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

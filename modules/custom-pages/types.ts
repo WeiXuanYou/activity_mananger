@@ -8,7 +8,14 @@ import type { Member } from "@/modules/core/members";
  *      calls `registerBlockRenderer({...})`
  *   3. Add `import "./NewType"` in block-renderers/index.ts
  */
-export type BlockType = "richtext" | "markdown" | "html" | "image" | "embed-poll";
+export type BlockType =
+  | "richtext"
+  | "markdown"
+  | "html"
+  | "image"
+  | "embed-poll"
+  /** Multi-image responsive grid. data: { photos: { url, caption? }[], cols?: 2|3 } */
+  | "photo-album";
 
 /**
  * Polymorphic block payload. Each renderer narrows this to its expected

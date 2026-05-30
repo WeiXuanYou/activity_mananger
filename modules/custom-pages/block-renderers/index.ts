@@ -23,3 +23,4 @@ import "./Markdown";
 import "./Html";
 import "./Image";
 import "./EmbedPoll";
+import "./PhotoAlbum";

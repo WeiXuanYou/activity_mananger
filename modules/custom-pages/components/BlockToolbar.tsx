@@ -18,11 +18,12 @@ import {
 import type { BlockType } from "../types";
 
 const ADDABLE: { type: BlockType; label: string; emoji: string }[] = [
-  { type: "markdown",   label: "Markdown",  emoji: "📝" },
-  { type: "richtext",   label: "RichText",  emoji: "📄" },
-  { type: "image",      label: "圖片",       emoji: "🖼" },
-  { type: "embed-poll", label: "嵌入投票",   emoji: "📊" },
-  { type: "html",       label: "HTML",      emoji: "</>" },
+  { type: "markdown",    label: "Markdown",  emoji: "📝" },
+  { type: "richtext",    label: "RichText",  emoji: "📄" },
+  { type: "image",       label: "圖片",       emoji: "🖼" },
+  { type: "photo-album", label: "相簿",       emoji: "📷" },
+  { type: "embed-poll",  label: "嵌入投票",   emoji: "📊" },
+  { type: "html",        label: "HTML",      emoji: "</>" },
 ];
 
 export function BlockToolbar({
