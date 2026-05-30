@@ -47,7 +47,7 @@ const MODES: Mode[] = [
   },
 ];
 
-export function AssistantPlayground({ live }: { live: boolean }) {
+export function AssistantPlayground({ live, providerLabel }: { live: boolean; providerLabel: string }) {
   const [modeKey, setModeKey] = useState<Mode["key"]>("draft-poll");
   const [input, setInput] = useState("");
   const [result, setResult] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export function AssistantPlayground({ live }: { live: boolean }) {
           {pending ? "思考中..." : `✨ ${mode.label}`}
         </button>
         <span className="text-xs text-ink/40">
-          {live ? "由 Claude Opus 4.8 回應" : "stub 模式"}
+          {live ? `由 ${providerLabel} 回應` : "stub 模式"}
         </span>
       </div>
 

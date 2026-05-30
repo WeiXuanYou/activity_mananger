@@ -1,14 +1,17 @@
 import { requireCurrentUser } from "@/modules/auth";
-import { isLLMConfigured } from "@/modules/ai-assistant";
+import { isLLMConfigured, describeProvider } from "@/modules/ai-assistant";
 import { AssistantPlayground } from "./AssistantPlayground";
 
 /**
- * Live AI assistant page (Phase G). The playground calls real server
- * actions that hit Claude when ANTHROPIC_API_KEY is set, else a stub.
+ * Live AI assistant page (Phase G/I). The playground calls server actions
+ * that go through `modules/ai-assistant/client.ts`, which dispatches to
+ * either the Anthropic SDK or any OpenAI-compatible endpoint (Ollama,
+ * LM Studio, vLLM, official OpenAI...) based on LLM_PROVIDER.
  */
 export default async function AppAssistantPage() {
   const me = await requireCurrentUser();
   const live = isLLMConfigured();
+  const providerLabel = describeProvider();
 
   return (
     <main className="max-w-3xl mx-auto px-5 py-8">
@@ -23,21 +26,34 @@ export default async function AppAssistantPage() {
           className={`ml-auto px-3 py-1.5 rounded-full text-xs font-medium ${
             live ? "bg-sage-soft text-sage-dark" : "bg-cream text-ink/55"
           }`}
+          title={providerLabel}
         >
-          {live ? "● Claude 已接入 (Opus 4.8)" : "○ Stub 模式（未設 API key）"}
+          {live ? `● ${providerLabel}` : `○ Stub · ${providerLabel}`}
         </span>
       </div>
 
       {!live && (
         <div className="mt-4 mb-6 bg-cream/50 rounded-soft border border-sand p-4 text-sm text-ink/70 leading-relaxed">
           目前是 <strong>stub 模式</strong>——下方功能可用，但回應由本地 heuristic 產生。
-          設定環境變數 <code className="text-terracotta">ANTHROPIC_API_KEY</code> 後重啟，
-          同樣的 UI 就會改用 <strong>Claude Opus 4.8</strong>（自動 adaptive thinking）真實回應，
-          程式碼一行都不用改——全部封裝在 <code className="text-terracotta">modules/ai-assistant/client.ts</code>。
+          要切到真實 LLM：
+          <ul className="mt-2 space-y-1 list-disc pl-5">
+            <li>
+              <strong>Anthropic Claude</strong>：設 <code className="text-terracotta">ANTHROPIC_API_KEY</code>（預設 provider）
+            </li>
+            <li>
+              <strong>本地 Ollama / LM Studio / vLLM</strong>：設{" "}
+              <code className="text-terracotta">LLM_PROVIDER=openai</code>，
+              <code className="text-terracotta">LLM_BASE_URL=http://localhost:11434/v1</code>，
+              <code className="text-terracotta">LLM_MODEL_SMART=qwen2.5:14b</code>
+            </li>
+          </ul>
+          <p className="mt-2 text-xs text-ink/55">
+            程式碼一行不用改——全部封裝在 <code className="text-terracotta">modules/ai-assistant/client.ts</code>。
+          </p>
         </div>
       )}
 
-      <AssistantPlayground live={live} />
+      <AssistantPlayground live={live} providerLabel={providerLabel} />
 
       <div className="mt-8 bg-cream/40 rounded-soft border border-sand p-4 text-xs text-ink/60 leading-relaxed">
         <strong className="text-ink/80">設計原則：</strong>

@@ -9,7 +9,7 @@ export type {
   DraftActivityResult,
 } from "./types";
 
-export { callLLM, isLLMConfigured } from "./client";
+export { callLLM, isLLMConfigured, describeProvider } from "./client";
 export type { LLMRequest } from "./client";
 
 export { COMPOSER_SUGGESTIONS, CAPABILITY_MENU } from "./data";

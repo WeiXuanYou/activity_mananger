@@ -1,6 +1,42 @@
 # modules/ai-assistant
 
-AI 助手模組——**目前是 stub 骨架**，等待後續接入 Anthropic SDK。
+AI 助手模組。**Provider-agnostic**：透過 `LLM_PROVIDER` 環境變數在
+**Anthropic Claude API** 與**任何 OpenAI-compatible 端點**（Ollama、
+LM Studio、vLLM、官方 OpenAI、OpenRouter…）之間切換，**程式碼一行不用改**。
+
+## Provider 設定
+
+| 變數 | Anthropic（預設） | OpenAI-compatible / 本地 |
+|---|---|---|
+| `LLM_PROVIDER` | 未設 或 `anthropic` | `openai`（也接受 `ollama` / `local`） |
+| auth | `ANTHROPIC_API_KEY=sk-ant-…` | `LLM_API_KEY=…`（本地隨便填，例如 `ollama`） |
+| endpoint | （內建） | `LLM_BASE_URL=http://localhost:11434/v1` |
+| 快速模型 | 內建 `claude-haiku-4-5` | `LLM_MODEL_FAST=qwen2.5:7b` |
+| 聰明模型 | 內建 `claude-opus-4-8` | `LLM_MODEL_SMART=qwen2.5:14b` |
+
+### 範例：本地 Ollama
+```bash
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_MODEL_FAST=qwen2.5:7b
+LLM_MODEL_SMART=qwen2.5:14b
+```
+
+### 範例：官方 OpenAI
+```bash
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=sk-…
+LLM_MODEL_FAST=gpt-4o-mini
+LLM_MODEL_SMART=gpt-4o
+```
+
+### 範例：Anthropic（預設）
+```bash
+ANTHROPIC_API_KEY=sk-ant-…
+```
+
+任何 provider 都沒設 → 自動跑 **stub mode**，UI 仍可用。
 
 ## 用途
 
