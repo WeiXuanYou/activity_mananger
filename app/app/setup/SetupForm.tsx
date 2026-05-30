@@ -166,7 +166,7 @@ export function SetupForm({
         />
         {mustResetPassword && (
           <p className="mt-1 text-xs text-terracotta-dark">
-            ⚠ 你目前用的是預設密碼 admin。為了安全，請先換一個。
+            ⚠ 你目前用的是預設密碼。為了安全，請先換一個再進入系統。
           </p>
         )}
       </label>

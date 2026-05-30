@@ -185,3 +185,17 @@ export async function toggleLikeAction(postId: string) {
   }
   revalidatePath("/app/feed");
 }
+
+/**
+ * Hide / un-hide a post. Same gate as edit/delete (owner OR
+ * post.moderate). Hidden posts are filtered from list queries but the
+ * detail surfaces stay intact for direct links.
+ */
+export async function setPostHiddenAction(id: string, hidden: boolean): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+  await db.post.update({ where: { id }, data: { hiddenAt: hidden ? new Date() : null } });
+  revalidatePath("/app/feed");
+}

@@ -156,6 +156,24 @@ async function main() {
   // DEMO MODE — full content below this line
   // ───────────────────────────────────────────────────────────────
 
+  // Demo install ALSO ships an admin/admin login. Same setup-on-first-login
+  // flow as production, so anyone testing can experience the real flow.
+  const { hashPassword: hashDemoPw } = await import("@/modules/auth/password");
+  const demoAdminHash = await hashDemoPw("admin");
+  await db.user.upsert({
+    where: { handle: "admin" },
+    update: { passwordHash: demoAdminHash, roleId: roleRows.Admin.id },
+    create: {
+      handle: "admin",
+      name: "Admin",
+      avatarColor: "#C75B3A",
+      initial: "A",
+      roleId: roleRows.Admin.id,
+      setupCompleted: false,
+      passwordHash: demoAdminHash,
+    },
+  });
+
   // Users
   const userRows: Record<string, { id: string; handle: string; role: string }> = {};
   for (const m of MEMBERS) {

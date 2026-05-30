@@ -19,7 +19,7 @@ import { listPollsDb, PollCard } from "@/modules/core/polls";
 import { listCategoriesDb, findCategoryBySlugDb, CategoryFilterBar } from "@/modules/core/categories";
 import { formatShortDate, relativeFromNow } from "@/lib/date";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
-import { deletePostAction } from "@/modules/core/posts/actions";
+import { deletePostAction, setPostHiddenAction } from "@/modules/core/posts/actions";
 import { listMemoriesForToday, MemoriesCard } from "@/modules/core/memories";
 import { listUpcomingBirthdays, BirthdayWidget } from "@/modules/core/birthdays";
 
@@ -116,11 +116,15 @@ export default async function AppFeedPage({ searchParams }: Search) {
           ) : (
             filteredPosts.map((p) => {
               const canEdit = canModeratePosts || p.authorId === me.id;
-              // Bound server-action thunk — captures the post id so the
-              // client OwnerActions doesn't need to know how delete works.
+              // Bound server-action thunks — capture the post id so the
+              // client OwnerActions doesn't need to know how the actions work.
               const onDelete = async () => {
                 "use server";
                 await deletePostAction(p.id);
+              };
+              const onToggleHidden = async (next: boolean) => {
+                "use server";
+                await setPostHiddenAction(p.id, next);
               };
               return (
                 <PostCard
@@ -132,6 +136,8 @@ export default async function AppFeedPage({ searchParams }: Search) {
                       <OwnerActions
                         editHref={`/app/posts/${p.id}/edit`}
                         onDelete={onDelete}
+                        onToggleHidden={onToggleHidden}
+                        hidden={Boolean(p.hiddenAt)}
                       />
                     ) : undefined
                   }

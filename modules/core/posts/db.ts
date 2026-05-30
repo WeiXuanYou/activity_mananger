@@ -9,6 +9,7 @@
 import { db } from "@/lib/db";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
+import { visiblePostsWhere } from "@/modules/core/visibility";
 import type { Post, PostKind } from "./types";
 
 type UserWithRole = {
@@ -31,6 +32,7 @@ type PostRow = {
   body: string;
   isPinned: boolean;
   pinnedById: string | null;
+  hiddenAt: Date | null;
   createdAt: Date;
   categories: { category: CategoryRow }[];
 };
@@ -66,6 +68,7 @@ export function prismaPostToPost(
     pinnedById: row.pinnedById ?? undefined,
     categoryIds: row.categories.map((c) => c.category.id),
     categories: row.categories.map((c) => prismaCategoryToCategory(c.category)),
+    hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : null,
   };
 }
 
@@ -105,6 +108,7 @@ async function loadPostsWithCounts(rows: PostRow[]): Promise<Post[]> {
 
 export async function listPostsDb(): Promise<Post[]> {
   const rows = await db.post.findMany({
+    where: visiblePostsWhere(),
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     include: POST_INCLUDE,
   });
@@ -113,7 +117,7 @@ export async function listPostsDb(): Promise<Post[]> {
 
 export async function listPinnedPostsDb(): Promise<Post[]> {
   const rows = await db.post.findMany({
-    where: { isPinned: true },
+    where: { ...visiblePostsWhere(), isPinned: true },
     orderBy: { createdAt: "desc" },
     include: POST_INCLUDE,
   });
@@ -122,7 +126,7 @@ export async function listPinnedPostsDb(): Promise<Post[]> {
 
 export async function listUnpinnedPostsDb(): Promise<Post[]> {
   const rows = await db.post.findMany({
-    where: { isPinned: false },
+    where: { ...visiblePostsWhere(), isPinned: false },
     orderBy: { createdAt: "desc" },
     include: POST_INCLUDE,
   });

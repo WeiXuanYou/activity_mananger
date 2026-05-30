@@ -11,6 +11,7 @@
 import { db } from "@/lib/db";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
+import { visibleActivitiesWhere, activityAutoHideCutoff } from "@/modules/core/visibility";
 import type { Activity } from "./types";
 
 type UserWithRole = {
@@ -33,6 +34,7 @@ type ActivityRow = {
   startsAt: Date;
   authorId: string;
   author: UserWithRole;
+  hiddenAt: Date | null;
   participants: { status: string }[];
   categories: { category: CategoryRow }[];
 };
@@ -63,6 +65,7 @@ export function prismaActivityToActivity(row: ActivityRow): Activity {
     },
     categoryIds: row.categories.map((c) => c.category.id),
     categories: row.categories.map((c) => prismaCategoryToCategory(c.category)),
+    hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : null,
   };
 }
 
@@ -72,8 +75,14 @@ const ACTIVITY_INCLUDE = {
   categories: { include: { category: true } },
 } as const;
 
+/**
+ * All visible activities — manually hidden + auto-hidden (90 days past
+ * startsAt) are filtered out. Detail page still renders direct-link
+ * visits (those bypass this list query).
+ */
 export async function listActivitiesDb(): Promise<Activity[]> {
   const rows = await db.activity.findMany({
+    where: visibleActivitiesWhere(),
     orderBy: { startsAt: "asc" },
     include: ACTIVITY_INCLUDE,
   });
@@ -82,16 +91,22 @@ export async function listActivitiesDb(): Promise<Activity[]> {
 
 export async function listUpcomingActivitiesDb(): Promise<Activity[]> {
   const rows = await db.activity.findMany({
-    where: { startsAt: { gte: new Date() } },
+    where: { hiddenAt: null, startsAt: { gte: new Date() } },
     orderBy: { startsAt: "asc" },
     include: ACTIVITY_INCLUDE,
   });
   return rows.map(prismaActivityToActivity);
 }
 
+/**
+ * Past activities, capped at the auto-hide cutoff so 5-year-old events
+ * don't clutter the list. Caller (admin tools) wanting EVERYTHING
+ * should use the raw Prisma query.
+ */
 export async function listPastActivitiesDb(): Promise<Activity[]> {
+  const cutoff = activityAutoHideCutoff();
   const rows = await db.activity.findMany({
-    where: { startsAt: { lt: new Date() } },
+    where: { hiddenAt: null, startsAt: { gte: cutoff, lt: new Date() } },
     orderBy: { startsAt: "desc" },
     include: ACTIVITY_INCLUDE,
   });

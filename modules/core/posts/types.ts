@@ -29,4 +29,6 @@ export type Post = {
   pinnedById?: string;
   categoryIds: string[];
   categories?: Category[];
+  /** Set to a truthy ISO when the owner / a moderator manually hid this. */
+  hiddenAt?: string | null;
 };

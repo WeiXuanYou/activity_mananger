@@ -166,3 +166,24 @@ export async function deleteActivityAction(id: string): Promise<void> {
   revalidatePath("/app/feed");
   revalidatePath("/app/calendar");
 }
+
+/**
+ * Hide / un-hide an activity. Manual flip of `hiddenAt`. Same
+ * authorisation as edit / delete (owner OR activity.moderate). Hidden
+ * activities are filtered from listings + feed but the detail page
+ * still renders with a "已隱藏" banner.
+ */
+export async function setActivityHiddenAction(id: string, hidden: boolean): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.activity.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+  await db.activity.update({
+    where: { id },
+    data: { hiddenAt: hidden ? new Date() : null },
+  });
+  revalidatePath("/app/activities");
+  revalidatePath("/app/feed");
+  revalidatePath("/app/calendar");
+  revalidatePath(`/app/activity/${id}`);
+}

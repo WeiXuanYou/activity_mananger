@@ -6,7 +6,7 @@ import { Avatar, AvatarStack, findMemberDb, findMembersByIdsDb } from "@/modules
 import { CategoryChipList, findCategoriesByIdsDb } from "@/modules/core/categories";
 import { canCurrentUser } from "@/modules/permissions";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
-import { deletePollAction } from "@/modules/core/polls/actions";
+import { deletePollAction, setPollHiddenAction } from "@/modules/core/polls/actions";
 import { VoteButton } from "./VoteButton";
 
 type Params = { params: Promise<{ id: string }> };
@@ -29,6 +29,10 @@ export default async function AppPollDetailPage({ params }: Params) {
   const handleDelete = async () => {
     "use server";
     await deletePollAction(poll.id);
+  };
+  const handleToggleHidden = async (next: boolean) => {
+    "use server";
+    await setPollHiddenAction(poll.id, next);
   };
 
   // Resolve voter user-ids → Member shape for avatar display
@@ -66,6 +70,8 @@ export default async function AppPollDetailPage({ params }: Params) {
               <OwnerActions
                 editHref={`/app/polls/${poll.id}/edit`}
                 onDelete={handleDelete}
+                onToggleHidden={handleToggleHidden}
+                hidden={Boolean(poll.hiddenAt)}
                 redirectTo="/app/feed"
               />
             )}

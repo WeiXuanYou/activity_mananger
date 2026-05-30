@@ -20,4 +20,7 @@ export type Activity = {
   description: string;
   categoryIds: string[];
   categories?: Category[];
+  /** Set to a truthy ISO when the owner / a moderator manually hid this.
+   *  Direct-link visits still render the detail page with a "已隱藏" banner. */
+  hiddenAt?: string | null;
 };

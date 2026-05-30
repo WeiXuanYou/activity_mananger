@@ -226,3 +226,18 @@ export async function deletePollAction(id: string): Promise<void> {
   ]);
   revalidatePath("/app/feed");
 }
+
+/**
+ * Hide / un-hide a poll. Same gate as edit/delete (owner OR
+ * poll.moderate). Hidden polls are filtered from list queries but the
+ * detail page still renders for direct-link visits.
+ */
+export async function setPollHiddenAction(id: string, hidden: boolean): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.poll.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+  await db.poll.update({ where: { id }, data: { hiddenAt: hidden ? new Date() : null } });
+  revalidatePath("/app/feed");
+  revalidatePath(`/app/poll/${id}`);
+}

@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { daysFromNow, relativeFromNow } from "@/lib/date";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
+import { visiblePollsWhere } from "@/modules/core/visibility";
 import type { Poll, PollKind, PollStatus } from "./types";
 
 type UserWithRole = {
@@ -34,6 +35,7 @@ type PollRow = {
   anonymous: boolean;
   allowAddOption: boolean;
   closesAt: Date | null;
+  hiddenAt: Date | null;
   options: {
     id: string;
     label: string;
@@ -82,6 +84,7 @@ export function prismaPollToPoll(row: PollRow): Poll {
     status: statusFor(row.closesAt),
     categoryIds: row.categories.map((c) => c.category.id),
     categories: row.categories.map((c) => prismaCategoryToCategory(c.category)),
+    hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : null,
   };
 }
 
@@ -96,6 +99,7 @@ const POLL_INCLUDE = {
 
 export async function listPollsDb(): Promise<Poll[]> {
   const rows = await db.poll.findMany({
+    where: visiblePollsWhere(),
     orderBy: { createdAt: "desc" },
     include: POLL_INCLUDE,
   });

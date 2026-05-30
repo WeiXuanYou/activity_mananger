@@ -203,6 +203,11 @@ model Activity {
   author      User      @relation(fields: [authorId], references: [id])
   pollId      String?   @unique
   poll        Poll?     @relation(fields: [pollId], references: [id])
+  /// Manually hidden by the owner or a moderator. NOT null = hidden.
+  /// Query helpers filter these out by default; the detail page still
+  /// renders the activity for someone who has the direct link, but
+  /// surfaces a "已隱藏" banner.
+  hiddenAt    DateTime?
   createdAt   DateTime  @default(now())
 
   participants ActivityParticipant[]
@@ -293,6 +298,9 @@ model Poll {
   anonymous      Boolean   @default(false)
   allowAddOption Boolean   @default(true)
   closesAt       DateTime?
+  /// Manually hidden by the owner or a moderator. See Activity.hiddenAt
+  /// for the same pattern.
+  hiddenAt       DateTime?
   createdAt      DateTime  @default(now())
 
   options    PollOption[]
@@ -347,6 +355,8 @@ model Post {
   isPinned   Boolean  @default(false)
   pinnedById String?
   pinnedBy   User?    @relation("PostPinner", fields: [pinnedById], references: [id])
+  /// Manually hidden by the owner or a moderator. See Activity.hiddenAt.
+  hiddenAt   DateTime?
   createdAt  DateTime @default(now())
 
   categories PostCategory[]

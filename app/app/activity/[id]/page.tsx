@@ -9,7 +9,7 @@ import { listCommentsDb, CommentList, CommentForm } from "@/modules/comments";
 import { formatLongDate, relativeFromNow } from "@/lib/date";
 import { RsvpButtons } from "./RsvpButtons";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
-import { deleteActivityAction } from "@/modules/core/activities/actions";
+import { deleteActivityAction, setActivityHiddenAction } from "@/modules/core/activities/actions";
 import { getActivityExpenseSummary, ExpensePanel } from "@/modules/core/expenses";
 
 type Params = { params: Promise<{ id: string }> };
@@ -39,6 +39,10 @@ export default async function AppActivityDetailPage({ params }: Params) {
     "use server";
     await deleteActivityAction(activity.id);
   };
+  const handleToggleHidden = async (next: boolean) => {
+    "use server";
+    await setActivityHiddenAction(activity.id, next);
+  };
 
   // Adapt the session user (DB shape) into the Member shape the components want
   const meMember = {
@@ -52,6 +56,13 @@ export default async function AppActivityDetailPage({ params }: Params) {
       <Link href="/app/activities" className="text-sm text-ink/60 hover:text-terracotta mb-4 inline-block">
         ← 回活動列表
       </Link>
+
+      {activity.hiddenAt && (
+        <div className="mb-4 rounded-soft border border-sand bg-cream/60 px-4 py-3 text-sm text-ink/70 flex items-center gap-2">
+          <span>🙈</span>
+          <span>這個活動已被隱藏，只有有連結的人或管理員看得到。</span>
+        </div>
+      )}
 
       <div className="bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 mb-6">
         <div className="h-32 sm:h-48 md:h-64 relative" style={{ background: activity.cover }}>
@@ -70,6 +81,8 @@ export default async function AppActivityDetailPage({ params }: Params) {
                 <OwnerActions
                   editHref={`/app/activities/${activity.id}/edit`}
                   onDelete={handleDelete}
+                  onToggleHidden={handleToggleHidden}
+                  hidden={Boolean(activity.hiddenAt)}
                   redirectTo="/app/activities"
                 />
               </div>

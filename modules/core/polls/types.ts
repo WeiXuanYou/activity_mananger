@@ -39,6 +39,8 @@ export type Poll = {
   status: PollStatus;
   categoryIds: string[];
   categories?: Category[];
+  /** Set to a truthy ISO when the owner / a moderator manually hid this. */
+  hiddenAt?: string | null;
 };
 
 export type Comment = {
