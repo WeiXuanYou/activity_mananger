@@ -203,6 +203,10 @@ model Poll {
   question       String
   authorId       String
   author         User      @relation("PollAuthor", fields: [authorId], references: [id])
+  /// "STANDARD" (default — text options) | "SCHEDULE" (Doodle-style: each
+  /// option is an ISO datetime string; UI renders dates and the top-voted
+  /// option is highlighted as the suggested time)
+  kind           String    @default("STANDARD")
   multiSelect    Boolean   @default(false)
   anonymous      Boolean   @default(false)
   allowAddOption Boolean   @default(true)

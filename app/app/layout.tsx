@@ -64,11 +64,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             <NotificationBell unread={unread} />
-            <div className="hidden md:flex items-center gap-2 text-sm">
+            <Link
+              href={`/app/members/${user.id}`}
+              className="hidden md:flex items-center gap-2 text-sm hover:opacity-80 transition"
+              title="去我的個人檔案"
+            >
               <Avatar member={me} size={32} />
               <span className="font-medium text-ink/80">{me.name}</span>
               <RoleBadge role={me.role} />
-            </div>
+            </Link>
             <form action={signOutAction}>
               <button className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40">
                 登出

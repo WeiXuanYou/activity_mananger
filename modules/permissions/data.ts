@@ -6,12 +6,16 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
   Guest:  [],
   Member: ["post.create", "comment.create", "page.create", "category.create"],
   Editor: [
-    "post.create", "post.pin", "activity.create", "poll.create",
+    "post.create", "post.pin", "post.moderate",
+    "activity.create", "activity.moderate",
+    "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
     "category.create",
   ],
   Admin: [
-    "post.create", "post.pin", "activity.create", "poll.create",
+    "post.create", "post.pin", "post.moderate",
+    "activity.create", "activity.moderate",
+    "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
     "category.create", "invite.create", "admin.approve", "analytics.view",
   ],

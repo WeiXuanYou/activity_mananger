@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Category } from "@/modules/core/categories";
 import { COLOR_CLASSES } from "@/modules/core/categories";
-import { createPollAction } from "@/modules/core/polls/actions";
+import { createPollAction, updatePollAction } from "@/modules/core/polls/actions";
 
 type Deadline = "1d" | "3d" | "1w" | "2w" | "custom";
 
@@ -16,18 +16,42 @@ function deadlineToIso(d: Deadline, custom: string): string | undefined {
   return date.toISOString();
 }
 
-export function NewPollForm({ categories }: { categories: Category[] }) {
+export type EditingPoll = {
+  id: string;
+  question: string;
+  kind: "STANDARD" | "SCHEDULE";
+  options: string[];
+  multiSelect: boolean;
+  anonymous: boolean;
+  allowAddOption: boolean;
+  closesAt: string;        // datetime-local string or ""
+  categorySlugs: string[];
+  hasVotes: boolean;       // if true, options become read-only
+};
+
+export function NewPollForm({
+  categories,
+  editing,
+}: {
+  categories: Category[];
+  editing?: EditingPoll;
+}) {
   const router = useRouter();
-  const [question, setQuestion] = useState("");
-  const [options, setOptions] = useState(["", ""]);
-  const [multiSelect, setMultiSelect] = useState(false);
-  const [anonymous, setAnonymous] = useState(false);
-  const [allowAdd, setAllowAdd] = useState(true);
-  const [deadline, setDeadline] = useState<Deadline>("3d");
-  const [customDeadline, setCustomDeadline] = useState("");
-  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
+  const [question, setQuestion] = useState(editing?.question ?? "");
+  // SCHEDULE mode flips option inputs to datetime-local pickers.
+  // We default multiSelect to true in schedule mode since people usually
+  // can mark multiple time slots as "available".
+  const [kind, setKind] = useState<"STANDARD" | "SCHEDULE">(editing?.kind ?? "STANDARD");
+  const [options, setOptions] = useState<string[]>(editing?.options ?? ["", ""]);
+  const [multiSelect, setMultiSelect] = useState(editing?.multiSelect ?? false);
+  const [anonymous, setAnonymous] = useState(editing?.anonymous ?? false);
+  const [allowAdd, setAllowAdd] = useState(editing?.allowAddOption ?? true);
+  const [deadline, setDeadline] = useState<Deadline>(editing ? "custom" : "3d");
+  const [customDeadline, setCustomDeadline] = useState(editing?.closesAt ?? "");
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>(editing?.categorySlugs ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const optionsLocked = editing?.hasVotes ?? false;
 
   const toggleCat = (slug: string) => {
     setSelectedSlugs((cur) =>
@@ -39,19 +63,43 @@ export function NewPollForm({ categories }: { categories: Category[] }) {
     const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
     if (!question.trim()) return setError("請填投票問題");
     if (cleanOptions.length < 2) return setError("至少需要 2 個選項");
+    if (kind === "SCHEDULE") {
+      for (const o of cleanOptions) {
+        if (Number.isNaN(new Date(o).getTime())) {
+          return setError("排程投票的每個選項都要選日期+時間");
+        }
+      }
+    }
     setError(null);
     startTransition(async () => {
       try {
-        await createPollAction({
-          question: question.trim(),
-          options: cleanOptions,
-          multiSelect,
-          anonymous,
-          allowAddOption: allowAdd,
-          closesAt: deadlineToIso(deadline, customDeadline),
-          categorySlugs: selectedSlugs,
-        });
-        router.push("/app/feed");
+        if (editing) {
+          await updatePollAction({
+            id: editing.id,
+            question: question.trim(),
+            // Only send options when allowed (no votes yet) — otherwise the
+            // server would reject and we'd lose all other edits too.
+            options: optionsLocked ? undefined : cleanOptions,
+            multiSelect,
+            anonymous,
+            allowAddOption: allowAdd,
+            closesAt: deadlineToIso(deadline, customDeadline) ?? null,
+            categorySlugs: selectedSlugs,
+          });
+          router.push(`/app/poll/${editing.id}`);
+        } else {
+          await createPollAction({
+            question: question.trim(),
+            kind,
+            options: cleanOptions,
+            multiSelect,
+            anonymous,
+            allowAddOption: allowAdd,
+            closesAt: deadlineToIso(deadline, customDeadline),
+            categorySlugs: selectedSlugs,
+          });
+          router.push("/app/feed");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "建立失敗");
       }
@@ -65,6 +113,41 @@ export function NewPollForm({ categories }: { categories: Category[] }) {
         <span>類似 Line 的投票工具——支援單選/多選、匿名、可由家人朋友新增選項、自動截止。</span>
       </div>
 
+      {/* Mode toggle — STANDARD vs SCHEDULE. Hidden when editing because
+          switching kinds would invalidate existing options. */}
+      {!editing && (
+        <div className="flex gap-2">
+          {(
+            [
+              ["STANDARD", "📊 一般投票", "選項是文字"],
+              ["SCHEDULE", "📅 排程投票（找共同時間）", "選項是日期時間"],
+            ] as const
+          ).map(([k, label, desc]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => {
+                setKind(k);
+                if (k === "SCHEDULE") setMultiSelect(true);
+              }}
+              className={`flex-1 text-left px-4 py-3 rounded-soft border-2 transition ${
+                kind === k
+                  ? "border-terracotta bg-terracotta-soft/30"
+                  : "border-sand bg-white hover:bg-cream/40"
+              }`}
+            >
+              <div className="text-sm font-medium text-ink">{label}</div>
+              <div className="text-xs text-ink/55 mt-0.5">{desc}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      {optionsLocked && (
+        <div className="rounded-soft border border-sage/30 bg-sage-soft/30 px-3 py-2 text-xs text-sage-dark">
+          🔒 已經有人投票了——只能改問題、設定和截止時間，<strong>選項已鎖定</strong>。
+        </div>
+      )}
+
       <label className="block">
         <span className="text-sm font-medium text-ink/80">問題</span>
         <input
@@ -77,20 +160,24 @@ export function NewPollForm({ categories }: { categories: Category[] }) {
       </label>
 
       <div>
-        <span className="text-sm font-medium text-ink/80 mb-2 block">選項</span>
+        <span className="text-sm font-medium text-ink/80 mb-2 block">
+          {kind === "SCHEDULE" ? "候選時段（家人朋友可勾選都可以）" : "選項"}
+        </span>
         <div className="space-y-2">
           {options.map((o, i) => (
             <div key={i} className="flex items-center gap-2">
               <span className="text-ink/40 text-sm w-5">{i + 1}.</span>
               <input
                 value={o}
+                type={kind === "SCHEDULE" ? "datetime-local" : "text"}
+                disabled={optionsLocked}
                 onChange={(e) =>
                   setOptions(options.map((x, j) => (j === i ? e.target.value : x)))
                 }
-                placeholder={`選項 ${i + 1}`}
-                className="flex-1 px-4 py-2.5 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta"
+                placeholder={kind === "SCHEDULE" ? "選日期 + 時間" : `選項 ${i + 1}`}
+                className="flex-1 px-4 py-2.5 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta disabled:opacity-60 disabled:cursor-not-allowed"
               />
-              {options.length > 2 && (
+              {options.length > 2 && !optionsLocked && (
                 <button
                   type="button"
                   onClick={() => setOptions(options.filter((_, j) => j !== i))}
@@ -101,13 +188,15 @@ export function NewPollForm({ categories }: { categories: Category[] }) {
               )}
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => setOptions([...options, ""])}
-            className="text-sm text-terracotta hover:underline ml-7"
-          >
-            ＋ 新增選項
-          </button>
+          {!optionsLocked && (
+            <button
+              type="button"
+              onClick={() => setOptions([...options, ""])}
+              className="text-sm text-terracotta hover:underline ml-7"
+            >
+              ＋ {kind === "SCHEDULE" ? "新增時段" : "新增選項"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -198,7 +287,7 @@ export function NewPollForm({ categories }: { categories: Category[] }) {
           disabled={pending}
           className="px-5 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
         >
-          {pending ? "建立中..." : "發起投票"}
+          {pending ? (editing ? "儲存中..." : "建立中...") : (editing ? "儲存變更" : "發起投票")}
         </button>
         <span className="ml-auto text-xs text-ink/40">建立後跳到動態</span>
       </div>

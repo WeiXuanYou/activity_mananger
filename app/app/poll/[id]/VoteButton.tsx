@@ -5,6 +5,18 @@ import { AvatarStack } from "@/modules/core/members";
 import type { Member } from "@/modules/core/members";
 import type { PollOption } from "@/modules/core/polls";
 
+const WEEKDAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+function fmtSchedule(label: string): string {
+  const d = new Date(label);
+  if (Number.isNaN(d.getTime())) return label;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}/${dd} ${WEEKDAYS[d.getDay()]} · ${hh}:${mi}`;
+}
+
 export function VoteButton({
   pollId,
   option,
@@ -13,6 +25,8 @@ export function VoteButton({
   pct,
   voters,
   anonymous,
+  isSchedule = false,
+  isTop = false,
 }: {
   pollId: string;
   option: PollOption;
@@ -21,6 +35,8 @@ export function VoteButton({
   pct: number;
   voters: Member[];
   anonymous: boolean;
+  isSchedule?: boolean;
+  isTop?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -52,10 +68,11 @@ export function VoteButton({
               : <div className="w-2 h-2 bg-white rounded-full" />
           )}
         </div>
-        <span className="font-medium text-ink flex-1">
-          {option.label}
+        <span className="font-medium text-ink flex-1 flex items-center gap-1.5">
+          {isTop && <span title="目前最多人方便">👑</span>}
+          {isSchedule ? fmtSchedule(option.label) : option.label}
           {option.addedById && (
-            <span className="ml-2 text-[10px] text-sage-dark bg-sage/10 px-1 rounded">後加</span>
+            <span className="ml-1 text-[10px] text-sage-dark bg-sage/10 px-1 rounded">後加</span>
           )}
         </span>
         <span className="text-sm text-ink/60 whitespace-nowrap">{option.votes} 票 · {pct}%</span>

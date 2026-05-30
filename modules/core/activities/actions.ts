@@ -97,3 +97,72 @@ export async function createActivityAction(input: {
   revalidatePath("/app/activities");
   return created.id;
 }
+
+async function ensureOwnerOrModerator(meId: string, authorId: string): Promise<void> {
+  if (authorId === meId) return;
+  await requirePermission("activity.moderate");
+}
+
+/** Update an activity. Owner can edit own; activity.moderate edits others'. */
+export async function updateActivityAction(input: {
+  id: string;
+  title?: string;
+  description?: string;
+  location?: string;
+  startsAt?: string;
+  cover?: string;
+  categorySlugs?: string[];
+}): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.activity.findUnique({
+    where: { id: input.id },
+    select: { authorId: true },
+  });
+  if (!existing) throw new Error("找不到活動");
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+
+  const data: Record<string, unknown> = {};
+  if (input.title !== undefined) data.title = input.title.trim();
+  if (input.description !== undefined) data.description = input.description.trim();
+  if (input.location !== undefined) data.location = input.location.trim();
+  if (input.startsAt !== undefined) data.startsAt = new Date(input.startsAt);
+  if (input.cover !== undefined) data.cover = input.cover;
+
+  if (input.categorySlugs) {
+    const cats = await db.category.findMany({
+      where: { slug: { in: input.categorySlugs } },
+      select: { id: true },
+    });
+    await db.$transaction([
+      db.activityCategory.deleteMany({ where: { activityId: input.id } }),
+      db.activityCategory.createMany({
+        data: cats.map((c) => ({ activityId: input.id, categoryId: c.id })),
+      }),
+    ]);
+  }
+
+  if (Object.keys(data).length) {
+    await db.activity.update({ where: { id: input.id }, data });
+  }
+  revalidatePath("/app/activities");
+  revalidatePath(`/app/activity/${input.id}`);
+  revalidatePath("/app/feed");
+  revalidatePath("/app/calendar");
+}
+
+/** Delete an activity. Sweeps Participants (FK cascade), and clears
+ *  polymorphic Comments/Reactions explicitly. */
+export async function deleteActivityAction(id: string): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.activity.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+  await db.$transaction([
+    db.comment.deleteMany({ where: { parentType: "ACTIVITY", parentId: id } }),
+    db.reaction.deleteMany({ where: { parentType: "ACTIVITY", parentId: id } }),
+    db.activity.delete({ where: { id } }),
+  ]);
+  revalidatePath("/app/activities");
+  revalidatePath("/app/feed");
+  revalidatePath("/app/calendar");
+}

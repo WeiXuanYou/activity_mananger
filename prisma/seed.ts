@@ -14,12 +14,16 @@ const PERMISSIONS_BY_ROLE: Record<(typeof ROLES)[number], string[]> = {
   Guest:  [],
   Member: ["post.create", "comment.create", "page.create", "category.create"],
   Editor: [
-    "post.create", "post.pin", "activity.create", "poll.create",
+    "post.create", "post.pin", "post.moderate",
+    "activity.create", "activity.moderate",
+    "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
     "category.create",
   ],
   Admin: [
-    "post.create", "post.pin", "activity.create", "poll.create",
+    "post.create", "post.pin", "post.moderate",
+    "activity.create", "activity.moderate",
+    "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
     "category.create", "invite.create", "admin.approve", "analytics.view",
   ],
@@ -176,6 +180,7 @@ async function main() {
   const pollSeed = [
     {
       question: "中秋烤肉要訂哪一家肉品？🍖", author: "grandma",
+      kind: "STANDARD",
       multiSelect: false, anonymous: false, allowAddOption: true,
       closesAt: "2026-09-20T23:59:00",
       cats: ["food", "family"],
@@ -188,6 +193,7 @@ async function main() {
     },
     {
       question: "家族旅遊地點投票 🏝️", author: "mom",
+      kind: "STANDARD",
       multiSelect: true, anonymous: true, allowAddOption: false,
       closesAt: "2026-07-01T23:59:00",
       cats: ["travel", "family"],
@@ -198,6 +204,20 @@ async function main() {
         { label: "在家就好", votes: 2, addedBy: null },
       ],
     },
+    // Doodle-style schedule poll — options are ISO datetimes
+    {
+      question: "下次家族吃飯，大家何時方便？📅", author: "mom",
+      kind: "SCHEDULE",
+      multiSelect: true, anonymous: false, allowAddOption: true,
+      closesAt: "2026-06-15T23:59:00",
+      cats: ["food", "family"],
+      options: [
+        { label: "2026-06-21T18:30", votes: 5, addedBy: null },
+        { label: "2026-06-22T19:00", votes: 3, addedBy: null },
+        { label: "2026-06-28T12:00", votes: 7, addedBy: null },
+        { label: "2026-06-29T18:00", votes: 2, addedBy: null },
+      ],
+    },
   ];
 
   const voters = ["grandma", "mom", "ming", "yating", "jay", "andy"];
@@ -206,6 +226,7 @@ async function main() {
       data: {
         question: p.question,
         authorId: userRows[p.author].id,
+        kind: p.kind,
         multiSelect: p.multiSelect,
         anonymous: p.anonymous,
         allowAddOption: p.allowAddOption,

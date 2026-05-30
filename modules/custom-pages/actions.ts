@@ -115,3 +115,51 @@ export async function deleteBlockAction(blockId: string) {
   await db.customPageBlock.delete({ where: { id: blockId } });
   revalidatePath(`/app/pages/${block.page.slug}`);
 }
+
+/**
+ * Move a block up (-1) or down (+1) within its page. Swaps the `order`
+ * with its neighbour in a transaction; no-op if already at the boundary.
+ */
+export async function moveBlockAction(blockId: string, direction: "up" | "down") {
+  const me = await requireCurrentUser();
+  const block = await db.customPageBlock.findUnique({
+    where: { id: blockId },
+    include: { page: { select: { id: true, ownerId: true, slug: true } } },
+  });
+  if (!block) return;
+  if (block.page.ownerId !== me.id) {
+    await requirePermission("page.publish");
+  }
+
+  const targetOrder = direction === "up" ? block.order - 1 : block.order + 1;
+  const neighbour = await db.customPageBlock.findFirst({
+    where: { pageId: block.page.id, order: targetOrder },
+  });
+  if (!neighbour) return;
+
+  // Two-step swap leaves room for a unique-constraint on (pageId, order)
+  // we may add later. Use -1 as a sentinel "in transit" slot.
+  await db.$transaction([
+    db.customPageBlock.update({ where: { id: block.id }, data: { order: -1 } }),
+    db.customPageBlock.update({ where: { id: neighbour.id }, data: { order: block.order } }),
+    db.customPageBlock.update({ where: { id: block.id }, data: { order: targetOrder } }),
+  ]);
+
+  revalidatePath(`/app/pages/${block.page.slug}`);
+}
+
+/**
+ * Add a starter block of any type with sensible default data — used by the
+ * inline "+ 加入 [類型]" buttons. Returns the addBlockAction promise so the
+ * client transition picks up its revalidation.
+ */
+export async function addStarterBlockAction(pageId: string, type: BlockType) {
+  const defaults: Record<BlockType, Record<string, unknown>> = {
+    markdown:    { source: "## 新段落\n\n你想分享什麼..." },
+    richtext:    { html: "<p>新段落…</p>" },
+    html:        { html: "<div><!-- 寫進你的 HTML --></div>" },
+    image:       { url: "", caption: "" },
+    "embed-poll":{ pollId: "" },
+  };
+  return addBlockAction(pageId, type, defaults[type] ?? {});
+}

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Category } from "@/modules/core/categories";
 import { COLOR_CLASSES } from "@/modules/core/categories";
 import { ImageUpload } from "@/modules/uploads";
-import { createActivityAction } from "@/modules/core/activities/actions";
+import { createActivityAction, updateActivityAction } from "@/modules/core/activities/actions";
 
 const GRADIENT_PRESETS = [
   { label: "暖橘",     value: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)" },
@@ -14,15 +14,41 @@ const GRADIENT_PRESETS = [
   { label: "薰衣草",   value: "linear-gradient(135deg, #E5D7EA 0%, #B58FBF 100%)" },
 ];
 
-export function NewActivityForm({ categories }: { categories: Category[] }) {
+/**
+ * Same form, two modes:
+ *   - omit `editing` → calls createActivityAction, redirects to /app/activities
+ *   - pass `editing` → calls updateActivityAction with that id, redirects to detail
+ */
+export type EditingActivity = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string;     // "YYYY-MM-DDTHH:mm" for datetime-local
+  cover: string;        // gradient or "url(/uploads/x) center/cover"
+  categorySlugs: string[];
+};
+
+export function NewActivityForm({
+  categories,
+  editing,
+}: {
+  categories: Category[];
+  editing?: EditingActivity;
+}) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [gradient, setGradient] = useState(GRADIENT_PRESETS[0].value);
-  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
+  // Seed initial state from `editing` when present, else blank
+  const [title, setTitle] = useState(editing?.title ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
+  const [location, setLocation] = useState(editing?.location ?? "");
+  const [startsAt, setStartsAt] = useState(editing?.startsAt ?? "");
+  // Extract initial url from "url(/x) center/cover" if any
+  const initialUrl = editing?.cover?.match(/^url\((.+?)\)/)?.[1];
+  const [coverUrl, setCoverUrl] = useState<string | null>(initialUrl ?? null);
+  const [gradient, setGradient] = useState(
+    editing && !initialUrl ? editing.cover : GRADIENT_PRESETS[0].value,
+  );
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>(editing?.categorySlugs ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -41,15 +67,28 @@ export function NewActivityForm({ categories }: { categories: Category[] }) {
     const cover = coverUrl ? `url(${coverUrl}) center/cover` : gradient;
     startTransition(async () => {
       try {
-        await createActivityAction({
-          title: title.trim(),
-          description: description.trim(),
-          location: location.trim(),
-          startsAt,
-          cover,
-          categorySlugs: selectedSlugs,
-        });
-        router.push("/app/activities");
+        if (editing) {
+          await updateActivityAction({
+            id: editing.id,
+            title: title.trim(),
+            description: description.trim(),
+            location: location.trim(),
+            startsAt,
+            cover,
+            categorySlugs: selectedSlugs,
+          });
+          router.push(`/app/activity/${editing.id}`);
+        } else {
+          await createActivityAction({
+            title: title.trim(),
+            description: description.trim(),
+            location: location.trim(),
+            startsAt,
+            cover,
+            categorySlugs: selectedSlugs,
+          });
+          router.push("/app/activities");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "建立失敗");
       }
@@ -176,9 +215,11 @@ export function NewActivityForm({ categories }: { categories: Category[] }) {
           disabled={pending}
           className="px-5 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
         >
-          {pending ? "建立中..." : "建立活動"}
+          {pending ? (editing ? "儲存中..." : "建立中...") : (editing ? "儲存變更" : "建立活動")}
         </button>
-        <span className="ml-auto text-xs text-ink/40">建立後跳到活動列表</span>
+        <span className="ml-auto text-xs text-ink/40">
+          {editing ? "儲存後回活動詳情" : "建立後跳到活動列表"}
+        </span>
       </div>
     </div>
   );

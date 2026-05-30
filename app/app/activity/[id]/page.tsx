@@ -8,6 +8,8 @@ import { canCurrentUser } from "@/modules/permissions";
 import { listCommentsDb, CommentList, CommentForm } from "@/modules/comments";
 import { formatLongDate, relativeFromNow } from "@/lib/date";
 import { RsvpButtons } from "./RsvpButtons";
+import { OwnerActions } from "@/modules/core/components/OwnerActions";
+import { deleteActivityAction } from "@/modules/core/activities/actions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,13 +20,23 @@ export default async function AppActivityDetailPage({ params }: Params) {
   const activity = await findActivityDb(id);
   if (!activity) notFound();
 
-  const [host, cats, myRsvp, comments, canModerate] = await Promise.all([
+  const [host, cats, myRsvp, comments, canModerate, canActivityModerate] = await Promise.all([
     findMemberDb(activity.hostId),
     findCategoriesByIdsDb(activity.categoryIds),
     findMyRsvpDb(activity.id, me.id),
     listCommentsDb("ACTIVITY", activity.id),
     canCurrentUser("comment.moderate"),
+    canCurrentUser("activity.moderate"),
   ]);
+
+  const canEditActivity = activity.hostId === me.id || canActivityModerate;
+  // Server-action thunk for the OwnerActions client component (server
+  // actions can be passed across the boundary as long as we keep the
+  // closure tiny). The action revalidates the cache + we redirect.
+  const handleDelete = async () => {
+    "use server";
+    await deleteActivityAction(activity.id);
+  };
 
   // Adapt the session user (DB shape) into the Member shape the components want
   const meMember = {
@@ -51,6 +63,15 @@ export default async function AppActivityDetailPage({ params }: Params) {
               ⏳ {relativeFromNow(activity.startsAt)}
             </span>
             <CategoryChipList categories={cats} size="xs" />
+            {canEditActivity && (
+              <div className="ml-auto">
+                <OwnerActions
+                  editHref={`/app/activities/${activity.id}/edit`}
+                  onDelete={handleDelete}
+                  redirectTo="/app/activities"
+                />
+              </div>
+            )}
           </div>
           <h1 className="serif text-3xl text-ink mb-2">{activity.title}</h1>
           <div className="flex flex-wrap items-center gap-4 text-sm text-ink/60 mb-4">
@@ -59,12 +80,12 @@ export default async function AppActivityDetailPage({ params }: Params) {
           </div>
 
           {host && (
-            <div className="flex items-center gap-2 mb-5">
+            <Link href={`/app/members/${host.id}`} className="inline-flex items-center gap-2 mb-5 hover:opacity-80 transition">
               <Avatar member={host} size={28} />
               <span className="text-sm text-ink/70">
-                由 <span className="font-medium text-ink">{host.name}</span> 發起
+                由 <span className="font-medium text-ink hover:text-terracotta">{host.name}</span> 發起
               </span>
-            </div>
+            </Link>
           )}
 
           <p className="text-ink/80 leading-relaxed mb-6">{activity.description}</p>

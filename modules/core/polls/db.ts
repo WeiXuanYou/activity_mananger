@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { daysFromNow, relativeFromNow } from "@/lib/date";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
-import type { Poll, PollStatus } from "./types";
+import type { Poll, PollKind, PollStatus } from "./types";
 
 type UserWithRole = {
   id: string; name: string; handle: string;
@@ -29,6 +29,7 @@ type PollRow = {
   question: string;
   authorId: string;
   author: UserWithRole;
+  kind: string;
   multiSelect: boolean;
   anonymous: boolean;
   allowAddOption: boolean;
@@ -64,6 +65,7 @@ export function prismaPollToPoll(row: PollRow): Poll {
     question: row.question,
     authorId: row.authorId,
     author: prismaUserToMember(row.author),
+    kind: (row.kind === "SCHEDULE" ? "SCHEDULE" : "STANDARD") as PollKind,
     options: row.options.map((o) => ({
       id: o.id,
       label: o.label,
@@ -72,6 +74,7 @@ export function prismaPollToPoll(row: PollRow): Poll {
     })),
     totalVotes: row.options.reduce((sum, o) => sum + o.votes.length, 0),
     closesAt: closesAtStr,
+    closesAtIso: row.closesAt ? row.closesAt.toISOString() : null,
     closesIn,
     multiSelect: row.multiSelect,
     anonymous: row.anonymous,

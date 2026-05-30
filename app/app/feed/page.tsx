@@ -21,6 +21,8 @@ import {
 import { listPollsDb, PollCard } from "@/modules/core/polls";
 import { listCategoriesDb, findCategoryBySlugDb, CategoryFilterBar } from "@/modules/core/categories";
 import { formatShortDate, relativeFromNow } from "@/lib/date";
+import { OwnerActions } from "@/modules/core/components/OwnerActions";
+import { deletePostAction } from "@/modules/core/posts/actions";
 
 type Search = { searchParams: Promise<{ cat?: string }> };
 
@@ -49,6 +51,10 @@ export default async function AppFeedPage({ searchParams }: Search) {
   // heart renders in the right state. Driven by the filtered list to avoid
   // wasted lookups when a category is selected.
   const likedIds = await findLikedPostIdsByUserDb(me.id, filteredPosts.map((p) => p.id));
+
+  // Edit/delete is available when the current user owns the post or has
+  // the moderate perm. Compute once for the whole list.
+  const canModeratePosts = await canCurrentUser("post.moderate");
 
   return (
     <main className="max-w-6xl mx-auto px-5 py-6">
@@ -102,9 +108,30 @@ export default async function AppFeedPage({ searchParams }: Search) {
               <Link href="/app/feed" className="text-sm text-terracotta hover:underline">← 看全部</Link>
             </div>
           ) : (
-            filteredPosts.map((p) => (
-              <PostCard key={p.id} post={p} likedByMe={likedIds.has(p.id)} />
-            ))
+            filteredPosts.map((p) => {
+              const canEdit = canModeratePosts || p.authorId === me.id;
+              // Bound server-action thunk — captures the post id so the
+              // client OwnerActions doesn't need to know how delete works.
+              const onDelete = async () => {
+                "use server";
+                await deletePostAction(p.id);
+              };
+              return (
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  likedByMe={likedIds.has(p.id)}
+                  ownerActions={
+                    canEdit ? (
+                      <OwnerActions
+                        editHref={`/app/posts/${p.id}/edit`}
+                        onDelete={onDelete}
+                      />
+                    ) : undefined
+                  }
+                />
+              );
+            })
           )}
         </section>
 

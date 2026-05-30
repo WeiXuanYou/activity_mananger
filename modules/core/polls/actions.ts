@@ -83,6 +83,9 @@ export async function addPollOptionAction(pollId: string, label: string) {
 export async function createPollAction(input: {
   question: string;
   options: string[];
+  /** STANDARD (default) or SCHEDULE — for schedule polls, options must be
+   *  ISO datetime strings (YYYY-MM-DDTHH:mm). */
+  kind?: "STANDARD" | "SCHEDULE";
   multiSelect?: boolean;
   anonymous?: boolean;
   allowAddOption?: boolean;
@@ -94,6 +97,16 @@ export async function createPollAction(input: {
 
   const opts = input.options.map((s) => s.trim()).filter(Boolean);
   if (opts.length < 2) throw new Error("Need at least 2 options");
+
+  // For schedule polls: validate every option parses as a date
+  const kind = input.kind === "SCHEDULE" ? "SCHEDULE" : "STANDARD";
+  if (kind === "SCHEDULE") {
+    for (const o of opts) {
+      if (Number.isNaN(new Date(o).getTime())) {
+        throw new Error(`排程投票的選項必須是有效的日期時間：${o}`);
+      }
+    }
+  }
 
   const categoryIds: string[] = [];
   if (input.categorySlugs?.length) {
@@ -108,6 +121,7 @@ export async function createPollAction(input: {
     data: {
       question: input.question,
       authorId: me.id,
+      kind,
       multiSelect: input.multiSelect ?? false,
       anonymous: input.anonymous ?? false,
       allowAddOption: input.allowAddOption ?? true,
@@ -119,4 +133,96 @@ export async function createPollAction(input: {
 
   revalidatePath("/app/feed");
   return created.id;
+}
+
+async function ensureOwnerOrModerator(meId: string, authorId: string): Promise<void> {
+  if (authorId === meId) return;
+  await requirePermission("poll.moderate");
+}
+
+/**
+ * Update a poll. Question + flags + deadline can be edited freely.
+ * Options can only be edited if no votes have been cast yet — otherwise
+ * we'd silently invalidate people's votes. Pass `options` to fully
+ * replace the option set; omit to leave them untouched.
+ */
+export async function updatePollAction(input: {
+  id: string;
+  question?: string;
+  options?: string[];
+  multiSelect?: boolean;
+  anonymous?: boolean;
+  allowAddOption?: boolean;
+  closesAt?: string | null;
+  categorySlugs?: string[];
+}): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.poll.findUnique({
+    where: { id: input.id },
+    select: { authorId: true, kind: true, options: { include: { votes: { select: { id: true } } } } },
+  });
+  if (!existing) throw new Error("找不到投票");
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+
+  const data: Record<string, unknown> = {};
+  if (input.question !== undefined) data.question = input.question.trim();
+  if (input.multiSelect !== undefined) data.multiSelect = input.multiSelect;
+  if (input.anonymous !== undefined) data.anonymous = input.anonymous;
+  if (input.allowAddOption !== undefined) data.allowAddOption = input.allowAddOption;
+  if (input.closesAt !== undefined) data.closesAt = input.closesAt ? new Date(input.closesAt) : null;
+
+  // Options: replace-all, but ONLY if no votes have been cast — otherwise we
+  // silently throw away people's votes. For schedule polls validate dates.
+  if (input.options) {
+    const totalVotes = existing.options.reduce((s, o) => s + o.votes.length, 0);
+    if (totalVotes > 0) {
+      throw new Error("已經有人投票了——不能修改選項");
+    }
+    const opts = input.options.map((o) => o.trim()).filter(Boolean);
+    if (opts.length < 2) throw new Error("至少需要 2 個選項");
+    if (existing.kind === "SCHEDULE") {
+      for (const o of opts) {
+        if (Number.isNaN(new Date(o).getTime())) throw new Error(`不是有效的日期：${o}`);
+      }
+    }
+    await db.$transaction([
+      db.pollOption.deleteMany({ where: { pollId: input.id } }),
+      db.pollOption.createMany({
+        data: opts.map((label, i) => ({ pollId: input.id, label, order: i })),
+      }),
+    ]);
+  }
+
+  if (input.categorySlugs) {
+    const cats = await db.category.findMany({
+      where: { slug: { in: input.categorySlugs } },
+      select: { id: true },
+    });
+    await db.$transaction([
+      db.pollCategory.deleteMany({ where: { pollId: input.id } }),
+      db.pollCategory.createMany({
+        data: cats.map((c) => ({ pollId: input.id, categoryId: c.id })),
+      }),
+    ]);
+  }
+
+  if (Object.keys(data).length) {
+    await db.poll.update({ where: { id: input.id }, data });
+  }
+  revalidatePath("/app/feed");
+  revalidatePath(`/app/poll/${input.id}`);
+}
+
+/** Delete a poll. Cascades clean up options (FK) and votes (FK). */
+export async function deletePollAction(id: string): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.poll.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId);
+  await db.$transaction([
+    db.comment.deleteMany({ where: { parentType: "POLL", parentId: id } }),
+    db.reaction.deleteMany({ where: { parentType: "POLL", parentId: id } }),
+    db.poll.delete({ where: { id } }),
+  ]);
+  revalidatePath("/app/feed");
 }

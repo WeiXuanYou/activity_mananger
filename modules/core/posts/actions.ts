@@ -78,6 +78,88 @@ export async function setPostPinnedAction(postId: string, pinned: boolean) {
 }
 
 /**
+ * Throws if `me` is neither the author nor a holder of `moderatePerm`.
+ * Used by the update/delete actions below — author can always edit own,
+ * Editor+ can moderate others'.
+ */
+async function ensureOwnerOrModerator(meId: string, authorId: string, moderatePerm: "post.moderate" | "activity.moderate" | "poll.moderate"): Promise<void> {
+  if (authorId === meId) return;
+  await requirePermission(moderatePerm);
+}
+
+/**
+ * Update one of your own posts (or anyone's, if you have post.moderate).
+ * Only the fields passed in get touched — undefined is no-op so the same
+ * action serves "edit title" and "toggle pin" calls.
+ */
+export async function updatePostAction(input: {
+  id: string;
+  title?: string | null;
+  body?: string;
+  kind?: PostKind;
+  isPinned?: boolean;
+  categorySlugs?: string[];
+}): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.post.findUnique({
+    where: { id: input.id },
+    select: { authorId: true, isPinned: true },
+  });
+  if (!existing) throw new Error("找不到文章");
+  await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+
+  // Pinning is a privileged action even for the owner — only post.pin holders
+  // can change pin state.
+  if (input.isPinned !== undefined && input.isPinned !== existing.isPinned) {
+    await requirePermission("post.pin");
+  }
+
+  const data: Record<string, unknown> = {};
+  if (input.title !== undefined) data.title = input.title?.trim() || null;
+  if (input.body !== undefined) data.body = input.body.trim();
+  if (input.kind !== undefined) data.kind = input.kind;
+  if (input.isPinned !== undefined) data.isPinned = input.isPinned;
+
+  // Categories — only touch the join table if explicitly provided
+  if (input.categorySlugs) {
+    const cats = await db.category.findMany({
+      where: { slug: { in: input.categorySlugs } },
+      select: { id: true },
+    });
+    await db.$transaction([
+      db.postCategory.deleteMany({ where: { postId: input.id } }),
+      db.postCategory.createMany({
+        data: cats.map((c) => ({ postId: input.id, categoryId: c.id })),
+      }),
+    ]);
+  }
+
+  if (Object.keys(data).length) {
+    await db.post.update({ where: { id: input.id }, data });
+  }
+  revalidatePath("/app/feed");
+}
+
+/**
+ * Delete a post. Author can always delete own; post.moderate needed
+ * to delete others'. Comments + Reactions live in polymorphic tables
+ * (no FK cascade from Post), so they're swept up explicitly in the
+ * same transaction.
+ */
+export async function deletePostAction(id: string): Promise<void> {
+  const me = await requireCurrentUser();
+  const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } });
+  if (!existing) return;
+  await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+  await db.$transaction([
+    db.comment.deleteMany({ where: { parentType: "POST", parentId: id } }),
+    db.reaction.deleteMany({ where: { parentType: "POST", parentId: id } }),
+    db.post.delete({ where: { id } }),
+  ]);
+  revalidatePath("/app/feed");
+}
+
+/**
  * Toggle a 'LIKE' reaction on a post for the current user.
  * Idempotent: pressing it twice removes the like.
  */

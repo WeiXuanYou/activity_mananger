@@ -21,7 +21,17 @@ const KIND_LABEL = {
   NOTE: "💭 隨筆",
 } as const;
 
-export function PostCard({ post, likedByMe }: { post: Post; likedByMe?: boolean }) {
+export function PostCard({
+  post,
+  likedByMe,
+  ownerActions,
+}: {
+  post: Post;
+  likedByMe?: boolean;
+  /** Server-rendered owner-actions menu (⋯ Edit/Delete). Caller decides
+   *  visibility — present → render, absent → no menu. */
+  ownerActions?: React.ReactNode;
+}) {
   // Prefer pre-resolved fields (DB source); fall back to sync mock lookup
   const author = post.author ?? findMember(post.authorId);
   const cats = post.categories ?? findCategoriesByIds(post.categoryIds);
@@ -49,6 +59,7 @@ export function PostCard({ post, likedByMe }: { post: Post; likedByMe?: boolean 
         <span className="ml-auto text-xs text-sage-dark bg-sage/10 px-2 py-1 rounded-full">
           {KIND_LABEL[post.kind]}
         </span>
+        {ownerActions}
       </div>
       {post.title && <h3 className="serif text-xl text-ink mb-2">{post.title}</h3>}
       <p className="text-ink/75 leading-relaxed mb-3">{post.body}</p>

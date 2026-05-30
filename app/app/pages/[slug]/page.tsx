@@ -1,20 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
+import { canCurrentUser } from "@/modules/permissions";
 import { findCustomPageBySlugDb, BlockList } from "@/modules/custom-pages";
 import { Avatar, findMemberDb } from "@/modules/core/members";
 import { CategoryChipList } from "@/modules/core/categories";
 
-type Params = { params: Promise<{ slug: string }> };
+type Params = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ edit?: string }>;
+};
 
-export default async function AppCustomPageDetail({ params }: Params) {
+export default async function AppCustomPageDetail({ params, searchParams }: Params) {
   const { slug } = await params;
-  await requireCurrentUser();
+  const { edit } = await searchParams;
+  const me = await requireCurrentUser();
 
   const page = await findCustomPageBySlugDb(slug);
   if (!page) notFound();
 
   const owner = await findMemberDb(page.ownerId);
+  const canEditAnyone = await canCurrentUser("page.publish");
+  const isOwner = page.ownerId === me.id;
+  const canEdit = isOwner || canEditAnyone;
+  // Edit mode is opt-in via ?edit=1 so the read view stays clean by default
+  const editMode = canEdit && edit === "1";
 
   return (
     <main className="max-w-3xl mx-auto px-5 py-8">
@@ -32,18 +42,46 @@ export default async function AppCustomPageDetail({ params }: Params) {
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {owner && (
-          <div className="flex items-center gap-2 text-sm">
+          <Link href={`/app/members/${owner.id}`} className="flex items-center gap-2 text-sm hover:opacity-80 transition">
             <Avatar member={owner} size={28} />
-            <span className="text-ink/70">由 <span className="font-medium text-ink">{owner.name}</span> 維護</span>
-          </div>
+            <span className="text-ink/70">由 <span className="font-medium text-ink hover:text-terracotta">{owner.name}</span> 維護</span>
+          </Link>
         )}
         {page.categories && page.categories.length > 0 && (
           <CategoryChipList categories={page.categories} size="xs" />
         )}
         <span className="ml-auto text-xs text-ink/40">/{page.slug}</span>
+        {canEdit && (
+          editMode ? (
+            <Link
+              href={`/app/pages/${page.slug}`}
+              className="text-xs px-3 py-1.5 rounded-soft bg-sage-dark text-cream hover:opacity-90 transition"
+            >
+              ✓ 完成編輯
+            </Link>
+          ) : (
+            <Link
+              href={`/app/pages/${page.slug}?edit=1`}
+              className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40 transition"
+            >
+              ✎ 編輯頁面
+            </Link>
+          )
+        )}
       </div>
 
-      <BlockList blocks={page.resolvedBlocks ?? []} />
+      {editMode && (
+        <div className="mb-4 rounded-soft border border-sage/30 bg-sage-soft/30 px-4 py-2.5 text-xs text-sage-dark flex items-center gap-2">
+          <span className="text-base">✎</span>
+          編輯模式：滑鼠移到 block 上會出現工具列（上移 / 下移 / 刪除）；點 block 之間的「+」加入新 block。
+        </div>
+      )}
+
+      <BlockList
+        blocks={page.resolvedBlocks ?? []}
+        edit={editMode}
+        pageId={page.id}
+      />
 
       <div className="mt-8 bg-cream/40 rounded-soft border border-sand p-4 text-xs text-ink/60 leading-relaxed">
         <strong className="text-ink/80">提示：</strong>

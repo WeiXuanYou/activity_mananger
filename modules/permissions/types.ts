@@ -17,8 +17,11 @@ import type { Role } from "@/modules/auth";
 export type PermissionKey =
   | "post.create"
   | "post.pin"
+  | "post.moderate"      // edit/delete others' posts (owner can always edit own)
   | "activity.create"
+  | "activity.moderate"  // edit/delete others' activities
   | "poll.create"
+  | "poll.moderate"      // edit/delete others' polls
   | "comment.create"
   | "comment.moderate"
   | "page.create"

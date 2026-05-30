@@ -7,11 +7,30 @@
  *
  * The thin gradient ribbon on top is the visual signature of "this is
  * a poll" — quickly recognizable even when scrolling fast.
+ *
+ * SCHEDULE polls (Doodle-style): the chip says "📅 排程" instead of
+ * "📊 投票", option labels are rendered as parsed datetimes, and the
+ * top-voted option is highlighted as the "suggested common time".
  */
 import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Poll } from "../types";
+
+const WEEKDAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+/** Pretty-print an option label. STANDARD → as-is. SCHEDULE → weekday +
+ *  date + time, falling back to the raw label if it isn't parseable. */
+function formatOptionLabel(label: string, isSchedule: boolean): string {
+  if (!isSchedule) return label;
+  const d = new Date(label);
+  if (Number.isNaN(d.getTime())) return label;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}/${dd} ${WEEKDAYS[d.getDay()]} ${hh}:${mi}`;
+}
 
 /** Pill that conveys urgency. `CLOSING_SOON` pulses for attention. */
 function CountdownBadge({ poll }: { poll: Poll }) {
@@ -31,6 +50,12 @@ function CountdownBadge({ poll }: { poll: Poll }) {
 export function PollCard({ poll, compact = false }: { poll: Poll; compact?: boolean }) {
   const author = poll.author ?? findMember(poll.authorId);
   const cats = poll.categories ?? findCategoriesByIds(poll.categoryIds);
+  const isSchedule = poll.kind === "SCHEDULE";
+  // Top-voted option — for SCHEDULE polls we surface it as "suggested time"
+  const topOpt = poll.options.reduce<typeof poll.options[number] | null>(
+    (best, o) => (!best || o.votes > best.votes ? o : best),
+    null,
+  );
 
   return (
     <Link
@@ -41,8 +66,12 @@ export function PollCard({ poll, compact = false }: { poll: Poll; compact?: bool
 
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-sage-dark bg-sage/10 px-2 py-1 rounded-full font-medium">
-            📊 投票
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+            isSchedule
+              ? "text-terracotta-dark bg-terracotta-soft/60"
+              : "text-sage-dark bg-sage/10"
+          }`}>
+            {isSchedule ? "📅 排程" : "📊 投票"}
           </span>
           <CountdownBadge poll={poll} />
           {poll.multiSelect && (
@@ -66,13 +95,25 @@ export function PollCard({ poll, compact = false }: { poll: Poll; compact?: bool
 
       {!compact && (
         <div className="space-y-2 mb-3">
+          {isSchedule && topOpt && topOpt.votes > 0 && (
+            <div className="mb-3 rounded-soft border border-terracotta/30 bg-terracotta-soft/20 px-3 py-2">
+              <div className="text-[10px] text-terracotta-dark/70 font-medium tracking-widest">
+                目前最多人方便的時段
+              </div>
+              <div className="text-sm font-medium text-ink mt-0.5">
+                {formatOptionLabel(topOpt.label, true)} · {topOpt.votes} 人可以
+              </div>
+            </div>
+          )}
           {poll.options.slice(0, 4).map((opt) => {
             const pct = poll.totalVotes ? Math.round((opt.votes / poll.totalVotes) * 100) : 0;
+            const isTop = isSchedule && topOpt?.id === opt.id && opt.votes > 0;
             return (
               <div key={opt.id}>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-ink/80 flex items-center gap-1.5">
-                    {opt.label}
+                  <span className={`flex items-center gap-1.5 ${isTop ? "text-ink font-medium" : "text-ink/80"}`}>
+                    {isTop && <span>👑</span>}
+                    {formatOptionLabel(opt.label, isSchedule)}
                     {opt.addedById && (
                       <span className="text-[10px] text-sage-dark bg-sage/10 px-1 rounded">後加</span>
                     )}
@@ -89,7 +130,9 @@ export function PollCard({ poll, compact = false }: { poll: Poll; compact?: bool
             );
           })}
           {poll.allowAddOption && (
-            <div className="text-xs text-terracotta/80 pt-1">＋ 你也可以新增選項</div>
+            <div className="text-xs text-terracotta/80 pt-1">
+              ＋ 你也可以新增{isSchedule ? "時段" : "選項"}
+            </div>
           )}
         </div>
       )}

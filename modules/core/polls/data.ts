@@ -4,6 +4,7 @@ export const polls: Poll[] = [
   {
     id: "p1",
     question: "中秋烤肉要訂哪一家肉品？🍖",
+    kind: "STANDARD",
     authorId: "u1",
     options: [
       { id: "o1", label: "好市多套餐 A", votes: 8 },
@@ -13,6 +14,7 @@ export const polls: Poll[] = [
     ],
     totalVotes: 26,
     closesAt: "2026-09-20",
+    closesAtIso: null,
     closesIn: "還有 3 天",
     multiSelect: false,
     anonymous: false,
@@ -23,6 +25,7 @@ export const polls: Poll[] = [
   {
     id: "p2",
     question: "家族旅遊地點投票 🏝️",
+    kind: "STANDARD",
     authorId: "u2",
     options: [
       { id: "o1", label: "宜蘭兩天一夜", votes: 6 },
@@ -32,6 +35,7 @@ export const polls: Poll[] = [
     ],
     totalVotes: 21,
     closesAt: "2026-07-01",
+    closesAtIso: null,
     closesIn: "還有 9 天",
     multiSelect: true,
     anonymous: true,
@@ -42,6 +46,7 @@ export const polls: Poll[] = [
   {
     id: "p3",
     question: "下次家庭聚餐想吃什麼？🍱",
+    kind: "STANDARD",
     authorId: "u3",
     options: [
       { id: "o1", label: "火鍋", votes: 7 },
@@ -50,6 +55,7 @@ export const polls: Poll[] = [
     ],
     totalVotes: 16,
     closesAt: "2026-05-26",
+    closesAtIso: null,
     closesIn: "今天截止 ⏰",
     multiSelect: false,
     anonymous: false,

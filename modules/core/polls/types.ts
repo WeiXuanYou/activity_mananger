@@ -11,6 +11,14 @@ export type PollOption = {
 export type PollStatus = "OPEN" | "CLOSING_SOON" | "CLOSED";
 
 /**
+ * STANDARD — text options ("烏來泡湯", "陽明山野餐"...).
+ * SCHEDULE — Doodle-style; each option's label is an ISO datetime string
+ * and the UI renders weekday + date + time. The top-voted option is
+ * surfaced as the "suggested common time".
+ */
+export type PollKind = "STANDARD" | "SCHEDULE";
+
+/**
  * Poll — UI shape. `author` is optional/pre-resolved for DB-backed sources
  * (see notes on Post/Activity for the same pattern).
  */
@@ -19,9 +27,11 @@ export type Poll = {
   question: string;
   authorId: string;
   author?: Member;
+  kind: PollKind;
   options: PollOption[];
   totalVotes: number;
-  closesAt: string;       // ISO date
+  closesAt: string;       // YYYY-MM-DD (display form)
+  closesAtIso: string | null;  // full ISO datetime — for edit flows
   closesIn: string;       // human-readable countdown
   multiSelect: boolean;
   anonymous: boolean;
