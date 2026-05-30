@@ -170,9 +170,31 @@ model Activity {
   participants ActivityParticipant[]
   categories   ActivityCategory[]
   expenses     Expense[]
+  reminders    ActivityReminder[]
 
   @@index([startsAt])
   @@index([authorId])
+}
+
+/// One row per (activity, tier) pair when a reminder has been sent.
+/// Existence = "this tier already fired" — the cron worker checks for
+/// the absence of a row before sending, so it's safe to run frequently.
+///
+/// Tiers (text so we can add more without a migration):
+///   - "DAY_BEFORE" — fired ~24h before startsAt
+///   - "HOUR_BEFORE" — fired ~2h before startsAt
+model ActivityReminder {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tier       String
+  sentAt     DateTime @default(now())
+  /// How many notifications we created in this batch — useful for the
+  /// admin "last run" view.
+  notifiedUserCount Int @default(0)
+
+  @@unique([activityId, tier])
+  @@index([activityId])
 }
 
 /// One spent line per activity. v1: equal-split across all GOING+MAYBE

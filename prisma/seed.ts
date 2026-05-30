@@ -313,6 +313,27 @@ async function main() {
     `UPDATE Activity SET createdAt = ? WHERE id = ?`, twoYearAgo.toISOString(), memoryActivity.id,
   );
 
+  // "Tomorrow" demo activity — sits within both reminder windows so the
+  // admin "▶ 立刻跑一次" button has real notifications to fire on first
+  // press. Three users RSVP as GOING.
+  const tomorrow = new Date(today.getTime() + 18 * 60 * 60 * 1000);
+  const reminderDemo = await db.activity.create({
+    data: {
+      title: "明天的家族晚餐 (demo)",
+      description: "種子產的示範活動——剛好落在 24h 提醒視窗內，按一下管理頁就能看到通知發出來。",
+      location: "外公家後院",
+      cover: "linear-gradient(135deg, #F4D6BA 0%, #D4A574 100%)",
+      startsAt: tomorrow,
+      authorId: userRows.grandma.id,
+      categories: { create: [{ categoryId: catRows.family.id }] },
+    },
+  });
+  for (const handle of ["mom", "ming", "yating"]) {
+    await db.activityParticipant.create({
+      data: { activityId: reminderDemo.id, userId: userRows[handle].id, status: "GOING" },
+    });
+  }
+
   // Permission requests
   const reqSeed = [
     { user: "ming",   current: "Member", target: "Editor", status: "PENDING",  reason: "想要幫忙籌備中秋活動，需要建立活動與投票的權限。" },

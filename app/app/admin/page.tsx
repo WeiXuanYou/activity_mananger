@@ -8,18 +8,21 @@ import {
   listDecidedRequestsDb,
 } from "@/modules/permissions";
 import { Avatar } from "@/modules/core/members";
+import { listRecentReminders } from "@/modules/core/reminders";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
+import { RunRemindersButton } from "./RunRemindersButton";
 
 export default async function AdminPage() {
   const me = await requireCurrentUser();
   const isAdmin = await canCurrentUser("admin.approve");
   if (!isAdmin) redirect("/app/feed?denied=admin");
 
-  const [invites, members, decided] = await Promise.all([
+  const [invites, members, decided, recentReminders] = await Promise.all([
     listInviteCodesDb(),
     listAllMembersDb(),
     listDecidedRequestsDb(),
+    listRecentReminders(8),
   ]);
 
   return (
@@ -103,6 +106,51 @@ export default async function AdminPage() {
                 <span className="text-xs text-ink/40">{r.createdAt}</span>
               </div>
             ))
+          )}
+        </div>
+      </section>
+
+      {/* Activity reminder cron */}
+      <section className="mb-10">
+        <h2 className="serif text-xl text-ink mb-1">⏰ 活動行前提醒</h2>
+        <p className="text-sm text-ink/60 mb-4">
+          發送「明天有 X」（24h 前）和「快開始了」（2h 前）兩種通知給 GOING 的人。
+          自動排程接 <code className="text-terracotta">/api/cron/reminders</code>，或在這手動觸發。
+        </p>
+
+        <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5 mb-4">
+          <RunRemindersButton />
+          <p className="text-xs text-ink/50 mt-3 leading-relaxed">
+            生產環境：在你的 cron 服務（系統 crontab / Vercel cron / GitHub Actions）每 15 分鐘打一次{" "}
+            <code className="text-terracotta bg-cream/60 px-1 rounded">POST /api/cron/reminders</code>，
+            帶 <code className="text-terracotta bg-cream/60 px-1 rounded">Authorization: Bearer $CRON_SECRET</code>{" "}
+            header。每筆活動每個 tier 只會發一次（唯一索引保護）。
+          </p>
+        </div>
+
+        <h3 className="text-sm font-medium text-ink/75 mb-2">最近發送的提醒</h3>
+        <div className="bg-white rounded-soft border border-sand/60 overflow-hidden">
+          {recentReminders.length === 0 ? (
+            <p className="text-sm text-ink/55 italic px-4 py-6">尚未有任何發送紀錄。</p>
+          ) : (
+            <div className="divide-y divide-sand">
+              {recentReminders.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                    r.tier === "DAY_BEFORE"
+                      ? "bg-sage-soft/60 text-sage-dark"
+                      : "bg-terracotta-soft/60 text-terracotta-dark"
+                  }`}>
+                    {r.tier === "DAY_BEFORE" ? "24h 前" : "2h 前"}
+                  </span>
+                  <span className="text-ink truncate flex-1">{r.activityTitle}</span>
+                  <span className="text-xs text-ink/55 tabular-nums">通知 {r.notifiedUserCount} 人</span>
+                  <span className="text-xs text-ink/40 tabular-nums">
+                    {new Date(r.sentAt).toLocaleString("zh-TW", { hour12: false })}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>
