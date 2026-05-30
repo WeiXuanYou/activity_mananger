@@ -37,17 +37,21 @@ export async function castVoteAction(pollId: string, optionId: string) {
     where: { optionId_userId: { optionId, userId: me.id } },
   });
 
+  // Wrap the read-modify-write in a transaction so two rapid clicks can't
+  // both pass the "no existing vote" check and then collide on the unique
+  // (optionId, userId) constraint.
   if (existing) {
     // Toggle off — user clicked the same option again
     await db.pollVote.delete({ where: { id: existing.id } });
   } else {
-    // Single-select: clear any other vote on the same poll first
-    if (!poll.multiSelect) {
-      await db.pollVote.deleteMany({
-        where: { userId: me.id, option: { pollId } },
-      });
-    }
-    await db.pollVote.create({ data: { optionId, userId: me.id } });
+    await db.$transaction([
+      // Single-select: clear any other vote on the same poll first.
+      // (deleteMany is a no-op for multi-select since we filter the same poll.)
+      ...(poll.multiSelect
+        ? []
+        : [db.pollVote.deleteMany({ where: { userId: me.id, option: { pollId } } })]),
+      db.pollVote.create({ data: { optionId, userId: me.id } }),
+    ]);
     void emit("vote.cast", { type: "poll", id: pollId }, { optionId }, me.id);
   }
 

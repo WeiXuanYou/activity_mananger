@@ -16,6 +16,7 @@
  * system prefix are billed at the cache-read rate. (Our current prompts are
  * short, so caching is a no-op until they grow — the marker is harmless.)
  */
+import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 
 export type LLMRequest = {

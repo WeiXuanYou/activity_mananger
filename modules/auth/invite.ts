@@ -29,7 +29,11 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
     return { ok: true, userId: invite.usedById, isNewUser: false };
   }
 
-  // Create a new user, mark the code used.
+  // Create the new user, then ATOMICALLY claim the code. We can't claim
+  // first because usedById is a FK to a real user — so we create, then
+  // race to claim with a conditional update (usedById still null). If we
+  // lose the race, another request already redeemed it: delete our orphan
+  // user and sign in as the winner instead.
   const suffix = randomBytes(2).toString("hex");
   const handle = `guest-${suffix}`;
   const palette = ["#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7", "#B58FBF", "#D98090"];
@@ -44,10 +48,25 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
       roleId: invite.defaultRoleId,
     },
   });
-  await db.inviteCode.update({
-    where: { id: invite.id },
+
+  // Atomic compare-and-set: only succeeds if usedById is still null.
+  const claim = await db.inviteCode.updateMany({
+    where: { id: invite.id, usedById: null },
     data: { usedById: user.id },
   });
+
+  if (claim.count === 0) {
+    // We lost the race. Roll back our orphan user and use the winner.
+    await db.user.delete({ where: { id: user.id } }).catch(() => {});
+    const winner = await db.inviteCode.findUnique({
+      where: { id: invite.id },
+      select: { usedById: true },
+    });
+    if (winner?.usedById) {
+      return { ok: true, userId: winner.usedById, isNewUser: false };
+    }
+    return { ok: false, reason: "USED" };
+  }
 
   return { ok: true, userId: user.id, isNewUser: true };
 }

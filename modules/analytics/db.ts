@@ -44,13 +44,15 @@ export async function computeKpisDb(): Promise<AnalyticsKpi[]> {
       distinct: ["userId"],
     }),
   ]);
-  const totalUsers = await db.user.count();
 
   return [
     { label: "投票數",   value: String(voteCount),  delta: deltaFrom("vote.cast", 30) },
     { label: "活動 RSVP",  value: String(rsvpCount),  delta: deltaFrom("activity.rsvp", 30) },
     { label: "文章建立",   value: String(postCount),  delta: deltaFrom("post.created", 30) },
-    { label: "活躍成員",   value: `${activeUserIds.length} / ${totalUsers}`, delta: "—" },
+    // "活躍成員" = distinct event actors in the last 30 days. We intentionally
+    // do NOT read db.user for a total denominator — that would JOIN analytics
+    // into a core table and break the extraction firewall (AGENTS.md rule 2).
+    { label: "活躍成員（30天）", value: String(activeUserIds.length), delta: "—" },
   ];
 }
 

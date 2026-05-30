@@ -46,6 +46,10 @@ modules/<area>/<feature>/
 
 **Rule:** A page in `app/` may ONLY import from `<module>/index.ts`. Never reach into a module's internals from a page. This keeps the seam clean for future refactors.
 
+**Two deliberate exceptions to the barrel rule** (not violations — by design):
+1. **Server actions** live in `modules/<x>/actions.ts` (and `admin.ts`) which carry the `"use server"` directive. A `"use server"` file may only export async functions, so it CANNOT be funneled through `index.ts` (which also exports types/components/data). Pages and client components therefore import actions from the narrow `@/modules/<x>/actions` path directly. This is the correct Next.js pattern.
+2. **AI-assistant server-only code.** `modules/ai-assistant/client.ts` is `server-only` (it loads the Node-only Anthropic SDK). Client components must import the assistant's UI pieces from narrow paths (`@/modules/ai-assistant/components/...`, `@/modules/ai-assistant/data`), never the barrel, or the SDK leaks into the browser bundle.
+
 ## 4. Cross-module dependencies (the seams)
 ```
                    ┌────────────────┐

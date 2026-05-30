@@ -101,17 +101,24 @@ export async function rejectRequestAction(requestId: string) {
   await requirePermission("admin.approve");
   const me = await requireCurrentUser();
 
-  const req = await db.permissionRequest.update({
+  // Guard existence + state first (mirrors approveRequestAction), so a stale
+  // or double-clicked request id is a no-op rather than a thrown P2025.
+  const existing = await db.permissionRequest.findUnique({
+    where: { id: requestId },
+    include: { requestedRole: true },
+  });
+  if (!existing || existing.status !== "PENDING") return;
+
+  await db.permissionRequest.update({
     where: { id: requestId },
     data: { status: "REJECTED", decidedById: me.id, decidedAt: new Date() },
-    include: { requestedRole: true },
   });
 
   void notify({
-    userId: req.userId,
+    userId: existing.userId,
     kind: "permission.rejected",
     title: "權限申請未通過",
-    body: `這次申請 ${req.requestedRole.name} 未通過。如有疑問可以再聯絡管理員。`,
+    body: `這次申請 ${existing.requestedRole.name} 未通過。如有疑問可以再聯絡管理員。`,
     link: "/app/permissions",
   });
 
