@@ -1,0 +1,135 @@
+import Link from "next/link";
+
+/**
+ * /preview — a single-page visual tour of every screen in the app.
+ *
+ * Thumbnails are static PNGs captured into /public/preview (regenerate
+ * with `node gen-preview.mjs` against a running server). Grouped into
+ * three sections: public entry, the design mockup, and the live app.
+ *
+ * Each card links to the *live* route where one exists, so this doubles
+ * as a clickable site map.
+ */
+export const metadata = { title: "相聚 · 全站預覽" };
+
+type Shot = { img: string; title: string; desc: string; href?: string };
+
+const PUBLIC: Shot[] = [
+  { img: "landing", title: "首頁 Landing", desc: "品牌入口 + 三大功能介紹", href: "/" },
+  { img: "login", title: "邀請碼登入", desc: "封閉社群，只有受邀者能進", href: "/login" },
+];
+
+const APP: Shot[] = [
+  { img: "app-feed", title: "動態首頁", desc: "真實 DB：文章 + 即將到來 + 進行中投票 + 按讚", href: "/app/feed" },
+  { img: "app-activities", title: "活動列表", desc: "下次相聚 hero + 即將/已過去 + 分類", href: "/app/activities" },
+  { img: "app-activity", title: "活動詳情", desc: "RSVP + 留言串 + 分類", href: "/app/activities" },
+  { img: "app-calendar", title: "行事曆", desc: "月曆檢視所有活動", href: "/app/calendar" },
+  { img: "app-activities-new", title: "建立活動", desc: "含封面圖片上傳 / 漸層挑選", href: "/app/activities/new" },
+  { img: "app-polls-new", title: "建立投票", desc: "Line 風格：多選/匿名/截止/可新增選項", href: "/app/polls/new" },
+  { img: "app-poll", title: "投票詳情", desc: "即時計票 + 倒數", href: "/app/feed" },
+  { img: "app-posts-new", title: "發文", desc: "文章/推薦/隨筆 + 分類 + 置頂", href: "/app/posts/new" },
+  { img: "app-pages", title: "自訂頁面書架", desc: "成員建立的 CMS 頁面", href: "/app/pages" },
+  { img: "app-page-detail", title: "自訂頁面內容", desc: "RichText / Markdown / HTML / 圖片 / 嵌入投票", href: "/app/pages" },
+  { img: "app-pages-new", title: "建立自訂頁面", desc: "Markdown 起手 + 分類", href: "/app/pages/new" },
+  { img: "app-assistant", title: "AI 助手", desc: "草擬投票/活動、分類、摘要（接 Claude）", href: "/app/assistant" },
+  { img: "app-permissions", title: "權限申請", desc: "角色階梯 + 申請 + 管理員審批", href: "/app/permissions" },
+  { img: "app-admin", title: "管理工具", desc: "邀請碼 / 角色管理 / 審計日誌", href: "/app/admin" },
+  { img: "app-analytics", title: "分析儀表板", desc: "事件流（獨立模組、深色介面）", href: "/app/analytics" },
+  { img: "app-notifications", title: "通知", desc: "站內提醒（核准/留言/RSVP）", href: "/app/notifications" },
+];
+
+const MOCKUP: Shot[] = [
+  { img: "mockup-index", title: "Mockup 索引", desc: "視覺原型總覽", href: "/mockup" },
+  { img: "mockup-feed", title: "動態（設計稿）", desc: "暖色家庭相簿風", href: "/mockup/feed" },
+  { img: "mockup-activities", title: "活動列表（設計稿）", desc: "", href: "/mockup/activities" },
+  { img: "mockup-activity", title: "活動詳情（設計稿）", desc: "", href: "/mockup/activity" },
+  { img: "mockup-poll", title: "投票（設計稿）", desc: "Line 風格倒數", href: "/mockup/poll" },
+  { img: "mockup-create", title: "建立內容（設計稿）", desc: "", href: "/mockup/create" },
+  { img: "mockup-pages", title: "頁面書架（設計稿）", desc: "", href: "/mockup/pages" },
+  { img: "mockup-page-detail", title: "頁面內容（設計稿）", desc: "", href: "/mockup/page-detail" },
+  { img: "mockup-permissions", title: "權限（設計稿）", desc: "", href: "/mockup/permissions" },
+  { img: "mockup-inbox", title: "管理員收件夾（設計稿）", desc: "", href: "/mockup/inbox" },
+  { img: "mockup-analytics", title: "分析（設計稿）", desc: "", href: "/mockup/analytics" },
+  { img: "mockup-assistant", title: "AI 助手（設計稿）", desc: "", href: "/mockup/assistant" },
+  { img: "mockup-profile", title: "個人檔案（設計稿）", desc: "", href: "/mockup/profile" },
+];
+
+function Grid({ shots }: { shots: Shot[] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {shots.map((s) => {
+        const card = (
+          <div className="group bg-white rounded-soft border border-sand/60 shadow-card overflow-hidden hover:shadow-soft hover:-translate-y-0.5 transition">
+            <div className="aspect-[1280/820] overflow-hidden bg-cream/40 border-b border-sand/60">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/preview/${s.img}.png`}
+                alt={s.title}
+                loading="lazy"
+                className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition"
+              />
+            </div>
+            <div className="p-3">
+              <div className="text-sm font-medium text-ink group-hover:text-terracotta transition">{s.title}</div>
+              {s.desc && <div className="text-xs text-ink/55 mt-0.5 leading-snug">{s.desc}</div>}
+            </div>
+          </div>
+        );
+        return s.href ? (
+          <Link key={s.img} href={s.href}>{card}</Link>
+        ) : (
+          <div key={s.img}>{card}</div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function PreviewPage() {
+  return (
+    <main className="min-h-screen">
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="mb-10">
+          <p className="text-sage-dark font-medium tracking-widest text-xs mb-2">FULL SITE PREVIEW</p>
+          <h1 className="serif text-5xl text-ink mb-3">相聚 · 全站預覽</h1>
+          <p className="text-ink/70 max-w-2xl leading-relaxed">
+            一頁看完整個網站長什麼樣子。點任一張縮圖會跳到該頁。
+            真實 App 頁面需要先用邀請碼登入（
+            <Link href="/login" className="text-terracotta hover:underline">/login</Link>，
+            demo 碼見登入頁）。
+          </p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link href="/login" className="px-5 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition">
+              登入體驗 →
+            </Link>
+            <Link href="/mockup" className="px-5 py-2.5 rounded-soft bg-white border border-sand text-ink hover:bg-cream/50 transition">
+              看設計稿
+            </Link>
+          </div>
+        </div>
+
+        <Section label="入口" count={PUBLIC.length}><Grid shots={PUBLIC} /></Section>
+        <Section label="真實應用 App（需登入）" count={APP.length}><Grid shots={APP} /></Section>
+        <Section label="設計稿 Mockup（純前端假資料）" count={MOCKUP.length}><Grid shots={MOCKUP} /></Section>
+
+        <footer className="mt-16 pt-6 border-t border-sand text-sm text-ink/50">
+          相聚 Together · {PUBLIC.length + APP.length + MOCKUP.length} 個畫面 ·
+          縮圖以 <code className="text-terracotta">node gen-preview.mjs</code> 重新產生
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function Section({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+  return (
+    <section className="mb-12">
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="serif text-2xl text-ink">{label}</h2>
+        <div className="flex-1 divider-dashed" />
+        <span className="text-xs text-ink/40">{count} 個畫面</span>
+      </div>
+      {children}
+    </section>
+  );
+}

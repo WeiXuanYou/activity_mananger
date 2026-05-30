@@ -31,15 +31,15 @@ export default function HomePage() {
               用邀請碼登入 <span>→</span>
             </Link>
             <Link
-              href="/mockup"
+              href="/preview"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-soft bg-white text-ink border border-sand hover:bg-cream/50 transition"
             >
-              先看 Mockup 預覽
+              看全站預覽
             </Link>
           </div>
           <div className="mt-3 text-xs text-ink/50">
-            <code className="bg-cream/60 px-1.5 py-0.5 rounded">/login</code> 已接資料庫·
-            <code className="bg-cream/60 px-1.5 py-0.5 rounded">/app/feed</code> 真實 Prisma 查詢
+            <Link href="/preview" className="text-terracotta hover:underline">/preview</Link> 一頁看完所有畫面 ·
+            <code className="bg-cream/60 px-1.5 py-0.5 rounded ml-1">/login</code> 真實登入體驗
           </div>
         </div>
 
