@@ -92,7 +92,11 @@ export default async function FeedMockup({ searchParams }: Search) {
                 <span>📊</span> 進行中投票
               </h3>
               <div className="space-y-3">
-                {polls.map((p) => <PollCard key={p.id} poll={p} compact />)}
+                {polls.map((p) => (
+                  <Link key={p.id} href="/mockup/poll" className="block">
+                    <PollCard poll={p} compact />
+                  </Link>
+                ))}
               </div>
             </div>
 

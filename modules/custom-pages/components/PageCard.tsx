@@ -1,4 +1,8 @@
-import Link from "next/link";
+/**
+ * Custom-page card. No outer <Link> here — caller wraps with the right
+ * destination. This avoids nested-anchor hydration errors when the
+ * listing page wraps the card in its own real-route <Link>.
+ */
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { CustomPage } from "../types";
@@ -8,10 +12,7 @@ export function PageCard({ page }: { page: CustomPage }) {
   const owner = page.owner ?? findMember(page.ownerId);
   const cats = page.categories ?? findCategoriesByIds(page.categoryIds);
   return (
-    <Link
-      href="/mockup/page-detail"
-      className="group bg-white rounded-soft shadow-card border border-sand/60 overflow-hidden hover:shadow-soft hover:-translate-y-1 transition"
-    >
+    <div className="group bg-white rounded-soft shadow-card border border-sand/60 overflow-hidden hover:shadow-soft hover:-translate-y-1 transition">
       <div className="h-36 relative" style={{ background: page.cover }}>
         <span className="absolute top-3 right-3 bg-white/90 text-ink/70 text-xs px-2 py-1 rounded-full">
           {page.blocks} 個區塊
@@ -31,6 +32,6 @@ export function PageCard({ page }: { page: CustomPage }) {
           <span className="ml-auto text-xs text-ink/40">/{page.slug}</span>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

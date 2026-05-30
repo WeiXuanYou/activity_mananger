@@ -76,7 +76,11 @@ export default function ProfileMockup() {
             <>
               <h3 className="serif text-lg text-ink mt-8">主辦活動</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {myActivities.map((a) => <ActivityCard key={a.id} activity={a} />)}
+                {myActivities.map((a) => (
+                  <Link key={a.id} href="/mockup/activity" className="block">
+                    <ActivityCard activity={a} />
+                  </Link>
+                ))}
               </div>
             </>
           )}

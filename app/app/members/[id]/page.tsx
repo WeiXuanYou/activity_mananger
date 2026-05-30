@@ -91,7 +91,11 @@ export default async function MemberProfilePage({ params }: Params) {
       {myActivities.length > 0 && (
         <Section title="🍖 發起的活動">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {myActivities.map((a) => <ActivityCard key={a.id} activity={a} />)}
+            {myActivities.map((a) => (
+              <Link key={a.id} href={`/app/activity/${a.id}`} className="block">
+                <ActivityCard activity={a} />
+              </Link>
+            ))}
           </div>
         </Section>
       )}
@@ -100,7 +104,11 @@ export default async function MemberProfilePage({ params }: Params) {
       {myPolls.length > 0 && (
         <Section title="📊 發起的投票">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {myPolls.map((p) => <PollCard key={p.id} poll={p} />)}
+            {myPolls.map((p) => (
+              <Link key={p.id} href={`/app/poll/${p.id}`} className="block">
+                <PollCard poll={p} />
+              </Link>
+            ))}
           </div>
         </Section>
       )}

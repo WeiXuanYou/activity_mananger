@@ -62,7 +62,11 @@ export default async function PagesIndexMockup({ searchParams }: Search) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {pages.map((p) => <PageCard key={p.id} page={p} />)}
+            {pages.map((p) => (
+              <Link key={p.id} href="/mockup/page-detail" className="block">
+                <PageCard page={p} />
+              </Link>
+            ))}
 
             <Link
               href="/mockup/page-detail"

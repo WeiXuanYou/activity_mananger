@@ -14,10 +14,7 @@ import {
   findLikedPostIdsByUserDb,
   PostCard,
 } from "@/modules/core/posts";
-import {
-  listUpcomingActivitiesDb,
-  ActivityCard,
-} from "@/modules/core/activities";
+import { listUpcomingActivitiesDb } from "@/modules/core/activities";
 import { listPollsDb, PollCard } from "@/modules/core/polls";
 import { listCategoriesDb, findCategoryBySlugDb, CategoryFilterBar } from "@/modules/core/categories";
 import { formatShortDate, relativeFromNow } from "@/lib/date";

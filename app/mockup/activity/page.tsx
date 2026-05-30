@@ -77,7 +77,9 @@ export default function ActivityDetailMockup() {
           <div className="lg:col-span-2 space-y-6">
             <div>
               <h2 className="serif text-xl text-ink mb-3">📊 活動內投票</h2>
-              <PollCard poll={poll} />
+              <Link href="/mockup/poll" className="block">
+                <PollCard poll={poll} />
+              </Link>
             </div>
 
             <div>

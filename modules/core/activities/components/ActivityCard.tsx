@@ -8,8 +8,11 @@
  *   - Whole card dimmed (opacity-75) for past activities
  *
  * Categories appear as a row of small chips between title and host strip.
+ *
+ * No outer <Link> — caller wraps with the right destination. This avoids
+ * nested-anchor hydration errors when /app/activities wraps the card
+ * (and lets the same card serve mockup + real flows).
  */
-import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import { formatShortDate, relativeFromNow, daysFromNow } from "@/lib/date";
@@ -24,9 +27,8 @@ export function ActivityCard({ activity }: { activity: Activity }) {
   const short = formatShortDate(activity.startsAt);
 
   return (
-    <Link
-      href="/mockup/activity"
-      className={`block bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 hover:shadow-soft transition group ${
+    <div
+      className={`bg-white rounded-soft shadow-card overflow-hidden border border-sand/60 hover:shadow-soft transition group ${
         isPast ? "opacity-75" : ""
       }`}
     >
@@ -59,6 +61,6 @@ export function ActivityCard({ activity }: { activity: Activity }) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

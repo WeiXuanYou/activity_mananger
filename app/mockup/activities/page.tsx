@@ -87,7 +87,11 @@ export default async function ActivitiesListMockup({ searchParams }: Search) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {list.map((a) => <ActivityCard key={a.id} activity={a} />)}
+            {list.map((a) => (
+              <Link key={a.id} href="/mockup/activity" className="block">
+                <ActivityCard activity={a} />
+              </Link>
+            ))}
           </div>
         )}
       </div>

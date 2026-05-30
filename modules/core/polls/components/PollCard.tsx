@@ -12,7 +12,6 @@
  * "📊 投票", option labels are rendered as parsed datetimes, and the
  * top-voted option is highlighted as the "suggested common time".
  */
-import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Poll } from "../types";
@@ -57,11 +56,13 @@ export function PollCard({ poll, compact = false }: { poll: Poll; compact?: bool
     null,
   );
 
+  // No outer <Link> here — caller wraps with the right destination. This
+  // avoids the historical pre-Phase J bug where the card linked to
+  // /mockup/poll regardless of context, AND prevents nested-anchor
+  // hydration errors when the caller (e.g. /app/feed) wraps the card in
+  // its own real-route <Link>.
   return (
-    <Link
-      href="/mockup/poll"
-      className="block bg-white rounded-soft shadow-card border border-sand/60 p-5 hover:shadow-soft transition relative overflow-hidden"
-    >
+    <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5 hover:shadow-soft transition relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sage to-terracotta opacity-60" />
 
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -139,6 +140,6 @@ export function PollCard({ poll, compact = false }: { poll: Poll; compact?: bool
       {compact && (
         <div className="text-xs text-terracotta font-medium">點此投票 →</div>
       )}
-    </Link>
+    </div>
   );
 }
