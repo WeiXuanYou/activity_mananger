@@ -12,11 +12,19 @@ import { requireCurrentUser } from "@/modules/auth";
 import { findCategoriesByIds } from "@/modules/core/categories";
 import { suggestCategories, summarize, draftPoll, draftActivity } from "./queries";
 
-export type AssistantResult = {
-  ok: boolean;
-  kind: "classify" | "summarize" | "draft-poll" | "draft-activity";
-  text: string;
-};
+/**
+ * Result envelope. `text` is the human-readable preview shown in the
+ * playground; `payload` is structured data that lets the UI render a
+ * "建立此投票" / "建立此活動" CTA that pre-fills the real form.
+ *
+ * Adding a new draft kind: extend the union and the corresponding
+ * `payload` shape; the playground renders the CTA based on kind.
+ */
+export type AssistantResult =
+  | { ok: boolean; kind: "classify";       text: string }
+  | { ok: boolean; kind: "summarize";      text: string }
+  | { ok: boolean; kind: "draft-poll";     text: string; payload: { question: string; options: string[] } }
+  | { ok: boolean; kind: "draft-activity"; text: string; payload: { title: string; description: string; suggestedDate?: string; suggestedCategorySlugs: string[] } };
 
 export async function runClassifyAction(text: string): Promise<AssistantResult> {
   await requireCurrentUser();
@@ -39,20 +47,31 @@ export async function runDraftPollAction(idea: string): Promise<AssistantResult>
   await requireCurrentUser();
   const { question, options } = await draftPoll(idea);
   const text = `問題：${question}\n選項：\n${options.map((o, i) => `  ${i + 1}. ${o}`).join("\n")}`;
-  return { ok: true, kind: "draft-poll", text };
+  return { ok: true, kind: "draft-poll", text, payload: { question, options } };
 }
 
 export async function runDraftActivityAction(idea: string): Promise<AssistantResult> {
   await requireCurrentUser();
   const d = await draftActivity(idea);
-  const cats = findCategoriesByIds(d.suggestedCategoryIds).map((c) => `${c.emoji} ${c.name}`);
+  const cats = findCategoriesByIds(d.suggestedCategoryIds);
+  const catLabels = cats.map((c) => `${c.emoji} ${c.name}`);
   const text = [
     `標題：${d.title}`,
     `描述：${d.description}`,
-    cats.length ? `建議分類：${cats.join("、")}` : null,
+    catLabels.length ? `建議分類：${catLabels.join("、")}` : null,
     d.suggestedDate ? `建議日期：${d.suggestedDate}` : null,
   ]
     .filter(Boolean)
     .join("\n");
-  return { ok: true, kind: "draft-activity", text };
+  return {
+    ok: true,
+    kind: "draft-activity",
+    text,
+    payload: {
+      title: d.title,
+      description: d.description,
+      suggestedDate: d.suggestedDate,
+      suggestedCategorySlugs: cats.map((c) => c.slug),
+    },
+  };
 }

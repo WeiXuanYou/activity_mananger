@@ -279,6 +279,40 @@ async function main() {
     });
   }
 
+  // "On this day" demo memories — anchor a post 1y ago and an activity 2y ago
+  // to today's MM-DD so the feed widget always has something to surface,
+  // regardless of when the seed runs.
+  const today = new Date();
+  const yearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate(), 14, 0, 0);
+  const twoYearAgo = new Date(today.getFullYear() - 2, today.getMonth(), today.getDate(), 18, 30, 0);
+  const memoryPost = await db.post.create({
+    data: {
+      authorId: userRows.mom.id,
+      kind: "NOTE",
+      title: "去年的今天我們在這吃飯",
+      body: "翻到去年的照片——一樣這群人，差不多的笑容。時間過得真快。",
+      isPinned: false,
+      categories: { create: [{ categoryId: catRows.family.id }] },
+    },
+  });
+  await db.$executeRawUnsafe(
+    `UPDATE Post SET createdAt = ? WHERE id = ?`, yearAgo.toISOString(), memoryPost.id,
+  );
+  const memoryActivity = await db.activity.create({
+    data: {
+      title: "兩年前的家族聚餐",
+      description: "翻記憶——當年大家還沒搬走，每月都這樣坐一桌。",
+      location: "阿嬤家客廳",
+      cover: "linear-gradient(135deg, #E5D7EA 0%, #B58FBF 100%)",
+      startsAt: twoYearAgo,
+      authorId: userRows.grandma.id,
+      categories: { create: [{ categoryId: catRows.family.id }] },
+    },
+  });
+  await db.$executeRawUnsafe(
+    `UPDATE Activity SET createdAt = ? WHERE id = ?`, twoYearAgo.toISOString(), memoryActivity.id,
+  );
+
   // Permission requests
   const reqSeed = [
     { user: "ming",   current: "Member", target: "Editor", status: "PENDING",  reason: "想要幫忙籌備中秋活動，需要建立活動與投票的權限。" },

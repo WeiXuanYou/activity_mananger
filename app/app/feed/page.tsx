@@ -23,6 +23,7 @@ import { listCategoriesDb, findCategoryBySlugDb, CategoryFilterBar } from "@/mod
 import { formatShortDate, relativeFromNow } from "@/lib/date";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
 import { deletePostAction } from "@/modules/core/posts/actions";
+import { listMemoriesForToday, MemoriesCard } from "@/modules/core/memories";
 
 type Search = { searchParams: Promise<{ cat?: string }> };
 
@@ -55,6 +56,10 @@ export default async function AppFeedPage({ searchParams }: Search) {
   // Edit/delete is available when the current user owns the post or has
   // the moderate perm. Compute once for the whole list.
   const canModeratePosts = await canCurrentUser("post.moderate");
+
+  // "On this day" memories — only same-MM-DD content from prior years.
+  // Quietly omitted on the feed if there's nothing to surface.
+  const memories = await listMemoriesForToday();
 
   return (
     <main className="max-w-6xl mx-auto px-5 py-6">
@@ -136,6 +141,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
         </section>
 
         <aside className="lg:col-span-5 space-y-5">
+          <MemoriesCard memories={memories} />
           <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
             <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">
               <span>🗓</span> 即將到來

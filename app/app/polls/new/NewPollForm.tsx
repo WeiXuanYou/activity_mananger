@@ -29,20 +29,31 @@ export type EditingPoll = {
   hasVotes: boolean;       // if true, options become read-only
 };
 
+/** Pre-fill from AI / external source. Used when user clicks "建立此投票"
+ *  on an AI suggestion — same form, populated, ready to submit/tweak. */
+export type PollPrefill = {
+  question?: string;
+  options?: string[];
+};
+
 export function NewPollForm({
   categories,
   editing,
+  prefill,
 }: {
   categories: Category[];
   editing?: EditingPoll;
+  prefill?: PollPrefill;
 }) {
   const router = useRouter();
-  const [question, setQuestion] = useState(editing?.question ?? "");
+  const [question, setQuestion] = useState(editing?.question ?? prefill?.question ?? "");
   // SCHEDULE mode flips option inputs to datetime-local pickers.
   // We default multiSelect to true in schedule mode since people usually
   // can mark multiple time slots as "available".
   const [kind, setKind] = useState<"STANDARD" | "SCHEDULE">(editing?.kind ?? "STANDARD");
-  const [options, setOptions] = useState<string[]>(editing?.options ?? ["", ""]);
+  const [options, setOptions] = useState<string[]>(
+    editing?.options ?? (prefill?.options && prefill.options.length >= 2 ? prefill.options : ["", ""]),
+  );
   const [multiSelect, setMultiSelect] = useState(editing?.multiSelect ?? false);
   const [anonymous, setAnonymous] = useState(editing?.anonymous ?? false);
   const [allowAdd, setAllowAdd] = useState(editing?.allowAddOption ?? true);
@@ -108,6 +119,12 @@ export function NewPollForm({
 
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-6 space-y-4">
+      {prefill && !editing && (
+        <div className="bg-gradient-to-r from-cream to-sage-soft/30 rounded-soft border border-sage/30 p-3 text-xs text-ink/70 flex items-start gap-2">
+          <span className="text-lg">✨</span>
+          <span><strong className="text-sage-dark">AI 已幫你草擬</strong>——可以直接送出，或先改一改再發。</span>
+        </div>
+      )}
       <div className="bg-gradient-to-r from-sage-soft/40 to-cream rounded-soft border border-sage/20 p-3 text-xs text-ink/65 flex items-start gap-2">
         <span className="text-lg">📊</span>
         <span>類似 Line 的投票工具——支援單選/多選、匿名、可由家人朋友新增選項、自動截止。</span>

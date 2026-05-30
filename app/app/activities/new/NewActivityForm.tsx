@@ -29,26 +29,39 @@ export type EditingActivity = {
   categorySlugs: string[];
 };
 
+/** Pre-fill from AI / external source. All fields optional. */
+export type ActivityPrefill = {
+  title?: string;
+  description?: string;
+  location?: string;
+  startsAt?: string;
+  categorySlugs?: string[];
+};
+
 export function NewActivityForm({
   categories,
   editing,
+  prefill,
 }: {
   categories: Category[];
   editing?: EditingActivity;
+  prefill?: ActivityPrefill;
 }) {
   const router = useRouter();
-  // Seed initial state from `editing` when present, else blank
-  const [title, setTitle] = useState(editing?.title ?? "");
-  const [description, setDescription] = useState(editing?.description ?? "");
-  const [location, setLocation] = useState(editing?.location ?? "");
-  const [startsAt, setStartsAt] = useState(editing?.startsAt ?? "");
+  // Seed initial state from `editing` first (full record), else prefill (hints), else blank
+  const [title, setTitle] = useState(editing?.title ?? prefill?.title ?? "");
+  const [description, setDescription] = useState(editing?.description ?? prefill?.description ?? "");
+  const [location, setLocation] = useState(editing?.location ?? prefill?.location ?? "");
+  const [startsAt, setStartsAt] = useState(editing?.startsAt ?? prefill?.startsAt ?? "");
   // Extract initial url from "url(/x) center/cover" if any
   const initialUrl = editing?.cover?.match(/^url\((.+?)\)/)?.[1];
   const [coverUrl, setCoverUrl] = useState<string | null>(initialUrl ?? null);
   const [gradient, setGradient] = useState(
     editing && !initialUrl ? editing.cover : GRADIENT_PRESETS[0].value,
   );
-  const [selectedSlugs, setSelectedSlugs] = useState<string[]>(editing?.categorySlugs ?? []);
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>(
+    editing?.categorySlugs ?? prefill?.categorySlugs?.slice(0, 3) ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -97,6 +110,12 @@ export function NewActivityForm({
 
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-6 space-y-4">
+      {prefill && !editing && (
+        <div className="bg-gradient-to-r from-cream to-sage-soft/30 rounded-soft border border-sage/30 p-3 text-xs text-ink/70 flex items-start gap-2">
+          <span className="text-lg">✨</span>
+          <span><strong className="text-sage-dark">AI 已幫你草擬</strong>——可以直接送出，或先改一改再發。</span>
+        </div>
+      )}
       <label className="block">
         <span className="text-sm font-medium text-ink/80">活動名稱</span>
         <input

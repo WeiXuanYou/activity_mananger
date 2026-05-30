@@ -3,13 +3,29 @@ import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 import { listCategoriesDb } from "@/modules/core/categories";
-import { NewActivityForm } from "./NewActivityForm";
+import { NewActivityForm, type ActivityPrefill } from "./NewActivityForm";
 
-export default async function NewActivityPage() {
+type Search = { searchParams: Promise<{ prefill?: string }> };
+
+function decodePrefill(sp: { prefill?: string }): ActivityPrefill | undefined {
+  if (!sp.prefill) return undefined;
+  try {
+    const json = Buffer.from(sp.prefill, "base64url").toString("utf8");
+    const parsed = JSON.parse(json) as ActivityPrefill;
+    if (parsed && Object.keys(parsed).length > 0) return parsed;
+  } catch {
+    // silently ignore malformed
+  }
+  return undefined;
+}
+
+export default async function NewActivityPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
   const canCreate = await canCurrentUser("activity.create");
   if (!canCreate) redirect("/app/activities?denied=create");
 
+  const sp = await searchParams;
+  const prefill = decodePrefill(sp);
   const categories = await listCategoriesDb();
 
   return (
@@ -26,7 +42,7 @@ export default async function NewActivityPage() {
         </p>
       </div>
 
-      <NewActivityForm categories={categories} />
+      <NewActivityForm categories={categories} prefill={prefill} />
     </main>
   );
 }

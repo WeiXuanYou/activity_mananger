@@ -20,7 +20,8 @@ const PUBLIC: Shot[] = [
 ];
 
 const APP: Shot[] = [
-  { img: "app-feed", title: "動態首頁", desc: "真實 DB：文章 + 即將到來 + 進行中投票 + 按讚 + ⋯ 編輯選單", href: "/app/feed" },
+  { img: "app-feed", title: "動態首頁", desc: "📅 去年的今天 widget + 文章 + 即將到來 + 進行中投票 + 搜尋列", href: "/app/feed" },
+  { img: "app-search", title: "全站搜尋", desc: "跨文章/活動/投票/頁面/留言 + 命中高亮", href: "/app/search" },
   { img: "app-activities", title: "活動列表", desc: "下次相聚 hero + 即將/已過去 + 分類", href: "/app/activities" },
   { img: "app-activity", title: "活動詳情", desc: "RSVP + 留言串 + 分類 + 編輯/刪除", href: "/app/activities" },
   { img: "app-activity-edit", title: "編輯活動", desc: "預填的活動表單，owner 或 moderator 可改", href: "/app/activities" },
@@ -35,7 +36,8 @@ const APP: Shot[] = [
   { img: "app-page-edit", title: "CMS 編輯模式", desc: "block 工具列（↑↓🗑）+ 加入新 block 的工具列", href: "/app/pages" },
   { img: "app-pages-new", title: "建立自訂頁面", desc: "Markdown 起手 + 分類", href: "/app/pages/new" },
   { img: "app-profile", title: "個人檔案", desc: "頭像 + 統計（文章/活動/投票/留言）+ 內容列表", href: "/app/feed" },
-  { img: "app-assistant", title: "AI 助手", desc: "草擬投票/活動、分類、摘要（接 Claude）", href: "/app/assistant" },
+  { img: "app-assistant", title: "AI 助手", desc: "草擬投票/活動、分類、摘要（接 Claude / Ollama / 任何 OpenAI-compat）", href: "/app/assistant" },
+  { img: "app-assistant-cta", title: "AI 一鍵建立", desc: "AI 草稿 → ✓ 用這份草稿建立投票/活動，prefill 進真實表單", href: "/app/assistant" },
   { img: "app-permissions", title: "權限申請", desc: "角色階梯 + 申請 + 管理員審批", href: "/app/permissions" },
   { img: "app-admin", title: "管理工具", desc: "邀請碼 / 角色管理 / 審計日誌", href: "/app/admin" },
   { img: "app-analytics", title: "分析儀表板", desc: "事件流（獨立模組、深色介面）", href: "/app/analytics" },

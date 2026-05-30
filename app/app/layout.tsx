@@ -4,6 +4,7 @@ import { getCurrentUser, signOutAction } from "@/modules/auth";
 import { Avatar } from "@/modules/core/members";
 import { RoleBadge, canCurrentUser } from "@/modules/permissions";
 import { NotificationBell, unreadCountDb } from "@/modules/notifications";
+import { SearchBar } from "./search/SearchBar";
 
 /**
  * Authenticated shell for the REAL app (Phase B+).
@@ -63,6 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
           </nav>
           <div className="ml-auto flex items-center gap-2 shrink-0">
+            <SearchBar compact />
             <NotificationBell unread={unread} />
             <Link
               href={`/app/members/${user.id}`}

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   runClassifyAction,
   runSummarizeAction,
@@ -15,6 +16,19 @@ type Mode = {
   placeholder: string;
   run: (input: string) => Promise<AssistantResult>;
 };
+
+/**
+ * Build the create-page URL with a base64url-encoded payload, so any
+ * special chars (line breaks, quotes, slashes, CJK) round-trip safely.
+ * Browser-only encoder: UTF-8 → bytes → base64 → URL-safe.
+ */
+function buildPrefillHref(path: "/app/polls/new" | "/app/activities/new", payload: object): string {
+  const utf8 = new TextEncoder().encode(JSON.stringify(payload));
+  let bin = "";
+  for (const byte of utf8) bin += String.fromCharCode(byte);
+  const b64url = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${path}?prefill=${b64url}`;
+}
 
 const MODES: Mode[] = [
   {
@@ -50,7 +64,9 @@ const MODES: Mode[] = [
 export function AssistantPlayground({ live, providerLabel }: { live: boolean; providerLabel: string }) {
   const [modeKey, setModeKey] = useState<Mode["key"]>("draft-poll");
   const [input, setInput] = useState("");
-  const [result, setResult] = useState<string | null>(null);
+  // Keep the full result so we can render kind-specific CTAs ("建立此投票")
+  // not just the plain-text preview.
+  const [result, setResult] = useState<AssistantResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const mode = MODES.find((m) => m.key === modeKey)!;
@@ -60,7 +76,7 @@ export function AssistantPlayground({ live, providerLabel }: { live: boolean; pr
     setResult(null);
     startTransition(async () => {
       const r = await mode.run(input);
-      setResult(r.text);
+      setResult(r);
     });
   };
 
@@ -110,7 +126,31 @@ export function AssistantPlayground({ live, providerLabel }: { live: boolean; pr
             <span className="w-6 h-6 rounded-full bg-gradient-to-br from-sage to-sage-dark text-white flex items-center justify-center text-xs">✨</span>
             AI 回應
           </div>
-          <pre className="text-sm text-ink/80 leading-relaxed whitespace-pre-wrap font-sans">{result}</pre>
+          <pre className="text-sm text-ink/80 leading-relaxed whitespace-pre-wrap font-sans">{result.text}</pre>
+
+          {/* One-click "建立此X" — only when the AI actually drafted something we can persist. */}
+          {result.kind === "draft-poll" && result.payload.options.length >= 2 && (
+            <div className="mt-4 pt-3 border-t border-sage/20 flex items-center gap-3 flex-wrap">
+              <Link
+                href={buildPrefillHref("/app/polls/new", result.payload)}
+                className="px-4 py-2 rounded-soft bg-terracotta text-white text-sm font-medium shadow-card hover:bg-terracotta-dark transition"
+              >
+                ✓ 用這份草稿建立投票
+              </Link>
+              <span className="text-xs text-ink/55">會帶你到投票表單，已預填好可再調整</span>
+            </div>
+          )}
+          {result.kind === "draft-activity" && result.payload.title && (
+            <div className="mt-4 pt-3 border-t border-sage/20 flex items-center gap-3 flex-wrap">
+              <Link
+                href={buildPrefillHref("/app/activities/new", result.payload)}
+                className="px-4 py-2 rounded-soft bg-terracotta text-white text-sm font-medium shadow-card hover:bg-terracotta-dark transition"
+              >
+                ✓ 用這份草稿建立活動
+              </Link>
+              <span className="text-xs text-ink/55">會帶你到活動表單，已預填好可再調整</span>
+            </div>
+          )}
         </div>
       )}
     </div>

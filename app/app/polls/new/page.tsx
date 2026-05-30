@@ -3,13 +3,41 @@ import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 import { listCategoriesDb } from "@/modules/core/categories";
-import { NewPollForm } from "./NewPollForm";
+import { NewPollForm, type PollPrefill } from "./NewPollForm";
 
-export default async function NewPollPage() {
+type Search = { searchParams: Promise<{ prefill?: string; q?: string; opts?: string }> };
+
+/**
+ * Prefill via URL: ?prefill=base64-json or the simpler ?q=...&opts=a|b|c.
+ * Both forms supported — the AI assistant uses base64-json (preserves any
+ * special chars), but the simpler form is convenient for hand-crafted links.
+ */
+function decodePrefill(sp: { prefill?: string; q?: string; opts?: string }): PollPrefill | undefined {
+  if (sp.prefill) {
+    try {
+      const json = Buffer.from(sp.prefill, "base64url").toString("utf8");
+      const parsed = JSON.parse(json) as PollPrefill;
+      if (parsed && (parsed.question || parsed.options?.length)) return parsed;
+    } catch {
+      // fall through — silently ignore malformed prefill
+    }
+  }
+  if (sp.q || sp.opts) {
+    return {
+      question: sp.q,
+      options: sp.opts ? sp.opts.split("|").filter(Boolean) : undefined,
+    };
+  }
+  return undefined;
+}
+
+export default async function NewPollPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
   const canCreate = await canCurrentUser("poll.create");
   if (!canCreate) redirect("/app/feed?denied=create_poll");
 
+  const sp = await searchParams;
+  const prefill = decodePrefill(sp);
   const categories = await listCategoriesDb();
 
   return (
@@ -26,7 +54,7 @@ export default async function NewPollPage() {
         </p>
       </div>
 
-      <NewPollForm categories={categories} />
+      <NewPollForm categories={categories} prefill={prefill} />
     </main>
   );
 }
