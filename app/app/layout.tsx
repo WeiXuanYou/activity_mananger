@@ -60,11 +60,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     initial: user.initial,
   };
 
-  const [unread, isAdmin, canCreateActivity, canCreatePoll, canInvite] = await Promise.all([
+  const [unread, isAdmin, canInvite] = await Promise.all([
     unreadCountDb(user.id),
     canCurrentUser("admin.approve"),
-    canCurrentUser("activity.create"),
-    canCurrentUser("poll.create"),
     canCurrentUser("invite.create"),
   ]);
 
@@ -76,9 +74,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span>相聚</span>
             <span className="hidden sm:inline text-xs text-ink/40 font-sans tracking-widest">Together</span>
           </Link>
-          <span className="hidden lg:inline text-xs bg-sage-soft/60 text-sage-dark px-2 py-1 rounded-full font-medium">
-            ● Phase F+G
-          </span>
           <nav className="hidden md:flex items-center gap-1 ml-1 overflow-x-auto">
             <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
             <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
@@ -93,15 +88,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {isAdmin && (
               <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
             )}
-            {/* Create dropdown (rendered as a tiny inline menu for now) */}
+            <Link href="/app/help" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">說明</Link>
+            {/* 建立：文章在動態頁面上方已有「+ 寫一篇文章」按鈕，這裡只放活動 / 投票 */}
             <span className="shrink-0 ml-2 text-xs text-ink/40">建立：</span>
-            <Link href="/app/posts/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">文章</Link>
-            {canCreateActivity && (
-              <Link href="/app/activities/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">活動</Link>
-            )}
-            {canCreatePoll && (
-              <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">投票</Link>
-            )}
+            <Link href="/app/activities/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">活動</Link>
+            <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">投票</Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2 shrink-0">
             {/* Search: full bar on md+, just an icon on mobile that jumps to the search page */}
@@ -133,8 +124,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               myName={me.name}
               myRole={me.role}
               isAdmin={isAdmin}
-              canCreateActivity={canCreateActivity}
-              canCreatePoll={canCreatePoll}
               canInvite={canInvite}
               onSignOut={signOutAction}
             />

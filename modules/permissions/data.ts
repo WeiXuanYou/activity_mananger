@@ -4,7 +4,12 @@ import type { PermissionKey, PermissionRequest } from "./types";
 /** Role → permission matrix. Single source of truth. */
 export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
   Guest:  [],
-  Member: ["post.create", "comment.create", "page.create", "category.create"],
+  Member: [
+    "post.create", "comment.create", "page.create", "category.create",
+    // Any signed-in member can host activities / start polls — this isn't
+    // a privileged action in a family/friends community.
+    "activity.create", "poll.create",
+  ],
   Editor: [
     "post.create", "post.pin", "post.moderate",
     "activity.create", "activity.moderate",
@@ -30,8 +35,8 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<Role, string[]> = {
   Guest: ["讀取公開內容"],
-  Member: ["讀取所有 PUBLIC / MEMBERS", "發文、按讚、留言", "投票、RSVP", "建立自己的自訂頁面", "建立分類"],
-  Editor: ["所有 Member 權限", "建立活動與投票", "置頂內容、審查留言", "發布自訂頁面"],
+  Member: ["讀取所有 PUBLIC / MEMBERS", "發文、按讚、留言", "投票、RSVP", "建立活動、投票", "建立自己的自訂頁面", "建立分類"],
+  Editor: ["所有 Member 權限", "置頂內容、審查留言", "發布自訂頁面"],
   Admin: ["所有 Editor 權限", "管理角色與權限", "發出邀請碼", "查看分析儀表板"],
 };
 

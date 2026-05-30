@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
-import { canCurrentUser } from "@/modules/permissions";
 import { listCategoriesDb } from "@/modules/core/categories";
 import { NewPollForm, type PollPrefill } from "./NewPollForm";
 
@@ -33,9 +31,6 @@ function decodePrefill(sp: { prefill?: string; q?: string; opts?: string }): Pol
 
 export default async function NewPollPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
-  const canCreate = await canCurrentUser("poll.create");
-  if (!canCreate) redirect("/app/feed?denied=create_poll");
-
   const sp = await searchParams;
   const prefill = decodePrefill(sp);
   const categories = await listCategoriesDb();

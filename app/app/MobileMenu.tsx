@@ -18,8 +18,6 @@ export function MobileMenu({
   myName,
   myRole,
   isAdmin,
-  canCreateActivity,
-  canCreatePoll,
   canInvite,
   onSignOut,
 }: {
@@ -27,8 +25,6 @@ export function MobileMenu({
   myName: string;
   myRole: string;
   isAdmin: boolean;
-  canCreateActivity: boolean;
-  canCreatePoll: boolean;
   canInvite: boolean;
   /** Server action passed in from the layout (signOutAction). */
   onSignOut: () => Promise<void>;
@@ -123,17 +119,13 @@ export function MobileMenu({
               {canInvite && <Link href="/app/invites" className={link}>🎁 邀請朋友</Link>}
               <Link href="/app/analytics" className={link}>📊 分析</Link>
               {isAdmin && <Link href="/app/admin" className={link}>⚙️ 管理</Link>}
+              <Link href="/app/help" className={link}>❓ 使用說明</Link>
             </nav>
 
             <div className="px-2 pt-2 mt-1 border-t border-sand">
               <div className="px-4 py-2 text-xs text-ink/40 font-medium tracking-wider">建立</div>
-              <Link href="/app/posts/new" className={smallLink}>📝 文章</Link>
-              {canCreateActivity && (
-                <Link href="/app/activities/new" className={smallLink}>🍖 活動</Link>
-              )}
-              {canCreatePoll && (
-                <Link href="/app/polls/new" className={smallLink}>📊 投票</Link>
-              )}
+              <Link href="/app/activities/new" className={smallLink}>🍖 活動</Link>
+              <Link href="/app/polls/new" className={smallLink}>📊 投票</Link>
             </div>
 
             {/* Footer actions */}

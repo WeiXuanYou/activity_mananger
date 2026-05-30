@@ -30,7 +30,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
 
   // Fetch everything in parallel — they're independent queries
-  const [posts, activities, polls, categories, activeCategory, canPost, canCreateActivity] =
+  const [posts, activities, polls, categories, activeCategory, canPost] =
     await Promise.all([
       listPostsDb(),
       listUpcomingActivitiesDb(),
@@ -38,7 +38,6 @@ export default async function AppFeedPage({ searchParams }: Search) {
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
       canCurrentUser("post.create"),
-      canCurrentUser("activity.create"),
     ]);
 
   // Apply category filter on the joined client-side; cheap given dataset size
@@ -80,14 +79,18 @@ export default async function AppFeedPage({ searchParams }: Search) {
               + 寫一篇文章
             </Link>
           )}
-          {!canCreateActivity && (
-            <Link
-              href="/app/permissions"
-              className="px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 text-sm hover:bg-cream/40"
-            >
-              想建立活動？申請 Editor →
-            </Link>
-          )}
+          <Link
+            href="/app/activities/new"
+            className="px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/75 text-sm hover:bg-cream/40"
+          >
+            + 辦一場活動
+          </Link>
+          <Link
+            href="/app/polls/new"
+            className="px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/75 text-sm hover:bg-cream/40"
+          >
+            + 起一個投票
+          </Link>
         </div>
       </div>
 

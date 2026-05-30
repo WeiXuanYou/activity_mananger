@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
-import { canCurrentUser } from "@/modules/permissions";
 import { listCategoriesDb } from "@/modules/core/categories";
 import { NewActivityForm, type ActivityPrefill } from "./NewActivityForm";
 
@@ -21,9 +19,6 @@ function decodePrefill(sp: { prefill?: string }): ActivityPrefill | undefined {
 
 export default async function NewActivityPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
-  const canCreate = await canCurrentUser("activity.create");
-  if (!canCreate) redirect("/app/activities?denied=create");
-
   const sp = await searchParams;
   const prefill = decodePrefill(sp);
   const categories = await listCategoriesDb();

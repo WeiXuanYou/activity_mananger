@@ -11,13 +11,18 @@ describe("ROLE_PERMISSIONS", () => {
     expect(ROLE_PERMISSIONS.Guest).toEqual([]);
   });
 
-  it("Member can create posts and comments, but NOT activities/polls/admin", () => {
+  it("Member can create posts/comments/activities/polls but NOT moderate or admin", () => {
     const p = ROLE_PERMISSIONS.Member;
     expect(p).toContain("post.create");
     expect(p).toContain("comment.create");
-    expect(p).not.toContain("activity.create");
-    expect(p).not.toContain("poll.create");
+    // Any signed-in member can host activities / start polls in this app.
+    expect(p).toContain("activity.create");
+    expect(p).toContain("poll.create");
+    expect(p).not.toContain("post.moderate");
+    expect(p).not.toContain("activity.moderate");
+    expect(p).not.toContain("poll.moderate");
     expect(p).not.toContain("admin.approve");
+    expect(p).not.toContain("invite.create");
   });
 
   it("Editor includes Member perms plus moderation/pin and content creation", () => {

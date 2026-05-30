@@ -12,7 +12,10 @@ const ROLES = ["Guest", "Member", "Editor", "Admin"] as const;
 
 const PERMISSIONS_BY_ROLE: Record<(typeof ROLES)[number], string[]> = {
   Guest:  [],
-  Member: ["post.create", "comment.create", "page.create", "category.create"],
+  Member: [
+    "post.create", "comment.create", "page.create", "category.create",
+    "activity.create", "poll.create",
+  ],
   Editor: [
     "post.create", "post.pin", "post.moderate",
     "activity.create", "activity.moderate",

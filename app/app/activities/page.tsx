@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
-import { canCurrentUser } from "@/modules/permissions";
 import {
   listUpcomingActivitiesDb,
   listPastActivitiesDb,
@@ -17,13 +16,12 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
   const { tab = "upcoming", cat: slug } = await searchParams;
   await requireCurrentUser();
 
-  const [upcoming, past, categories, activeCategory, canCreate, next] =
+  const [upcoming, past, categories, activeCategory, next] =
     await Promise.all([
       listUpcomingActivitiesDb(),
       listPastActivitiesDb(),
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
-      canCurrentUser("activity.create"),
       findNextActivityDb(),
     ]);
 
@@ -41,14 +39,12 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">ACTIVITIES · LIVE DB</p>
           <h1 className="serif text-3xl text-ink">活動</h1>
         </div>
-        {canCreate && (
-          <Link
-            href="/app/activities/new"
-            className="ml-auto px-4 py-2 rounded-soft bg-terracotta text-white font-medium text-sm shadow-card hover:bg-terracotta-dark transition"
-          >
-            + 建立活動
-          </Link>
-        )}
+        <Link
+          href="/app/activities/new"
+          className="ml-auto px-4 py-2 rounded-soft bg-terracotta text-white font-medium text-sm shadow-card hover:bg-terracotta-dark transition"
+        >
+          + 建立活動
+        </Link>
       </div>
 
       {next && tab !== "past" && <NextActivityHero activity={next} />}
