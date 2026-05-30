@@ -13,6 +13,7 @@ const PALETTE = [
 
 export function SetupForm({
   initial,
+  mustResetPassword = false,
 }: {
   initial: {
     name: string;
@@ -21,12 +22,17 @@ export function SetupForm({
     avatarColor: string;
     birthday: string | null;
   };
+  /** If true, the password field is required and the explanation banner
+   *  swaps to "the default admin/admin password must be replaced". Used
+   *  for the bootstrap admin's first login. */
+  mustResetPassword?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [handle, setHandle] = useState(initial.handle);
   const [initialChar, setInitialChar] = useState(initial.initial);
   const [avatarColor, setAvatarColor] = useState(initial.avatarColor);
   const [birthday, setBirthday] = useState(initial.birthday ?? "");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -43,6 +49,8 @@ export function SetupForm({
         initial: displayInitial,
         avatarColor,
         birthday: birthday || null,
+        password: password || undefined,
+        mustResetPassword,
       });
       // Action will redirect on success — so we only see a return value on
       // error. (Redirect throws a special NextRedirect that won't reach
@@ -138,6 +146,29 @@ export function SetupForm({
           onChange={(e) => setBirthday(e.target.value)}
           className="mt-2 px-3 py-2.5 rounded-soft border border-sand bg-cream/30"
         />
+      </label>
+
+      <label className="block">
+        <span className="text-sm font-medium text-ink/80">
+          {mustResetPassword ? "新密碼（必填，至少 8 個字）" : "密碼（可選）"}
+        </span>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required={mustResetPassword}
+          minLength={mustResetPassword ? 8 : 0}
+          autoComplete="new-password"
+          placeholder={mustResetPassword
+            ? "至少 8 個字，請選一個記得住又難猜的"
+            : "之後用 handle + 密碼登入回來（不填也可以，先用 session）"}
+          className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+        />
+        {mustResetPassword && (
+          <p className="mt-1 text-xs text-terracotta-dark">
+            ⚠ 你目前用的是預設密碼 admin。為了安全，請先換一個。
+          </p>
+        )}
       </label>
 
       {error && (

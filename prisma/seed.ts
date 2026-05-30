@@ -116,46 +116,39 @@ async function main() {
   }
 
   // ───────────────────────────────────────────────────────────────
-  // PRODUCTION MODE — stop here with just a bootstrap admin invite.
+  // PRODUCTION MODE — stop here with one admin/admin user.
   // ───────────────────────────────────────────────────────────────
   if (IS_PRODUCTION_SEED) {
-    // We need at least one User row to be `createdBy` on the bootstrap
-    // invite code (FK requirement). Make a system placeholder. The
-    // first real admin redeems the code and becomes the actual user;
-    // we keep the placeholder around as the "system" owner of the
-    // bootstrap code.
-    const system = await db.user.upsert({
-      where: { handle: "system" },
-      update: {},
+    // Default credentials: handle="admin", password="admin". `setupCompleted`
+    // is FALSE so the first login flow forces them through the setup form,
+    // which itself REQUIRES a new password (see `mustResetPassword` in
+    // completeSetupAction). We're shipping a known-weak default deliberately
+    // because the alternative (random per-install codes) creates a worse UX
+    // for self-hosters.
+    const { hashPassword } = await import("@/modules/auth/password");
+    const defaultPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim() || "admin";
+    const passwordHash = await hashPassword(defaultPassword);
+    await db.user.upsert({
+      where: { handle: "admin" },
+      update: { passwordHash, roleId: roleRows.Admin.id },
       create: {
-        handle: "system",
-        name: "System",
-        avatarColor: "#2A2420",
-        initial: "S",
+        handle: "admin",
+        name: "Admin",
+        avatarColor: "#C75B3A",
+        initial: "A",
         roleId: roleRows.Admin.id,
-        setupCompleted: true,
-      },
-    });
-
-    const bootstrapCode =
-      process.env.BOOTSTRAP_INVITE_CODE?.trim() ||
-      `TOGETHER-ADMIN-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    await db.inviteCode.upsert({
-      where: { code: bootstrapCode },
-      update: {},
-      create: {
-        code: bootstrapCode,
-        createdById: system.id,
-        defaultRoleId: roleRows.Admin.id,
-        reusable: false,
+        setupCompleted: false, // forces /app/setup on first login
+        passwordHash,
       },
     });
 
     console.log("\n✅ Production seed complete.");
-    console.log("\n   Bootstrap admin invite code:");
-    console.log(`\n     ${bootstrapCode}\n`);
-    console.log("   Use it ONCE at /login. The redeemer becomes Admin and");
-    console.log("   sets their own name + handle + avatar at /app/setup.");
+    console.log("\n   Default admin login:");
+    console.log(`\n     handle: admin`);
+    console.log(`     password: ${defaultPassword}\n`);
+    console.log("   On first login you'll be required to:");
+    console.log("     1. Pick a real name / handle / avatar");
+    console.log("     2. Set a new password (>= 8 chars) to replace the default\n");
     return;
   }
 

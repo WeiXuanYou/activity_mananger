@@ -35,12 +35,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <SetupForm
           initial={{
-            name: user.name === "新成員" ? "" : user.name,
-            handle: user.handle,
+            name: user.name === "新成員" || user.name === "Admin" ? "" : user.name,
+            handle: user.handle === "admin" ? "" : user.handle,
             initial: "",
             avatarColor: user.avatarColor,
             birthday: null,
           }}
+          /* Force password rotation if the user already has a password set —
+             that means they're the bootstrap admin (only path that ships
+             with a password but setupCompleted=false). */
+          mustResetPassword={Boolean(user.passwordHash)}
         />
       </main>
     );

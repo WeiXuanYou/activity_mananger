@@ -1,19 +1,44 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { registerBlockRenderer } from "./registry";
 
 /**
  * Raw HTML block renderer.
  *
- * **Security**: input is run through DOMPurify with a conservative allow-list
- * before being passed to dangerouslySetInnerHTML. This prevents stored XSS
- * from <script>, on-* event handlers, javascript: URLs, etc.
+ * **Security**: input is run through `sanitize-html` with a conservative
+ * allow-list before being passed to dangerouslySetInnerHTML. This
+ * prevents stored XSS from <script>, on-* event handlers, javascript:
+ * URLs, etc.
  *
- * DOMPurify works on both the server (using jsdom under isomorphic-dompurify)
- * and the client, so the same call site is safe in either rendering mode.
+ * `sanitize-html` is a small server-side-friendly sanitizer; it avoids
+ * pulling jsdom into the bundle (isomorphic-dompurify's transitive
+ * dependency, which has been a source of CJS/ESM interop errors).
  *
- * If a tighter or looser policy is needed, override `ALLOWED_TAGS` /
- * `ALLOWED_ATTR` here — keep the policy centralised in this file.
+ * If a tighter or looser policy is needed, override `allowedTags` /
+ * `allowedAttributes` here — keep the policy centralised in this file.
  */
+const HTML_ALLOWED = {
+  // No <script>, <iframe>, on-* handlers, or <style>. Most semantic
+  // HTML + basic formatting tags allowed.
+  allowedTags: [
+    "p", "br", "hr",
+    "strong", "em", "u", "s", "code", "pre", "mark",
+    "a", "img",
+    "ul", "ol", "li",
+    "blockquote",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "div", "span",
+  ],
+  allowedAttributes: {
+    a: ["href", "title", "target", "rel"],
+    img: ["src", "alt", "title", "loading"],
+    "*": ["class"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+  // Don't drop empty allowed tags — let formatting like <br> survive
+  selfClosing: ["br", "hr", "img"],
+} satisfies sanitizeHtml.IOptions;
+
 registerBlockRenderer({
   type: "html",
   label: "</> HTML",
@@ -22,19 +47,7 @@ registerBlockRenderer({
     if (!source.trim()) {
       return <p className="text-ink/40 italic text-sm">（這個 HTML block 還是空的）</p>;
     }
-    const clean = DOMPurify.sanitize(source, {
-      // No <script>, no <iframe>, no on-* handlers, no <style> by default.
-      // Most semantic HTML + basic formatting tags allowed.
-      ALLOWED_TAGS: [
-        "p", "br", "hr", "strong", "em", "u", "s", "code", "pre",
-        "a", "img", "ul", "ol", "li", "blockquote",
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "table", "thead", "tbody", "tr", "th", "td",
-        "div", "span",
-      ],
-      ALLOWED_ATTR: ["href", "src", "alt", "title", "class", "target", "rel"],
-      ALLOW_DATA_ATTR: false,
-    });
+    const clean = sanitizeHtml(source, HTML_ALLOWED);
     return (
       <div
         className="text-ink/85 leading-relaxed"

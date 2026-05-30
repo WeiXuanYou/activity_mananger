@@ -29,6 +29,12 @@ model User {
   /// avatar)? Existing seeded users default to true. New users created
   /// by `redeemInvite` start at false and are routed to /app/setup.
   setupCompleted Boolean @default(true)
+  /// Hashed password (scrypt) for handle+password login. Optional —
+  /// users may be created via invite codes only, in which case they
+  /// have a session cookie but no password until they set one in
+  /// /app/setup (recommended) or skip it (still works, just no
+  /// way to log back in on a new device).
+  passwordHash String?
   roleId      String
   role        Role      @relation(fields: [roleId], references: [id])
   createdAt   DateTime  @default(now())
