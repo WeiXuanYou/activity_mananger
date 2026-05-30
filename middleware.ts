@@ -30,8 +30,7 @@ export function middleware(req: NextRequest) {
   if (hasSession) return NextResponse.next();
 
   // Redirect to /login, preserving the original destination so the
-  // login flow can bounce the user back after success (not yet wired
-  // on the receiving end — Phase B+ enhancement).
+  // login flow can bounce the user back after success.
   const url = req.nextUrl.clone();
   url.pathname = "/login";
   url.searchParams.set("next", pathname);

@@ -15,12 +15,21 @@ import type { Role } from "@/modules/auth";
 import { requirePermission } from "./guard";
 import { notify } from "@/modules/notifications";
 
-/** Generate a fresh invite code for the given default role. */
+/** Generate a fresh invite code for the given default role. Gate is
+ *  `invite.create` — Admin / Editor get it by role, and individual
+ *  Guest/Member users can be granted it via the UserPermissionGrant
+ *  table by an admin. */
 export async function generateInviteCodeAction(roleName: Role): Promise<void> {
   await requirePermission("invite.create");
   const me = await requireCurrentUser();
+  // Non-admins can't generate Admin invites — would be a privilege
+  // escalation vector. They CAN generate Editor/Member/Guest.
+  if (roleName === "Admin") {
+    await requirePermission("admin.approve");
+  }
   await generateInviteCode({ createdById: me.id, defaultRoleName: roleName });
   revalidatePath("/app/admin");
+  revalidatePath("/app/invites");
 }
 
 /** Directly set a user's role (admin override — bypasses the request flow). */

@@ -25,6 +25,10 @@ model User {
   /// profiles; the cron only matches month-day. Optional — users can
   /// leave it blank.
   birthday    DateTime?
+  /// Has the user completed the post-signup profile form (name, handle,
+  /// avatar)? Existing seeded users default to true. New users created
+  /// by `redeemInvite` start at false and are routed to /app/setup.
+  setupCompleted Boolean @default(true)
   roleId      String
   role        Role      @relation(fields: [roleId], references: [id])
   createdAt   DateTime  @default(now())
@@ -46,8 +50,28 @@ model User {
   categoriesCreated Category[]
   notifications     Notification[]
   expensesPaid      Expense[]             @relation("ExpensePayer")
+  permissionGrants    UserPermissionGrant[] @relation("PermissionGrantee")
+  permissionsGranted  UserPermissionGrant[] @relation("PermissionGranter")
 
   @@index([roleId])
+}
+
+/// Per-user extra permissions on top of what their role gives them.
+/// Used by admins to delegate specific abilities — currently the only
+/// useful one is `invite.create` (let trusted Members generate codes
+/// without bumping them to full Editor). The table is intentionally
+/// generic so we can grant other keys later without schema change.
+model UserPermissionGrant {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation("PermissionGrantee", fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String
+  grantedById   String?
+  grantedBy     User?    @relation("PermissionGranter", fields: [grantedById], references: [id])
+  grantedAt     DateTime @default(now())
+
+  @@unique([userId, permissionKey])
+  @@index([userId])
 }
 
 model Session {
@@ -71,6 +95,10 @@ model InviteCode {
   usedBy        User?     @relation("InviteRedeemer", fields: [usedById], references: [id])
   defaultRoleId String
   defaultRole   Role      @relation(fields: [defaultRoleId], references: [id])
+  /// If true (demo seed only): the code re-logs-in as the original
+  /// redeemer instead of failing. Production invites default false
+  /// — one-shot like a real referral.
+  reusable      Boolean   @default(false)
   expiresAt     DateTime?
   createdAt     DateTime  @default(now())
 

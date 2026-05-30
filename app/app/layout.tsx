@@ -7,6 +7,7 @@ import { NotificationBell, unreadCountDb } from "@/modules/notifications";
 import { SearchBar } from "./search/SearchBar";
 import { MobileMenu } from "./MobileMenu";
 import { PwaShell } from "./PwaShell";
+import { SetupForm } from "./setup/SetupForm";
 
 /**
  * Authenticated shell for the REAL app (Phase B+).
@@ -15,6 +16,35 @@ import { PwaShell } from "./PwaShell";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // First-time users see the setup form INSTEAD of the requested page
+  // until they complete it. We render-in-place rather than redirect:
+  // an HTTP redirect from a layout gets cached by Next's RSC client and
+  // causes an infinite navigation loop when the destination is itself
+  // inside the same layout. Rendering in place keeps the URL stable AND
+  // forces a real render every time, no cache shenanigans.
+  if (!user.setupCompleted) {
+    return (
+      <main className="max-w-xl mx-auto px-3 sm:px-5 py-8 sm:py-12">
+        <div className="mb-6 text-center">
+          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">SET UP YOUR PROFILE</p>
+          <h1 className="serif text-3xl text-ink mb-2">先簡單設定一下</h1>
+          <p className="text-ink/65 text-sm leading-relaxed">
+            歡迎加入相聚！告訴大家你想顯示的名字、用什麼顏色當頭像。設定完就能開始發文、辦活動。
+          </p>
+        </div>
+        <SetupForm
+          initial={{
+            name: user.name === "新成員" ? "" : user.name,
+            handle: user.handle,
+            initial: "",
+            avatarColor: user.avatarColor,
+            birthday: null,
+          }}
+        />
+      </main>
+    );
+  }
 
   // Adapt DB user shape to the Member shape Avatar expects
   const me = {
@@ -26,11 +56,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     initial: user.initial,
   };
 
-  const [unread, isAdmin, canCreateActivity, canCreatePoll] = await Promise.all([
+  const [unread, isAdmin, canCreateActivity, canCreatePoll, canInvite] = await Promise.all([
     unreadCountDb(user.id),
     canCurrentUser("admin.approve"),
     canCurrentUser("activity.create"),
     canCurrentUser("poll.create"),
+    canCurrentUser("invite.create"),
   ]);
 
   return (
@@ -51,6 +82,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
             <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">✨ AI</Link>
             <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
+            {canInvite && (
+              <Link href="/app/invites" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">邀請</Link>
+            )}
             <Link href="/app/analytics" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">分析</Link>
             {isAdmin && (
               <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
@@ -97,6 +131,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               isAdmin={isAdmin}
               canCreateActivity={canCreateActivity}
               canCreatePoll={canCreatePoll}
+              canInvite={canInvite}
               onSignOut={signOutAction}
             />
           </div>

@@ -64,8 +64,23 @@ const CATEGORIES = [
   { slug: "grandpa",  name: "外公的故事", emoji: "👴", color: "sand",   isDefault: false, ownerHandle: "grandma", description: "阿嬤建立的：紀錄外公的故事" },
 ];
 
+/**
+ * Two seed modes:
+ *   SEED_MODE=production → roles + permission matrix + ONE bootstrap
+ *     admin invite code. No demo content. First person to redeem the
+ *     code becomes the real admin and gets routed through /app/setup.
+ *
+ *   default (demo) → everything above PLUS the rich demo content
+ *     (阿嬤 family etc.). Demo invite codes are flagged `reusable=true`
+ *     so /preview-style sharing keeps working.
+ *
+ * The bootstrap invite code can be supplied via BOOTSTRAP_INVITE_CODE;
+ * if unset, one is generated and printed to stdout.
+ */
+const IS_PRODUCTION_SEED = process.env.SEED_MODE === "production";
+
 async function main() {
-  console.log("🌱 Seeding...");
+  console.log(`🌱 Seeding... (mode=${IS_PRODUCTION_SEED ? "production" : "demo"})`);
 
   // Roles
   const roleRows: Record<string, { id: string }> = {};
@@ -100,6 +115,54 @@ async function main() {
     }
   }
 
+  // ───────────────────────────────────────────────────────────────
+  // PRODUCTION MODE — stop here with just a bootstrap admin invite.
+  // ───────────────────────────────────────────────────────────────
+  if (IS_PRODUCTION_SEED) {
+    // We need at least one User row to be `createdBy` on the bootstrap
+    // invite code (FK requirement). Make a system placeholder. The
+    // first real admin redeems the code and becomes the actual user;
+    // we keep the placeholder around as the "system" owner of the
+    // bootstrap code.
+    const system = await db.user.upsert({
+      where: { handle: "system" },
+      update: {},
+      create: {
+        handle: "system",
+        name: "System",
+        avatarColor: "#2A2420",
+        initial: "S",
+        roleId: roleRows.Admin.id,
+        setupCompleted: true,
+      },
+    });
+
+    const bootstrapCode =
+      process.env.BOOTSTRAP_INVITE_CODE?.trim() ||
+      `TOGETHER-ADMIN-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    await db.inviteCode.upsert({
+      where: { code: bootstrapCode },
+      update: {},
+      create: {
+        code: bootstrapCode,
+        createdById: system.id,
+        defaultRoleId: roleRows.Admin.id,
+        reusable: false,
+      },
+    });
+
+    console.log("\n✅ Production seed complete.");
+    console.log("\n   Bootstrap admin invite code:");
+    console.log(`\n     ${bootstrapCode}\n`);
+    console.log("   Use it ONCE at /login. The redeemer becomes Admin and");
+    console.log("   sets their own name + handle + avatar at /app/setup.");
+    return;
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // DEMO MODE — full content below this line
+  // ───────────────────────────────────────────────────────────────
+
   // Users
   const userRows: Record<string, { id: string; handle: string; role: string }> = {};
   for (const m of MEMBERS) {
@@ -111,7 +174,9 @@ async function main() {
     userRows[m.handle] = { id: u.id, handle: u.handle, role: m.role };
   }
 
-  // Invite codes — one per role for demo
+  // Invite codes — one per role for demo. Marked reusable so /preview-style
+  // re-share keeps working (second person redeeming signs back in as the
+  // first redeemer's user).
   const codes = [
     { code: "TOGETHER-DEMO-MEMBER", role: "Member", creator: "grandma" },
     { code: "TOGETHER-DEMO-EDITOR", role: "Editor", creator: "grandma" },
@@ -121,11 +186,12 @@ async function main() {
   for (const c of codes) {
     await db.inviteCode.upsert({
       where: { code: c.code },
-      update: {},
+      update: { reusable: true },
       create: {
         code: c.code,
         createdById: userRows[c.creator].id,
         defaultRoleId: roleRows[c.role].id,
+        reusable: true,
       },
     });
   }

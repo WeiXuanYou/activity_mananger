@@ -124,3 +124,36 @@ export async function rejectRequestAction(requestId: string) {
 
   revalidatePath("/app/permissions");
 }
+
+/**
+ * Admin: grant a specific permission key to ONE user. Used to delegate
+ * `invite.create` to a trusted Member without bumping them to full Editor.
+ *
+ * Idempotent — re-granting the same key is a no-op (the unique index
+ * on (userId, permissionKey) just silently rejects).
+ */
+export async function grantPermissionAction(input: {
+  userId: string;
+  permissionKey: string;
+}): Promise<void> {
+  await requirePermission("admin.approve");
+  const me = await requireCurrentUser();
+  await db.userPermissionGrant.upsert({
+    where: { userId_permissionKey: { userId: input.userId, permissionKey: input.permissionKey } },
+    update: { grantedById: me.id, grantedAt: new Date() },
+    create: { userId: input.userId, permissionKey: input.permissionKey, grantedById: me.id },
+  });
+  revalidatePath("/app/admin");
+}
+
+/** Admin: revoke a previously-granted permission. Idempotent. */
+export async function revokePermissionAction(input: {
+  userId: string;
+  permissionKey: string;
+}): Promise<void> {
+  await requirePermission("admin.approve");
+  await db.userPermissionGrant.deleteMany({
+    where: { userId: input.userId, permissionKey: input.permissionKey },
+  });
+  revalidatePath("/app/admin");
+}

@@ -20,6 +20,7 @@ export function MobileMenu({
   isAdmin,
   canCreateActivity,
   canCreatePoll,
+  canInvite,
   onSignOut,
 }: {
   profileHref: string;
@@ -28,6 +29,7 @@ export function MobileMenu({
   isAdmin: boolean;
   canCreateActivity: boolean;
   canCreatePoll: boolean;
+  canInvite: boolean;
   /** Server action passed in from the layout (signOutAction). */
   onSignOut: () => Promise<void>;
 }) {
@@ -118,6 +120,7 @@ export function MobileMenu({
               <Link href="/app/assistant" className={link}>✨ AI 助手</Link>
               <Link href="/app/notifications" className={link}>🔔 通知</Link>
               <Link href="/app/permissions" className={link}>🔐 權限</Link>
+              {canInvite && <Link href="/app/invites" className={link}>🎁 邀請朋友</Link>}
               <Link href="/app/analytics" className={link}>📊 分析</Link>
               {isAdmin && <Link href="/app/admin" className={link}>⚙️ 管理</Link>}
             </nav>

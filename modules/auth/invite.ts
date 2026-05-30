@@ -6,12 +6,17 @@ export type InviteRedeemResult =
   | { ok: false; reason: "INVALID" | "EXPIRED" | "USED" };
 
 /**
- * Redeem an invite code. If the code is unused, a new User is created with
- * the code's default role and the code is marked used by that user.
+ * Redeem an invite code.
  *
- * Phase B: a one-shot demo flow — codes map to a pre-created handle so the
- * same code re-used signs you back in as that user. Phase C will collect
- * name/handle on first redemption.
+ * Two flavours:
+ *   - reusable=true  (demo seed only): re-logs-in as the original redeemer
+ *     so /preview-style demos stay shareable.
+ *   - reusable=false (production default): one-shot — second person trying
+ *     the same code gets USED.
+ *
+ * New users start with `setupCompleted=false`. The login redirect handler
+ * sends them to /app/setup to pick their name / handle / avatar before
+ * landing in the feed.
  */
 export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult> {
   const code = rawCode.trim();
@@ -24,9 +29,12 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
   if (!invite) return { ok: false, reason: "INVALID" };
   if (invite.expiresAt && invite.expiresAt < new Date()) return { ok: false, reason: "EXPIRED" };
 
-  // Demo behavior: if the code already redeemed, sign back in as that user.
   if (invite.usedById && invite.usedBy) {
-    return { ok: true, userId: invite.usedById, isNewUser: false };
+    if (invite.reusable) {
+      // Demo / re-share code — sign back in as the original redeemer.
+      return { ok: true, userId: invite.usedById, isNewUser: false };
+    }
+    return { ok: false, reason: "USED" };
   }
 
   // Create the new user, then ATOMICALLY claim the code. We can't claim
@@ -35,17 +43,18 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
   // lose the race, another request already redeemed it: delete our orphan
   // user and sign in as the winner instead.
   const suffix = randomBytes(2).toString("hex");
-  const handle = `guest-${suffix}`;
+  const handle = `new-${suffix}`;
   const palette = ["#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7", "#B58FBF", "#D98090"];
   const color = palette[Math.floor(Math.random() * palette.length)];
 
   const user = await db.user.create({
     data: {
       handle,
-      name: `新${invite.defaultRole.name}`,
+      name: `新成員`,
       avatarColor: color,
       initial: "新",
       roleId: invite.defaultRoleId,
+      setupCompleted: false, // route them through /app/setup on first login
     },
   });
 
@@ -60,9 +69,9 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
     await db.user.delete({ where: { id: user.id } }).catch(() => {});
     const winner = await db.inviteCode.findUnique({
       where: { id: invite.id },
-      select: { usedById: true },
+      select: { usedById: true, reusable: true },
     });
-    if (winner?.usedById) {
+    if (winner?.usedById && winner.reusable) {
       return { ok: true, userId: winner.usedById, isNewUser: false };
     }
     return { ok: false, reason: "USED" };
@@ -74,11 +83,17 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
 export async function generateInviteCode(opts: {
   createdById: string;
   defaultRoleName: "Guest" | "Member" | "Editor" | "Admin";
+  reusable?: boolean;
 }): Promise<string> {
   const role = await db.role.findUniqueOrThrow({ where: { name: opts.defaultRoleName } });
   const code = `TOGETHER-${randomBytes(3).toString("hex").toUpperCase()}`;
   await db.inviteCode.create({
-    data: { code, createdById: opts.createdById, defaultRoleId: role.id },
+    data: {
+      code,
+      createdById: opts.createdById,
+      defaultRoleId: role.id,
+      reusable: opts.reusable ?? false,
+    },
   });
   return code;
 }

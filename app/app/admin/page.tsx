@@ -9,21 +9,30 @@ import {
 } from "@/modules/permissions";
 import { Avatar } from "@/modules/core/members";
 import { listRecentReminders } from "@/modules/core/reminders";
+import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
 import { RunRemindersButton } from "./RunRemindersButton";
+import { InviteGrantToggle } from "./InviteGrantToggle";
 
 export default async function AdminPage() {
   const me = await requireCurrentUser();
   const isAdmin = await canCurrentUser("admin.approve");
   if (!isAdmin) redirect("/app/feed?denied=admin");
 
-  const [invites, members, decided, recentReminders] = await Promise.all([
+  const [invites, members, decided, recentReminders, allInviteGrants] = await Promise.all([
     listInviteCodesDb(),
     listAllMembersDb(),
     listDecidedRequestsDb(),
     listRecentReminders(8),
+    // Surface who has been granted `invite.create` so we can show the
+    // current toggle state without a per-row roundtrip.
+    db.userPermissionGrant.findMany({
+      where: { permissionKey: "invite.create" },
+      select: { userId: true },
+    }),
   ]);
+  const inviteGrantSet = new Set(allInviteGrants.map((g) => g.userId));
 
   return (
     <main className="max-w-5xl mx-auto px-5 py-8">
@@ -73,13 +82,26 @@ export default async function AdminPage() {
                 <div className="text-sm text-ink">{m.name}</div>
                 <div className="text-xs text-ink/40">@{m.handle}</div>
               </div>
-              {m.id === me.id ? (
-                <span className="text-xs text-ink/50 flex items-center gap-2">
-                  <RoleBadge role={m.role} size="xs" /> （你自己）
-                </span>
-              ) : (
-                <RoleSelect userId={m.id} current={m.role} />
-              )}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {m.id === me.id ? (
+                  <span className="text-xs text-ink/50 flex items-center gap-2">
+                    <RoleBadge role={m.role} size="xs" /> （你自己）
+                  </span>
+                ) : (
+                  <>
+                    <RoleSelect userId={m.id} current={m.role} />
+                    {/* invite.create grant is meaningless when role already
+                        has it (Editor / Admin) — only surface for Guest /
+                        Member where it's a real delegation. */}
+                    {(m.role === "Guest" || m.role === "Member") && (
+                      <InviteGrantToggle
+                        userId={m.id}
+                        granted={inviteGrantSet.has(m.id)}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           ))}
         </div>

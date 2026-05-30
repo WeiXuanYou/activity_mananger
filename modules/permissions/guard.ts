@@ -14,6 +14,7 @@
  */
 import type { Role } from "@/modules/auth";
 import { getCurrentUser, requireCurrentUser } from "@/modules/auth";
+import { db } from "@/lib/db";
 import type { PermissionKey } from "./types";
 import { ROLE_PERMISSIONS } from "./data";
 
@@ -23,6 +24,20 @@ import { ROLE_PERMISSIONS } from "./data";
  */
 export function roleHas(role: Role, permission: PermissionKey): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/**
+ * Has this user been GRANTED this permission directly by an admin (on
+ * top of what their role gives)? Used by canCurrentUser /
+ * requirePermission to extend the role matrix with per-user grants
+ * (typically `invite.create`).
+ */
+async function hasGrantDb(userId: string, permission: PermissionKey): Promise<boolean> {
+  const row = await db.userPermissionGrant.findUnique({
+    where: { userId_permissionKey: { userId, permissionKey: permission } },
+    select: { id: true },
+  });
+  return Boolean(row);
 }
 
 /**
@@ -52,9 +67,9 @@ export class PermissionDeniedError extends Error {
 export async function requirePermission(permission: PermissionKey): Promise<void> {
   const user = await requireCurrentUser();
   const roleName = user.role.name as Role;
-  if (!roleHas(roleName, permission)) {
-    throw new PermissionDeniedError(roleName, permission);
-  }
+  if (roleHas(roleName, permission)) return;
+  if (await hasGrantDb(user.id, permission)) return;
+  throw new PermissionDeniedError(roleName, permission);
 }
 
 /**
@@ -67,5 +82,6 @@ export async function requirePermission(permission: PermissionKey): Promise<void
 export async function canCurrentUser(permission: PermissionKey): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
-  return roleHas(user.role.name as Role, permission);
+  if (roleHas(user.role.name as Role, permission)) return true;
+  return hasGrantDb(user.id, permission);
 }
