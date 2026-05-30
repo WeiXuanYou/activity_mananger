@@ -29,13 +29,25 @@ const PERMISSIONS_BY_ROLE: Record<(typeof ROLES)[number], string[]> = {
   ],
 };
 
+// Birthdays anchored to "today" and "today+N" at seed time so the demo
+// always has data for the upcoming-birthdays widget, regardless of when
+// you seed. See `birthdayFor()` below.
+const TODAY = new Date();
+const birthdayFor = (yearsAgo: number, daysFromToday: number) => {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() + daysFromToday);
+  d.setFullYear(d.getFullYear() - yearsAgo);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 const MEMBERS = [
-  { handle: "grandma", name: "阿嬤",   role: "Admin",  avatarColor: "#C75B3A", initial: "嬤" },
-  { handle: "mom",     name: "媽媽",   role: "Editor", avatarColor: "#7A8E6E", initial: "媽" },
-  { handle: "ming",    name: "小明",   role: "Member", avatarColor: "#D4A574", initial: "明" },
-  { handle: "yating",  name: "雅婷",   role: "Member", avatarColor: "#8FA7B7", initial: "婷" },
-  { handle: "jay",     name: "表弟阿傑", role: "Guest",  avatarColor: "#B58FBF", initial: "傑" },
-  { handle: "andy",    name: "大學同學 Andy", role: "Member", avatarColor: "#7AA68F", initial: "A" },
+  { handle: "grandma", name: "阿嬤",   role: "Admin",  avatarColor: "#C75B3A", initial: "嬤", birthday: birthdayFor(72, 0)  },  // 今天就是阿嬤生日
+  { handle: "mom",     name: "媽媽",   role: "Editor", avatarColor: "#7A8E6E", initial: "媽", birthday: birthdayFor(48, 5)  },  // 5 天後
+  { handle: "ming",    name: "小明",   role: "Member", avatarColor: "#D4A574", initial: "明", birthday: birthdayFor(24, 11) },  // 11 天後
+  { handle: "yating",  name: "雅婷",   role: "Member", avatarColor: "#8FA7B7", initial: "婷", birthday: birthdayFor(28, 200)},  // 遠遠以後（驗證 widget 篩選）
+  { handle: "jay",     name: "表弟阿傑", role: "Guest",  avatarColor: "#B58FBF", initial: "傑", birthday: null },
+  { handle: "andy",    name: "大學同學 Andy", role: "Member", avatarColor: "#7AA68F", initial: "A", birthday: null },
 ];
 
 const CATEGORIES = [
@@ -93,8 +105,8 @@ async function main() {
   for (const m of MEMBERS) {
     const u = await db.user.upsert({
       where: { handle: m.handle },
-      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id },
-      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id },
+      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null },
+      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null },
     });
     userRows[m.handle] = { id: u.id, handle: u.handle, role: m.role };
   }

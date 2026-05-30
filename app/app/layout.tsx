@@ -6,6 +6,7 @@ import { RoleBadge, canCurrentUser } from "@/modules/permissions";
 import { NotificationBell, unreadCountDb } from "@/modules/notifications";
 import { SearchBar } from "./search/SearchBar";
 import { MobileMenu } from "./MobileMenu";
+import { PwaShell } from "./PwaShell";
 
 /**
  * Authenticated shell for the REAL app (Phase B+).
@@ -102,6 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       {children}
+      <PwaShell />
     </div>
   );
 }

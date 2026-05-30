@@ -112,7 +112,14 @@ export default async function AppActivityDetailPage({ params }: Params) {
           <span className="text-sm text-ink/40 font-sans">({comments.length})</span>
         </h2>
         <div className="mb-5">
-          <CommentList comments={comments} currentUserId={me.id} canModerate={canModerate} />
+          <CommentList
+            comments={comments}
+            currentUserId={me.id}
+            canModerate={canModerate}
+            parentType="ACTIVITY"
+            parentId={activity.id}
+            meMember={meMember}
+          />
         </div>
         <CommentForm me={meMember} parentType="ACTIVITY" parentId={activity.id} />
       </section>

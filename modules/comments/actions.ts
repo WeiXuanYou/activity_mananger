@@ -88,7 +88,10 @@ export async function createCommentAction(input: {
   return {};
 }
 
-/** Delete a comment. Authors can delete their own; Editors can moderate. */
+/** Delete a comment. Authors can delete their own; Editors can moderate.
+ *  Replies (anything with parentCommentId === this id) are deleted too —
+ *  otherwise they'd dangle orphaned. We hand-cascade because the FK
+ *  on Comment.parentCommentId is SetNull, not Cascade. */
 export async function deleteCommentAction(commentId: string): Promise<void> {
   const me = await requireCurrentUser();
   const c = await db.comment.findUnique({
@@ -100,8 +103,44 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
   if (c.authorId !== me.id) {
     await requirePermission("comment.moderate");
   }
-  await db.comment.delete({ where: { id: commentId } });
+  await db.$transaction([
+    db.comment.deleteMany({ where: { parentCommentId: commentId } }),
+    db.comment.delete({ where: { id: commentId } }),
+  ]);
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
   if (c.parentType === "POST") revalidatePath("/app/feed");
+}
+
+/** Edit a comment's body. Authors only — no moderator override (editing
+ *  someone else's words is more aggressive than deleting them; if it's
+ *  bad enough to need a mod, delete-then-explain is the better workflow). */
+export async function editCommentAction(input: {
+  id: string;
+  body: string;
+}): Promise<CommentState> {
+  const me = await requireCurrentUser();
+  const c = await db.comment.findUnique({
+    where: { id: input.id },
+    select: { id: true, authorId: true, parentType: true, parentId: true },
+  });
+  if (!c) return { error: "找不到這則留言" };
+  if (c.authorId !== me.id) return { error: "只能編輯自己的留言" };
+
+  const body = input.body.trim();
+  if (!body) return { error: "請寫點東西" };
+  if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
+
+  await db.comment.update({
+    where: { id: input.id },
+    data: { body },
+  });
+
+  if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
+  if (c.parentType === "POST") revalidatePath("/app/feed");
+  if (c.parentType === "PAGE") {
+    const pg = await db.customPage.findUnique({ where: { id: c.parentId }, select: { slug: true } });
+    if (pg) revalidatePath(`/app/pages/${pg.slug}`);
+  }
+  return {};
 }

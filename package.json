@@ -7,8 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:reset": "rm -f prisma/dev.db prisma/dev.db-journal && prisma db push && prisma db seed",
     "db:studio": "prisma studio"
   },
   "prisma": {
@@ -24,7 +28,8 @@
     "react-dom": "18.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "20.14.10",
@@ -34,6 +39,7 @@
     "postcss": "8.4.39",
     "tailwindcss": "3.4.6",
     "tsx": "^4.22.3",
-    "typescript": "5.5.3"
+    "typescript": "5.5.3",
+    "vitest": "^4.1.7"
   }
 }

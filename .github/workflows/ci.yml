@@ -1,0 +1,39 @@
+# Run on every push + every PR. We fail fast on type errors before
+# spending build CPU, and we run unit tests separately so a tsc/build
+# failure doesn't hide a test failure (or vice versa).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Unit tests (vitest)
+        run: npx vitest run
+
+      - name: Next.js production build
+        run: npx next build
+        env:
+          # Build needs SOME DATABASE_URL even if it doesn't connect.
+          # SQLite file URL is fine — nothing queries at build time.
+          DATABASE_URL: "file:./prisma/dev.db"

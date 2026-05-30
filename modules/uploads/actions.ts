@@ -1,19 +1,26 @@
 "use server";
 /**
- * Local-filesystem image upload — Phase H.
+ * Local-filesystem image upload with on-the-fly thumbnail generation.
  *
- * Writes to /public/uploads/<random>.<ext>. The /public directory is
- * served at the site root by Next, so the returned URL (`/uploads/x.jpg`)
- * is immediately fetchable by <img src>.
+ * Why thumbnails: phones produce 3–8 MB photos. Without resizing, the
+ * photo-album grid serves 4 MB per thumbnail — slow on cellular, bad
+ * for data plans, and hits memory ceilings if there are 30 of them on
+ * screen. With sharp, we keep the original (for the lightbox) and emit
+ * an 800px thumbnail (for the grid) at JPEG q80 — typically 50–200 KB.
+ *
+ * Layout on disk:
+ *   public/uploads/<id>.jpg         original (preserves caller's format)
+ *   public/uploads/<id>.thumb.jpg   800px longest edge, JPEG q80
+ *
+ * The action returns BOTH urls. Callers that don't care just pick `url`
+ * (existing behavior); callers that want the optimized version (grids,
+ * cards) pick `thumbUrl`. If thumbnail generation fails we still return
+ * the original — degraded but functional.
  *
  * Constraints (all enforced server-side; never trust client claims):
  *   - MIME on the allow-list (`ALLOWED_IMAGE_MIME`)
  *   - <= 5 MB
  *   - Filename is a fresh random ID — we never trust the client filename.
- *     Extension is derived from MIME, not the filename, so a renamed
- *     ".exe" never reaches disk.
- *   - The whole file body is read into memory; for very large files this
- *     would be wasteful, but 5MB is fine.
  *
  * Production note: this works for a self-hosted "family server" deploy.
  * On serverless platforms (Vercel) you'd swap the body of this function
@@ -23,6 +30,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import { requireCurrentUser } from "@/modules/auth";
 import { ALLOWED_IMAGE_MIME, MAX_IMAGE_BYTES, type UploadResult } from "./types";
 
@@ -35,10 +43,10 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/gif": "gif",
 };
 
-/**
- * Form-action friendly upload. Expects FormData with `file: File`.
- * Returns a discriminated union so client code can render `error` cleanly.
- */
+/** Thumbnail longest-edge in pixels. 800 is enough for retina 3-col grids
+ *  on phones AND laptop, while keeping each thumb < 250 KB at q80. */
+const THUMB_EDGE = 800;
+
 export async function uploadImageAction(formData: FormData): Promise<UploadResult> {
   await requireCurrentUser();
 
@@ -56,10 +64,36 @@ export async function uploadImageAction(formData: FormData): Promise<UploadResul
   try {
     await mkdir(UPLOAD_DIR, { recursive: true });
     const ext = EXT_BY_MIME[file.type];
-    const name = `${randomBytes(12).toString("hex")}.${ext}`;
+    const id = randomBytes(12).toString("hex");
+    const origName = `${id}.${ext}`;
+    const thumbName = `${id}.thumb.jpg`;
     const buf = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(UPLOAD_DIR, name), buf);
-    return { ok: true, url: `/uploads/${name}` };
+
+    // Write the original first — that's what `url` points to.
+    await writeFile(path.join(UPLOAD_DIR, origName), buf);
+
+    // Generate the thumbnail. GIFs preserve animation by not resampling
+    // (sharp's default would freeze them at first frame); we just point
+    // the thumb at the original in that case.
+    let thumbUrl = `/uploads/${origName}`;
+    if (file.type !== "image/gif") {
+      try {
+        const thumbBuf = await sharp(buf)
+          .rotate() // honor EXIF orientation; phone photos are notorious for this
+          .resize(THUMB_EDGE, THUMB_EDGE, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 80, mozjpeg: true })
+          .toBuffer();
+        await writeFile(path.join(UPLOAD_DIR, thumbName), thumbBuf);
+        thumbUrl = `/uploads/${thumbName}`;
+      } catch (err) {
+        // Sharp failed (corrupt EXIF? unsupported colorspace?) — degrade
+        // gracefully to the original instead of failing the whole upload.
+        // eslint-disable-next-line no-console
+        console.warn("[uploadImageAction] thumb generation failed; using original", err);
+      }
+    }
+
+    return { ok: true, url: `/uploads/${origName}`, thumbUrl };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("[uploadImageAction] failed", err);

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background plate — warm cream so the icon reads on iOS / Android home screen -->
+  <rect width="512" height="512" rx="112" fill="#FBF7F1"/>
+  <!-- The character 相 in serif terracotta. Two centerlines used so it
+       sits visually centered (CJK characters look low when baseline-aligned). -->
+  <text x="256" y="358"
+        font-family="'Noto Serif TC', 'Songti SC', serif"
+        font-size="312"
+        font-weight="600"
+        fill="#C75B3A"
+        text-anchor="middle">相</text>
+  <!-- Tiny accent dot in sage — same as the brand strip in /app header -->
+  <circle cx="416" cy="120" r="22" fill="#7A8E6E"/>
+</svg>

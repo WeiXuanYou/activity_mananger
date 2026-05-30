@@ -15,7 +15,13 @@ import { useState, useTransition } from "react";
 import { uploadImageAction } from "@/modules/uploads/actions";
 import { updateBlockDataAction } from "../actions";
 
-type Photo = { url: string; caption?: string };
+type Photo = {
+  url: string;
+  /** Optional thumbnail URL. Older photos stored before Phase M will be
+   *  missing this — callers fall back to `url`. */
+  thumbUrl?: string;
+  caption?: string;
+};
 
 export function PhotoAlbumEditor({
   blockId,
@@ -52,7 +58,7 @@ export function PhotoAlbumEditor({
       fd.set("file", file);
       const r = await uploadImageAction(fd);
       if (r.ok) {
-        added.push({ url: r.url, caption: "" });
+        added.push({ url: r.url, thumbUrl: r.thumbUrl, caption: "" });
       } else {
         setError(r.error);
       }
@@ -123,7 +129,11 @@ export function PhotoAlbumEditor({
             <div key={`${i}-${photo.url}`} className="relative group bg-white rounded-soft border border-sand overflow-hidden">
               <div className="aspect-square overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.url} alt={photo.caption ?? ""} className="w-full h-full object-cover" />
+                <img
+                  src={photo.thumbUrl ?? photo.url}
+                  alt={photo.caption ?? ""}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <input
                 type="text"

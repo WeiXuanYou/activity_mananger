@@ -6,7 +6,14 @@
 
 /** What `uploadImageAction()` resolves to. */
 export type UploadResult =
-  | { ok: true; url: string }
+  | {
+      ok: true;
+      /** Original image URL — what to use in the lightbox / detail view. */
+      url: string;
+      /** 800px-edge JPEG thumbnail for grids / cards. Falls back to `url`
+       *  when sharp can't process the file (e.g. animated GIF). */
+      thumbUrl: string;
+    }
   | { ok: false; error: string };
 
 /** Allowed image MIME types for both Activities (covers) and Posts (attachments). */

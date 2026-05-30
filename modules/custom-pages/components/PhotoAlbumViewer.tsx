@@ -10,7 +10,12 @@
  */
 import { useEffect, useState } from "react";
 
-type Photo = { url: string; caption?: string };
+type Photo = {
+  url: string;
+  /** 800px JPEG thumbnail. Falls back to `url` for legacy photos. */
+  thumbUrl?: string;
+  caption?: string;
+};
 
 const LG_COLS: Record<number, string> = {
   2: "lg:grid-cols-2",
@@ -77,7 +82,7 @@ export function PhotoAlbumViewer({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photo.url}
+                src={photo.thumbUrl ?? photo.url}
                 alt={photo.caption ?? `照片 ${i + 1}`}
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform"

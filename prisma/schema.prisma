@@ -15,15 +15,19 @@ datasource db {
 // =====================================================================
 
 model User {
-  id          String   @id @default(cuid())
-  handle      String   @unique
+  id          String    @id @default(cuid())
+  handle      String    @unique
   name        String
   bio         String?
   avatarColor String
   initial     String
+  /// Birthday. Year is significant for the age-display widget on
+  /// profiles; the cron only matches month-day. Optional — users can
+  /// leave it blank.
+  birthday    DateTime?
   roleId      String
-  role        Role     @relation(fields: [roleId], references: [id])
-  createdAt   DateTime @default(now())
+  role        Role      @relation(fields: [roleId], references: [id])
+  createdAt   DateTime  @default(now())
 
   sessions          Session[]
   invitesCreated    InviteCode[]          @relation("InviteCreator")

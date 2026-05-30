@@ -21,6 +21,7 @@ import { formatShortDate, relativeFromNow } from "@/lib/date";
 import { OwnerActions } from "@/modules/core/components/OwnerActions";
 import { deletePostAction } from "@/modules/core/posts/actions";
 import { listMemoriesForToday, MemoriesCard } from "@/modules/core/memories";
+import { listUpcomingBirthdays, BirthdayWidget } from "@/modules/core/birthdays";
 
 type Search = { searchParams: Promise<{ cat?: string }> };
 
@@ -56,7 +57,10 @@ export default async function AppFeedPage({ searchParams }: Search) {
 
   // "On this day" memories — only same-MM-DD content from prior years.
   // Quietly omitted on the feed if there's nothing to surface.
-  const memories = await listMemoriesForToday();
+  const [memories, birthdays] = await Promise.all([
+    listMemoriesForToday(),
+    listUpcomingBirthdays(14),
+  ]);
 
   return (
     <main className="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-6">
@@ -138,6 +142,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
         </section>
 
         <aside className="lg:col-span-5 space-y-5">
+          <BirthdayWidget birthdays={birthdays} />
           <MemoriesCard memories={memories} />
           <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
             <h3 className="serif text-base text-ink mb-3 flex items-center gap-2">

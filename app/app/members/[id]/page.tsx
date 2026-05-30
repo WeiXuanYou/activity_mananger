@@ -37,7 +37,7 @@ export default async function MemberProfilePage({ params }: Params) {
     listActivitiesDb(),
     listPollsDb(),
     db.comment.count({ where: { authorId: id } }),
-    db.user.findUnique({ where: { id }, select: { createdAt: true } }),
+    db.user.findUnique({ where: { id }, select: { createdAt: true, birthday: true } }),
   ]);
 
   const myPosts = allPosts.filter((p) => p.authorId === id);
@@ -50,6 +50,9 @@ export default async function MemberProfilePage({ params }: Params) {
   const joinedAt = joinedAtRow?.createdAt
     ? joinedAtRow.createdAt.toLocaleDateString("zh-TW", { year: "numeric", month: "long" })
     : "";
+  const birthdayLabel = joinedAtRow?.birthday
+    ? joinedAtRow.birthday.toLocaleDateString("zh-TW", { month: "long", day: "numeric" })
+    : null;
 
   const isMe = member.id === me.id;
 
@@ -74,7 +77,10 @@ export default async function MemberProfilePage({ params }: Params) {
               )}
             </div>
             <p className="text-ink/55 text-sm">@{member.handle}</p>
-            {joinedAt && <p className="text-ink/45 text-xs mt-1">加入於 {joinedAt}</p>}
+            <div className="flex items-center gap-3 mt-1 text-xs text-ink/45 flex-wrap">
+              {joinedAt && <span>加入於 {joinedAt}</span>}
+              {birthdayLabel && <span>🎂 {birthdayLabel}</span>}
+            </div>
           </div>
         </div>
 

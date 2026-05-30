@@ -56,13 +56,18 @@ const INCLUDE = {
   author: { include: { role: { select: { name: true } } } },
 } as const;
 
-/** List top-level comments for a content item, oldest first (chat order). */
+/** List ALL comments (top-level + replies) for a content item.
+ *
+ * Returns them flat, ordered by createdAt. The UI's `CommentList`
+ * threads them into a tree (one level of nesting; replies-to-replies
+ * collapse to the same level — matches LINE/Facebook UX expectations
+ * and avoids 5-level indentation hell on mobile). */
 export async function listCommentsDb(
   parentType: CommentParentType,
   parentId: string,
 ): Promise<Comment[]> {
   const rows = await db.comment.findMany({
-    where: { parentType, parentId, parentCommentId: null },
+    where: { parentType, parentId },
     orderBy: { createdAt: "asc" },
     include: INCLUDE,
   });

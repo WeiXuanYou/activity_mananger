@@ -23,6 +23,10 @@ export function ImageUpload({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState<string | undefined>(initialUrl);
+  // Thumb URL drives the small preview. Original drives the form value
+  // (callers need the canonical URL, e.g. activity covers use it as
+  // background-image where a thumb would look blurry on retina).
+  const [thumbUrl, setThumbUrl] = useState<string | undefined>(initialUrl);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -36,6 +40,7 @@ export function ImageUpload({
       const result = await uploadImageAction(formData);
       if (result.ok) {
         setUrl(result.url);
+        setThumbUrl(result.thumbUrl);
         onUploaded?.(result.url);
       } else {
         setError(result.error);
@@ -51,7 +56,7 @@ export function ImageUpload({
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={url}
+            src={thumbUrl ?? url}
             alt="preview"
             className="w-32 h-32 object-cover rounded-soft border border-sand"
           />

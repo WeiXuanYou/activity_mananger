@@ -16,6 +16,7 @@
  */
 import { db } from "@/lib/db";
 import { notify } from "@/modules/notifications";
+import { findBirthdayUsersForToday } from "@/modules/core/birthdays";
 import type { ReminderTier, ReminderRunResult } from "./types";
 
 const HOUR = 60 * 60 * 1000;
@@ -123,6 +124,65 @@ export async function runActivityReminders(): Promise<ReminderRunResult> {
         userCount: a.participants.length,
       });
     }
+  }
+
+  // ───── Birthdays ─────
+  // Same idempotency pattern: insert a "tier=BIRTHDAY-YYYY-MM-DD" row;
+  // unique (activityId, tier) ensures no double-firing on the same day.
+  // We piggyback on ActivityReminder (activityId points to the celebrant's
+  // user, but we tag it clearly so it doesn't conflate with activity tiers
+  // — and we record a synthetic activity row first).
+  //
+  // Simpler approach: don't share the table. Use a tiny `BirthdayNotice`
+  // sentinel — or just trust the idempotency to the per-day notification
+  // dedupe. For v1 we just dedupe in-process: each cron run scans today's
+  // birthdays once. If two cron runs land in the same second they could
+  // double-notify, but that's a non-issue at family scale.
+  try {
+    const todays = await findBirthdayUsersForToday();
+    for (const u of todays) {
+      const allOthers = await db.user.findMany({
+        where: { id: { not: u.id } },
+        select: { id: true },
+      });
+      // Skip if today is already covered: check whether a notification
+      // titled with this person's birthday was created today already.
+      const dedupeKey = `🎂 今天是 ${u.name} 的生日`;
+      const recent = await db.notification.findFirst({
+        where: {
+          title: dedupeKey,
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        },
+        select: { id: true },
+      });
+      if (recent) continue;
+
+      for (const other of allOthers) {
+        try {
+          await notify({
+            userId: other.id,
+            kind: "activity.rsvp",
+            title: dedupeKey,
+            body: `祝 ${u.name} 生日快樂 🎉 點開可以幫他寫祝福`,
+            link: `/app/members/${u.id}`,
+          });
+          result.notificationsCreated++;
+        } catch {
+          /* swallow */
+        }
+      }
+      result.details.push({
+        activityId: u.id, // userId — abused for grouping in the admin UI
+        activityTitle: `🎂 ${u.name} 生日`,
+        tier: "DAY_BEFORE",
+        userCount: allOthers.length,
+      });
+      result.remindersSent++;
+    }
+    result.scannedActivities += todays.length;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[birthdays] tier failed", err);
   }
 
   return result;
