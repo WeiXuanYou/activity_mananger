@@ -39,12 +39,8 @@ export default async function AppAnalyticsPage() {
     listPollsDb(),
   ]);
 
-  // Combined activity roll-up. Sort by total RSVP interest (going+maybe).
+  // Combined activity roll-up. Sort by RSVP interest (going+maybe).
   const activities = [...upcoming, ...past]
-    .map((a) => {
-      const total = a.rsvp.going + a.rsvp.maybe + a.rsvp.declined;
-      return { ...a, total };
-    })
     .sort((a, b) => (b.rsvp.going + b.rsvp.maybe) - (a.rsvp.going + a.rsvp.maybe))
     .slice(0, 12);
 
@@ -81,9 +77,7 @@ export default async function AppAnalyticsPage() {
         ) : (
           <div className="space-y-3">
             {activities.map((a) => {
-              const interest = a.rsvp.going + a.rsvp.maybe;
               const max = Math.max(...activities.map((x) => x.rsvp.going + x.rsvp.maybe), 1);
-              const pct = (interest / max) * 100;
               return (
                 <Link
                   key={a.id}
