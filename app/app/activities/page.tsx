@@ -82,10 +82,18 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
 
       {list.length === 0 ? (
         <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
-          <div className="text-4xl mb-2">🌿</div>
-          <p className="serif text-lg text-ink/70">
-            {tab === "past" ? "沒有過去的活動" : "沒有未來的活動"}
+          <div className="text-4xl mb-2">{tab === "past" ? "🌿" : "🍖"}</div>
+          <p className="serif text-lg text-ink/70 mb-3">
+            {tab === "past" ? "沒有過去的活動" : "還沒有排定的活動"}
           </p>
+          {tab !== "past" && (
+            <Link
+              href="/app/activities/new"
+              className="inline-block text-sm px-4 py-2 rounded-soft bg-terracotta text-white hover:bg-terracotta-dark"
+            >
+              + 辦一場活動
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

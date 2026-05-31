@@ -68,19 +68,25 @@ const CATEGORIES = [
 ];
 
 /**
- * Two seed modes:
- *   SEED_MODE=production → roles + permission matrix + ONE bootstrap
- *     admin invite code. No demo content. First person to redeem the
- *     code becomes the real admin and gets routed through /app/setup.
+ * Seed has two modes:
  *
- *   default (demo) → everything above PLUS the rich demo content
- *     (阿嬤 family etc.). Demo invite codes are flagged `reusable=true`
- *     so /preview-style sharing keeps working.
+ *   SEED_MODE=demo        → roles + permission matrix + bootstrap admin
+ *                            + the rich demo dataset (六位範例家人、活動、
+ *                            投票、文章、住宿、自訂頁面、邀請碼). For
+ *                            screenshots, /preview, and feature walk-throughs.
  *
- * The bootstrap invite code can be supplied via BOOTSTRAP_INVITE_CODE;
- * if unset, one is generated and printed to stdout.
+ *   SEED_MODE=production  → roles + permission matrix + ONE bootstrap
+ *                            admin (admin/admin). Nothing else. This is
+ *                            what every fresh install should start with
+ *                            so families/friends never inherit somebody
+ *                            else's fake content.
+ *
+ * Production is the **default** — `npm run db:seed` with no env var
+ * gives you a clean install. Opt into the demo dataset explicitly via
+ * `SEED_MODE=demo npm run db:seed`. /mockup and /preview don't depend
+ * on the DB, so the visual tour keeps working in production mode.
  */
-const IS_PRODUCTION_SEED = process.env.SEED_MODE === "production";
+const IS_PRODUCTION_SEED = process.env.SEED_MODE !== "demo";
 
 async function main() {
   console.log(`🌱 Seeding... (mode=${IS_PRODUCTION_SEED ? "production" : "demo"})`);

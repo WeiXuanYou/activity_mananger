@@ -111,11 +111,39 @@ export default async function AppFeedPage({ searchParams }: Search) {
           </div>
 
           {filteredPosts.length === 0 ? (
-            <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
-              <div className="text-4xl mb-2">🌿</div>
-              <p className="serif text-lg text-ink/70">這個分類還沒有文章</p>
-              <Link href="/app/feed" className="text-sm text-terracotta hover:underline">← 看全部</Link>
-            </div>
+            // Two distinct empty paths:
+            //  (a) global empty — fresh install, no posts at all yet → give
+            //      actionable next steps (write the first one, invite people)
+            //  (b) category empty — content exists, just not in this filter →
+            //      offer to clear the filter
+            posts.length === 0 ? (
+              <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
+                <div className="text-4xl mb-2">🌱</div>
+                <p className="serif text-lg text-ink/70 mb-1">這裡還很安靜</p>
+                <p className="text-sm text-ink/55 mb-4">
+                  寫第一篇文章、辦一場活動，或是邀請家人朋友加入吧。
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {canPost && (
+                    <Link href="/app/posts/new" className="text-sm px-4 py-2 rounded-soft bg-terracotta text-white hover:bg-terracotta-dark">
+                      ✍ 寫第一篇
+                    </Link>
+                  )}
+                  <Link href="/app/activities/new" className="text-sm px-4 py-2 rounded-soft bg-white border border-sand text-ink/75 hover:bg-cream/40">
+                    🍖 辦一場活動
+                  </Link>
+                  <Link href="/app/admin" className="text-sm px-4 py-2 rounded-soft bg-white border border-sand text-ink/75 hover:bg-cream/40">
+                    ✉ 產生邀請碼
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-cream/40 rounded-soft border-2 border-dashed border-sand p-10 text-center">
+                <div className="text-4xl mb-2">🌿</div>
+                <p className="serif text-lg text-ink/70">這個分類還沒有文章</p>
+                <Link href="/app/feed" className="text-sm text-terracotta hover:underline">← 看全部</Link>
+              </div>
+            )
           ) : (
             filteredPosts.map((p) => {
               const canEdit = canModeratePosts || p.authorId === me.id;

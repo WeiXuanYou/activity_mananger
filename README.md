@@ -14,9 +14,12 @@ npm install
 # 2. 複製環境變數
 cp .env.example .env
 
-# 3. 初始化資料庫並 seed
+# 3. 初始化資料庫並 seed（預設 = production-clean，只有 admin/admin）
 npm run db:push      # 建 SQLite schema
-npm run db:seed      # 灌入示範資料 + demo 邀請碼
+npm run db:seed      # 預設為正式模式：只建一個 admin 帳號，沒有範例內容
+
+# 如要灌入示範家人/活動/文章/住宿（給 /preview 截圖、demo 之用）：
+SEED_MODE=demo npm run db:seed
 
 # 4. 啟動
 npm run dev
@@ -30,14 +33,14 @@ npm run dev
 
 ## 登入憑證（Demo / 開發用）
 
-### 預設管理員（demo 模式）
+### 預設管理員（兩種 seed 模式都會建）
 | handle | 密碼 |
 |---|---|
 | `admin` | `admin` |
 
-> 第一次登入會強迫換密碼。**正式環境跑 `SEED_MODE=production npm run db:seed` 不會建立任何 demo 邀請碼或範例使用者，僅建立 admin/admin 一個帳號，請立即在 `/app/setup` 換掉密碼並建立邀請碼。**
+> 第一次登入會強迫換密碼。**`npm run db:seed`（預設正式模式）只會建立 admin/admin 一個帳號，沒有任何範例內容（沒有阿嬤、沒有住宿、沒有文章），請登入後立即在 `/app/setup` 換掉密碼並建立邀請碼。`/mockup` 與 `/preview` 不依賴 DB，正式模式下這些視覺預覽照常運作。**
 
-### Demo 邀請碼（僅 demo 模式 seed 會建立）
+### Demo 邀請碼（僅 `SEED_MODE=demo` seed 會建立）
 | 邀請碼 | 角色 |
 |---|---|
 | `TOGETHER-DEMO-MEMBER` | Member |
@@ -77,7 +80,7 @@ lib/
 
 prisma/
   schema.prisma      完整 schema
-  seed.ts            示範資料 + demo 邀請碼
+  seed.ts            預設 = 只有 admin/admin；SEED_MODE=demo 灌入範例資料 + demo 邀請碼
 
 middleware.ts        Edge 中介層：/app/* 沒 session 重導 /login
 ```
@@ -94,7 +97,7 @@ middleware.ts        Edge 中介層：/app/* 沒 session 重導 /login
 npm run dev          # Next.js dev server
 npm run build        # 生產建置
 npm run db:push      # schema → DB
-npm run db:seed      # 重新灌示範資料
+npm run db:seed      # 正式 seed（admin/admin only）；前綴 SEED_MODE=demo 灌示範資料
 npm run db:studio    # 開 Prisma Studio
 ```
 

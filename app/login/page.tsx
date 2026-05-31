@@ -1,27 +1,14 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { LoginForm } from "./LoginForm";
 
 /**
- * Detect whether this install is the public demo by looking for a
- * known demo invite code. Production seeds don't create these, so the
- * page can adapt UX automatically without an extra env var.
- *
- * Note: even in demo mode we no longer print the demo invite codes or
- * admin/admin hint on this page — that info lives in the README so
- * the login surface stays free of credentials.
+ * Login is now mode-agnostic — demo / production look the same. No
+ * default credentials, demo invite codes, or feature flags leak onto
+ * this surface; operators read the README for first-time setup. The
+ * /preview tour link sits at the bottom so visitors can still browse
+ * the visual prototype without signing in.
  */
-async function detectDemoMode(): Promise<boolean> {
-  const code = await db.inviteCode.findUnique({
-    where: { code: "TOGETHER-DEMO-MEMBER" },
-    select: { id: true },
-  });
-  return Boolean(code);
-}
-
-export default async function LoginPage() {
-  const isDemo = await detectDemoMode();
-
+export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-md">
@@ -42,11 +29,9 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
 
-        {isDemo && (
-          <p className="mt-6 text-center text-xs text-ink/40">
-            <Link href="/mockup" className="hover:text-terracotta">想先看 Mockup？→ /mockup</Link>
-          </p>
-        )}
+        <p className="mt-6 text-center text-xs text-ink/45">
+          <Link href="/preview" className="hover:text-terracotta">想先看看？→ 全站預覽 /preview</Link>
+        </p>
       </div>
     </main>
   );
