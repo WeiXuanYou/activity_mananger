@@ -13,6 +13,7 @@ import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 import {
   listPostsDb,
+  countPostsDb,
   findLikedPostIdsByUserDb,
   PostCard,
 } from "@/modules/core/posts";
@@ -25,37 +26,62 @@ import { deletePostAction, setPostHiddenAction } from "@/modules/core/posts/acti
 import { listMemoriesForToday, MemoriesCard } from "@/modules/core/memories";
 import { listUpcomingBirthdays, BirthdayWidget } from "@/modules/core/birthdays";
 
-type Search = { searchParams: Promise<{ cat?: string }> };
+/** How many posts the feed shows before "看更多". Tuned for a phone-first
+ *  timeline — enough to feel full, not so many that the page is endless. */
+const FEED_PAGE_SIZE = 15;
+
+type Search = { searchParams: Promise<{ cat?: string; show?: string; hidden?: string }> };
 
 export default async function AppFeedPage({ searchParams }: Search) {
-  const { cat: slug } = await searchParams;
+  const { cat: slug, show, hidden } = await searchParams;
   const me = await requireCurrentUser();
 
-  // Fetch everything in parallel — they're independent queries
-  const [posts, activities, polls, categories, activeCategory, canPost, canCreateCategory] =
+  // How many to show this render. ?show=N grows the window ("看更多").
+  const showCount = Math.max(FEED_PAGE_SIZE, Number.parseInt(show ?? "", 10) || FEED_PAGE_SIZE);
+
+  // Resolve the active category first — needed for the paginated query.
+  const [categories, activeCategory, canPost, canCreateCategory, canModeratePosts] =
     await Promise.all([
-      listPostsDb(),
-      listUpcomingActivitiesDb(),
-      listPollsDb(),
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
       canCurrentUser("post.create"),
       canCurrentUser("category.create"),
+      canCurrentUser("post.moderate"),
     ]);
 
-  // Apply category filter on the joined client-side; cheap given dataset size
-  const filteredPosts = activeCategory
-    ? posts.filter((p) => p.categoryIds.includes(activeCategory.id))
-    : posts;
+  // Admins can flip on "show hidden" to review hidden posts. Everyone else
+  // only ever sees their own hidden posts (handled by viewerId below).
+  const showHidden = canModeratePosts && hidden === "1";
+
+  const postOpts = {
+    viewerId: me.id,
+    includeHidden: showHidden,
+    categoryId: activeCategory?.id,
+  };
+
+  // Fetch the visible page of posts + the total + side widgets in parallel.
+  const [posts, totalPosts, activities, polls] = await Promise.all([
+    listPostsDb({ ...postOpts, take: showCount }),
+    countPostsDb(postOpts),
+    listUpcomingActivitiesDb(),
+    listPollsDb(),
+  ]);
+
+  const filteredPosts = posts;
+  const hasMore = totalPosts > filteredPosts.length;
 
   // One query for "which of these posts has the current user liked" so the
-  // heart renders in the right state. Driven by the filtered list to avoid
-  // wasted lookups when a category is selected.
+  // heart renders in the right state.
   const likedIds = await findLikedPostIdsByUserDb(me.id, filteredPosts.map((p) => p.id));
 
-  // Edit/delete is available when the current user owns the post or has
-  // the moderate perm. Compute once for the whole list.
-  const canModeratePosts = await canCurrentUser("post.moderate");
+  // Preserve cat when building the "看更多" link.
+  const moreHref = (() => {
+    const params = new URLSearchParams();
+    if (slug) params.set("cat", slug);
+    if (showHidden) params.set("hidden", "1");
+    params.set("show", String(showCount + FEED_PAGE_SIZE));
+    return `/app/feed?${params.toString()}`;
+  })();
 
   // "On this day" memories — only same-MM-DD content from prior years.
   // Quietly omitted on the feed if there's nothing to surface.
@@ -109,8 +135,23 @@ export default async function AppFeedPage({ searchParams }: Search) {
         <section className="lg:col-span-7 space-y-5">
           <div className="flex items-center gap-2 text-xs text-ink/40 px-1">
             <span>{activeCategory ? `「${activeCategory.name}」分類` : "📌 全部"}</span>
+            {showHidden && <span className="text-terracotta-dark">· 含隱藏</span>}
             <div className="flex-1 divider-dashed" />
-            <span>{filteredPosts.length} 篇</span>
+            <span>{filteredPosts.length} / {totalPosts} 篇</span>
+            {canModeratePosts && (
+              <Link
+                href={showHidden
+                  ? `/app/feed${slug ? `?cat=${slug}` : ""}`
+                  : `/app/feed?${new URLSearchParams({ ...(slug ? { cat: slug } : {}), hidden: "1" }).toString()}`}
+                className={`ml-1 px-2 py-0.5 rounded-full border text-[10px] transition ${
+                  showHidden
+                    ? "bg-terracotta-soft/50 border-terracotta/30 text-terracotta-dark"
+                    : "bg-white border-sand text-ink/55 hover:bg-cream/40"
+                }`}
+              >
+                {showHidden ? "✓ 顯示隱藏貼文" : "👁 顯示隱藏貼文"}
+              </Link>
+            )}
           </div>
 
           {filteredPosts.length === 0 ? (
@@ -149,7 +190,10 @@ export default async function AppFeedPage({ searchParams }: Search) {
             )
           ) : (
             filteredPosts.map((p) => {
-              const canEdit = canModeratePosts || p.authorId === me.id;
+              const isOwnerOrMod = canModeratePosts || p.authorId === me.id;
+              // Collaborators (post opened for collab) can edit but not
+              // delete / hide — so they get a plain edit link, not the menu.
+              const canCollabEdit = !isOwnerOrMod && Boolean(p.allowCollab);
               // Bound server-action thunks — capture the post id so the
               // client OwnerActions doesn't need to know how the actions work.
               const onDelete = async () => {
@@ -161,23 +205,53 @@ export default async function AppFeedPage({ searchParams }: Search) {
                 await setPostHiddenAction(p.id, next);
               };
               return (
-                <PostCard
-                  key={p.id}
-                  post={p}
-                  likedByMe={likedIds.has(p.id)}
-                  ownerActions={
-                    canEdit ? (
-                      <OwnerActions
-                        editHref={`/app/posts/${p.id}/edit`}
-                        onDelete={onDelete}
-                        onToggleHidden={onToggleHidden}
-                        hidden={Boolean(p.hiddenAt)}
-                      />
-                    ) : undefined
-                  }
-                />
+                <div key={p.id} className={p.hiddenAt ? "relative opacity-75" : undefined}>
+                  {p.hiddenAt && (
+                    <span className="absolute z-10 left-3 top-3 text-[10px] px-2 py-0.5 rounded-full bg-ink/70 text-white">
+                      🙈 已隱藏{p.authorId === me.id ? "（只有你和管理員看得到）" : ""}
+                    </span>
+                  )}
+                  <PostCard
+                    post={p}
+                    likedByMe={likedIds.has(p.id)}
+                    ownerActions={
+                      isOwnerOrMod ? (
+                        <OwnerActions
+                          editHref={`/app/posts/${p.id}/edit`}
+                          onDelete={onDelete}
+                          onToggleHidden={onToggleHidden}
+                          hidden={Boolean(p.hiddenAt)}
+                        />
+                      ) : canCollabEdit ? (
+                        <Link
+                          href={`/app/posts/${p.id}/edit`}
+                          title="協作編輯"
+                          className="w-8 h-8 rounded-full text-ink/40 hover:text-ink hover:bg-cream/70 transition flex items-center justify-center text-sm"
+                        >
+                          ✎
+                        </Link>
+                      ) : undefined
+                    }
+                  />
+                </div>
               );
             })
+          )}
+
+          {hasMore && (
+            <div className="pt-2 flex justify-center">
+              <Link
+                href={moreHref}
+                className="px-5 py-2.5 rounded-soft bg-white border border-sand text-sm text-ink/75 hover:bg-cream/40 transition shadow-card"
+              >
+                看更多文章（還有 {totalPosts - filteredPosts.length} 篇）
+              </Link>
+            </div>
+          )}
+          {!hasMore && totalPosts > FEED_PAGE_SIZE && (
+            <p className="pt-2 text-center text-xs text-ink/40">
+              已經到底了 · 想找更早的內容可以用<Link href="/app/search" className="text-terracotta hover:underline">搜尋</Link>
+            </p>
           )}
         </section>
 

@@ -48,6 +48,8 @@ export type CustomPage = {
   owner?: Member;
   excerpt: string;
   cover: string;
+  /** When true, any signed-in member can edit this page's blocks. */
+  allowCollab?: boolean;
   /** Phase A mock: a count. Phase C/D: real blocks length. */
   blocks: number;
   /** Phase D — DB-backed sources populate this with fully resolved blocks. */

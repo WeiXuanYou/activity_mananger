@@ -1,5 +1,5 @@
-export type { Post, PostKind, BonusKind } from "./types";
-export { BONUS_KINDS } from "./types";
+export type { Post, PostKind, BonusKind, PostImage } from "./types";
+export { BONUS_KINDS, MAX_POST_IMAGES } from "./types";
 
 // Phase A — sync mock helpers (used by /mockup/*)
 export { posts } from "./data";
@@ -16,6 +16,7 @@ export {
 export {
   prismaPostToPost,
   listPostsDb,
+  countPostsDb,
   listPinnedPostsDb,
   listUnpinnedPostsDb,
   findPostDb,

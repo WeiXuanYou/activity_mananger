@@ -113,6 +113,7 @@ export function MobileMenu({
               <Link href="/app/calendar" className={link}>📅 行事曆</Link>
               <Link href="/app/lodging" className={link}>🏨 住宿</Link>
               <Link href="/app/pages" className={link}>📄 頁面</Link>
+              <Link href="/app/categories" className={link}>🏷 分類</Link>
               <Link href="/app/search" className={link}>🔍 搜尋</Link>
               <Link href="/app/assistant" className={link}>✨ AI 助手</Link>
               <Link href="/app/notifications" className={link}>🔔 通知</Link>
@@ -120,6 +121,7 @@ export function MobileMenu({
               {canInvite && <Link href="/app/invites" className={link}>🎁 邀請朋友</Link>}
               <Link href="/app/analytics" className={link}>📊 分析</Link>
               {isAdmin && <Link href="/app/admin" className={link}>⚙️ 管理</Link>}
+              <Link href="/app/feedback" className={link}>📨 意見回饋</Link>
               <Link href="/app/help" className={link}>❓ 使用說明</Link>
               <Link href="/app/account" className={link}>⚙️ 帳戶設定</Link>
             </nav>

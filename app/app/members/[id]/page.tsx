@@ -57,7 +57,7 @@ export default async function MemberProfilePage({ params }: Params) {
   const isMe = member.id === me.id;
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-8">
+    <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <Link href="/app/feed" className="text-sm text-ink/60 hover:text-terracotta mb-4 inline-block">
         ← 回動態
       </Link>

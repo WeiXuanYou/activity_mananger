@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import {
@@ -9,6 +10,7 @@ import {
 } from "@/modules/permissions";
 import { Avatar } from "@/modules/core/members";
 import { listRecentReminders } from "@/modules/core/reminders";
+import { countOpenFeedbackDb } from "@/modules/feedback";
 import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
@@ -21,7 +23,7 @@ export default async function AdminPage() {
   const isAdmin = await canCurrentUser("admin.approve");
   if (!isAdmin) redirect("/app/feed?denied=admin");
 
-  const [invites, members, decided, recentReminders, allInviteGrants] = await Promise.all([
+  const [invites, members, decided, recentReminders, allInviteGrants, openFeedback] = await Promise.all([
     listInviteCodesDb(),
     listAllMembersDb(),
     listDecidedRequestsDb(),
@@ -32,16 +34,39 @@ export default async function AdminPage() {
       where: { permissionKey: "invite.create" },
       select: { userId: true },
     }),
+    countOpenFeedbackDb(),
   ]);
   const inviteGrantSet = new Set(allInviteGrants.map((g) => g.userId));
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-8">
+    <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs bg-ink text-white px-2 py-0.5 rounded-full">ADMIN</span>
         <p className="text-sage-dark text-xs font-medium tracking-widest">MANAGEMENT TOOLS</p>
       </div>
       <h1 className="serif text-3xl text-ink mb-8">管理工具</h1>
+
+      {/* Feedback inbox shortcut */}
+      <section className="mb-10">
+        <Link
+          href="/app/admin/feedback"
+          className="block bg-white rounded-soft shadow-card border border-sand/60 p-5 hover:shadow-soft transition"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📨</span>
+            <div className="flex-1">
+              <div className="serif text-lg text-ink flex items-center gap-2">
+                意見回饋
+                {openFeedback > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-terracotta text-white">{openFeedback} 待處理</span>
+                )}
+              </div>
+              <p className="text-sm text-ink/60">查看成員送出的問題、建議與提問。</p>
+            </div>
+            <span className="text-ink/40">→</span>
+          </div>
+        </Link>
+      </section>
 
       {/* Invite codes */}
       <section className="mb-10">

@@ -98,6 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {isAdmin && (
               <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
             )}
+            <Link href="/app/feedback" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">回饋</Link>
             <Link href="/app/help" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">說明</Link>
             {/* 建立：文章在動態頁面上方已有「+ 寫一篇文章」按鈕，這裡只放活動 / 投票 */}
             <span className="shrink-0 ml-2 text-xs text-ink/40">建立：</span>

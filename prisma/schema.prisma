@@ -85,6 +85,8 @@ model User {
   lodgings          Lodging[]             @relation("LodgingAddedBy")
   passwordResets    PasswordReset[]
   emailVerifications EmailVerification[]
+  feedback          Feedback[]            @relation("FeedbackAuthor")
+  feedbackHandled   Feedback[]            @relation("FeedbackHandler")
 
   @@index([roleId])
 }
@@ -200,6 +202,10 @@ model Category {
   slug        String   @unique
   name        String
   emoji       String
+  /// Optional uploaded icon image (URL). When set, the UI shows this
+  /// image instead of the `emoji`. Lets creators use a custom picture
+  /// as the category icon. NULL = fall back to emoji (original behaviour).
+  iconImage   String?
   color       String // see modules/core/categories/types.ts
   isDefault   Boolean  @default(false)
   createdById String?
@@ -399,6 +405,15 @@ model Post {
   /// How many people the bonus is offered to (e.g. "前 3 名"). NULL =
   /// unlimited / not specified.
   bonusLimit Int?
+  /// JSON-encoded array of attached images: `[{ url, thumbUrl }]`.
+  /// NULL / "[]" = no images. Stored inline as a string for SQLite
+  /// (swap to a Json column on Postgres). The action layer caps the
+  /// count + relies on the upload pipeline for per-file size limits.
+  images     String?
+  /// When true, ANY signed-in member can edit this post (not just the
+  /// author / moderators). Delete + hide stay owner-or-moderator only.
+  /// Opt-in per post by the author. Default false = original behaviour.
+  allowCollab Boolean @default(false)
   createdAt  DateTime @default(now())
 
   categories PostCategory[]
@@ -423,6 +438,10 @@ model Comment {
   parentType      String // POST | ACTIVITY | PAGE | COMMENT
   parentId        String
   body            String
+  /// Optional single attached image (url). NULL = text-only comment.
+  /// Comments stay lightweight — one image, no gallery. Uses the same
+  /// upload pipeline as posts; only the URL is stored here.
+  image           String?
   // Self-relation for threading. parentCommentId points at another Comment;
   // `replies` is the back-reference. Empty for top-level comments.
   parentCommentId String?
@@ -460,6 +479,10 @@ model CustomPage {
   ownerId     String
   owner       User      @relation(fields: [ownerId], references: [id])
   visibility  String    @default("PUBLIC")
+  /// When true, ANY signed-in member can edit this page's blocks (not
+  /// just the owner / page.publish holders). Delete stays owner-or-admin.
+  /// Opt-in per page by the owner. Default false = original behaviour.
+  allowCollab Boolean   @default(false)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -557,6 +580,38 @@ model EmailVerification {
   @@index([userId])
 }
 
+// =====================================================================
+// Feedback — messages from any member to the admins. In-app "聯絡管理員 /
+// 意見回饋" inbox. Not a DM system (no threading, no replies); admins read
+// and mark resolved. Anyone signed in can submit; only admins can read the
+// list (gated in the queries + page).
+// =====================================================================
+model Feedback {
+  id          String   @id @default(cuid())
+  /// Author. Optional FK so deleting a user doesn't erase their feedback
+  /// history — we keep the message, just null the author (SetNull).
+  authorId    String?
+  author      User?    @relation("FeedbackAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  /// Coarse bucket so admins can triage: BUG | IDEA | QUESTION | OTHER.
+  /// Free-text column (no enum) for migration-flexibility.
+  kind        String   @default("OTHER")
+  /// One-line subject (optional) + the body.
+  subject     String?
+  body        String
+  /// Optional contact override — if the member wants a reply somewhere
+  /// other than their account email. Free text.
+  contact     String?
+  /// Lifecycle: OPEN → RESOLVED. Admins flip it; authors only ever create.
+  status      String   @default("OPEN") // OPEN | RESOLVED
+  resolvedById String?
+  resolvedBy   User?   @relation("FeedbackHandler", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([authorId])
+}
+
 model AnalyticsEvent {
   id          String   @id @default(cuid())
   kind        String // vote.cast, activity.rsvp, post.viewed, ...
@@ -594,6 +649,10 @@ model Lodging {
   rating      Int?
   addedById   String
   addedBy     User     @relation("LodgingAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  /// When true, ANY signed-in member can edit this lodging entry (not
+  /// just the person who added it / admins). Delete stays owner-or-admin.
+  /// Opt-in by the creator. Default false = original behaviour.
+  allowCollab Boolean  @default(false)
   /// When this lodging was used during a real trip. Null = recommendation only.
   stayedAt    DateTime?
   activityId  String?

@@ -64,7 +64,7 @@ export default async function InvitesPage() {
                 {c.usedById ? (
                   <span className="text-sage-dark">✓ 已被 {c.usedBy?.name ?? "新用戶"} 使用</span>
                 ) : (
-                  <span className="text-ink/55">未使用</span>
+                  <span className="text-sage-dark">● 永久有效（未使用）</span>
                 )}
               </span>
               <span className="text-[10px] text-ink/40 tabular-nums">
@@ -77,7 +77,7 @@ export default async function InvitesPage() {
 
       <div className="mt-6 bg-cream/40 rounded-soft border border-sand p-4 text-xs text-ink/60 leading-relaxed">
         <strong className="text-ink/80">提示：</strong>
-        每個邀請碼只能被使用一次。收到碼的人輸入後會自動建立屬於自己的帳號，並走完<Link href="/app/setup" className="text-terracotta hover:underline">個人設定</Link>。
+        每個邀請碼只能被使用一次，但<strong>在被使用之前永久有效</strong>——就算系統更新或重新部署也不會失效或消失。收到碼的人輸入後會自動建立屬於自己的帳號，並走完<Link href="/app/setup" className="text-terracotta hover:underline">個人設定</Link>。
       </div>
     </main>
   );

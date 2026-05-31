@@ -19,13 +19,16 @@ export async function createCommentAction(input: {
   parentType: CommentParentType;
   parentId: string;
   body: string;
+  image?: string | null;
   parentCommentId?: string;
 }): Promise<CommentState> {
   await requirePermission("comment.create");
   const me = await requireCurrentUser();
 
   const body = input.body.trim();
-  if (!body) return { error: "請寫點東西" };
+  const image = input.image?.trim() || null;
+  // A comment needs SOMETHING — text or an image.
+  if (!body && !image) return { error: "請寫點東西或附上圖片" };
   if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
 
   await db.comment.create({
@@ -34,6 +37,7 @@ export async function createCommentAction(input: {
       parentType: input.parentType,
       parentId: input.parentId,
       body,
+      image,
       parentCommentId: input.parentCommentId ?? null,
     },
   });
@@ -68,7 +72,7 @@ export async function createCommentAction(input: {
           userId: ownerId,
           kind: "activity.rsvp", // reusing the social-event kind
           title,
-          body: `${me.name}：${body.slice(0, 60)}${body.length > 60 ? "..." : ""}`,
+          body: `${me.name}：${body ? `${body.slice(0, 60)}${body.length > 60 ? "..." : ""}` : "🖼 傳了一張圖片"}`,
           link,
         });
       }
@@ -118,22 +122,25 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
 export async function editCommentAction(input: {
   id: string;
   body: string;
+  /** undefined = leave image as-is; null = remove; string = set/replace. */
+  image?: string | null;
 }): Promise<CommentState> {
   const me = await requireCurrentUser();
   const c = await db.comment.findUnique({
     where: { id: input.id },
-    select: { id: true, authorId: true, parentType: true, parentId: true },
+    select: { id: true, authorId: true, parentType: true, parentId: true, image: true },
   });
   if (!c) return { error: "找不到這則留言" };
   if (c.authorId !== me.id) return { error: "只能編輯自己的留言" };
 
   const body = input.body.trim();
-  if (!body) return { error: "請寫點東西" };
+  const nextImage = input.image === undefined ? c.image : (input.image?.trim() || null);
+  if (!body && !nextImage) return { error: "請寫點東西或附上圖片" };
   if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
 
   await db.comment.update({
     where: { id: input.id },
-    data: { body },
+    data: { body, image: nextImage },
   });
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);

@@ -40,7 +40,21 @@ export type Post = {
   bonusKind?: BonusKind | null;
   /** "Open to the first N people". NULL = unlimited / unspecified. */
   bonusLimit?: number | null;
+  /** Attached images (original + thumbnail URLs). Empty when none. */
+  images?: PostImage[];
+  /** When true, any signed-in member can edit this post (author opt-in).
+   *  Delete / hide stay owner-or-moderator regardless. */
+  allowCollab?: boolean;
 };
+
+/** One image attached to a post. `thumbUrl` falls back to `url`. */
+export type PostImage = {
+  url: string;
+  thumbUrl?: string;
+};
+
+/** Max images per post — keeps the card readable + the inline JSON small. */
+export const MAX_POST_IMAGES = 6;
 
 /** Coarse bonus categories. UI maps these to emoji + label; the choices
  *  match the family/friends use cases the feature was added for:

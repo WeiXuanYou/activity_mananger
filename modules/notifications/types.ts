@@ -9,6 +9,7 @@ export type NotificationKind =
   | "permission.rejected"
   | "activity.rsvp"
   | "post.pinned"
+  | "feedback.received"
   | "welcome";
 
 export type Notification = {

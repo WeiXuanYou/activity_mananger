@@ -12,11 +12,48 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
-import { requirePermission } from "@/modules/permissions";
+import { requirePermission, canCurrentUser } from "@/modules/permissions";
 import { emit } from "@/modules/analytics";
 import type { BlockType } from "./types";
 
+/**
+ * Throw unless the current user may EDIT this page's blocks.
+ * Editable by: the owner, page.publish holders (Editor+), OR — when the
+ * owner opted into collaboration — any signed-in member.
+ */
+async function ensureCanEditPage(page: { ownerId: string; allowCollab?: boolean }, meId: string): Promise<void> {
+  if (page.ownerId === meId) return;
+  if (page.allowCollab) return; // any signed-in member when collab is on
+  await requirePermission("page.publish");
+}
+
 export type CreatePageState = { error?: string };
+
+/** Slugify a title to ASCII; fall back to a random id for CJK-only titles. */
+function slugifyTitle(title: string): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  if (base.length >= 2) return base;
+  return `page-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Generate a slug that doesn't collide with an existing page. Appends
+ *  -2, -3, … on conflict. URLs are assigned automatically — never typed. */
+async function generateUniquePageSlug(title: string): Promise<string> {
+  const base = slugifyTitle(title);
+  for (let i = 0; i < 50; i++) {
+    const slug = i === 0 ? base : `${base}-${i + 1}`;
+    // eslint-disable-next-line no-await-in-loop
+    const clash = await db.customPage.findUnique({ where: { slug }, select: { id: true } });
+    if (!clash) return slug;
+  }
+  // Astronomically unlikely fallback.
+  return `${base}-${Math.random().toString(36).slice(2, 6)}`;
+}
 
 /**
  * Create a new custom page (with at least one starter markdown block).
@@ -30,18 +67,16 @@ export async function createCustomPageAction(
   const me = await requireCurrentUser();
 
   const title = String(formData.get("title") ?? "").trim();
-  const slug  = String(formData.get("slug") ?? "").trim().toLowerCase();
   const excerpt = String(formData.get("excerpt") ?? "").trim();
   const markdown = String(formData.get("markdown") ?? "").trim();
   const categorySlugs = formData.getAll("category").map(String).filter(Boolean);
 
   if (!title) return { error: "請填標題" };
-  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
-    return { error: "slug 只能用小寫英數字和 dash (-)" };
-  }
 
-  const existing = await db.customPage.findUnique({ where: { slug } });
-  if (existing) return { error: "這個 slug 已被使用" };
+  // Slug is auto-assigned from the title — users never type it. We slugify
+  // the title (ASCII-safe), fall back to a random id for CJK-only titles,
+  // and append a numeric suffix if it collides.
+  const slug = await generateUniquePageSlug(title);
 
   const categoryIds: string[] = [];
   if (categorySlugs.length) {
@@ -84,11 +119,9 @@ export async function addBlockAction(
   await requirePermission("page.create");
   const me = await requireCurrentUser();
 
-  const page = await db.customPage.findUnique({ where: { id: pageId }, select: { ownerId: true, slug: true, blocks: { select: { id: true } } } });
+  const page = await db.customPage.findUnique({ where: { id: pageId }, select: { ownerId: true, allowCollab: true, slug: true, blocks: { select: { id: true } } } });
   if (!page) throw new Error("Page not found");
-  if (page.ownerId !== me.id) {
-    await requirePermission("page.publish"); // editors can also edit anyone's
-  }
+  await ensureCanEditPage(page, me.id);
 
   await db.customPageBlock.create({
     data: {
@@ -106,12 +139,10 @@ export async function deleteBlockAction(blockId: string) {
   const me = await requireCurrentUser();
   const block = await db.customPageBlock.findUnique({
     where: { id: blockId },
-    include: { page: { select: { ownerId: true, slug: true } } },
+    include: { page: { select: { ownerId: true, allowCollab: true, slug: true } } },
   });
   if (!block) return;
-  if (block.page.ownerId !== me.id) {
-    await requirePermission("page.publish");
-  }
+  await ensureCanEditPage(block.page, me.id);
   await db.customPageBlock.delete({ where: { id: blockId } });
   revalidatePath(`/app/pages/${block.page.slug}`);
 }
@@ -124,12 +155,10 @@ export async function moveBlockAction(blockId: string, direction: "up" | "down")
   const me = await requireCurrentUser();
   const block = await db.customPageBlock.findUnique({
     where: { id: blockId },
-    include: { page: { select: { id: true, ownerId: true, slug: true } } },
+    include: { page: { select: { id: true, ownerId: true, allowCollab: true, slug: true } } },
   });
   if (!block) return;
-  if (block.page.ownerId !== me.id) {
-    await requirePermission("page.publish");
-  }
+  await ensureCanEditPage(block.page, me.id);
 
   const targetOrder = direction === "up" ? block.order - 1 : block.order + 1;
   const neighbour = await db.customPageBlock.findFirst({
@@ -177,15 +206,59 @@ export async function updateBlockDataAction(
   const me = await requireCurrentUser();
   const block = await db.customPageBlock.findUnique({
     where: { id: blockId },
-    include: { page: { select: { ownerId: true, slug: true } } },
+    include: { page: { select: { ownerId: true, allowCollab: true, slug: true } } },
   });
   if (!block) throw new Error("找不到 block");
-  if (block.page.ownerId !== me.id) {
-    await requirePermission("page.publish");
-  }
+  await ensureCanEditPage(block.page, me.id);
   await db.customPageBlock.update({
     where: { id: blockId },
     data: { data: JSON.stringify(data) },
   });
   revalidatePath(`/app/pages/${block.page.slug}`);
+}
+
+/**
+ * Delete a whole page (+ its blocks, which cascade).
+ *
+ * Authorization (per product rule "頁面管理員也可以移除別人的頁面或是自己"):
+ *   - The owner can delete their own page.
+ *   - Page admins — anyone with `page.publish` (Editor+) — can delete
+ *     anyone's page.
+ *   - Plain members can't delete others'.
+ */
+export async function deleteCustomPageAction(pageId: string): Promise<{ error?: string }> {
+  const me = await requireCurrentUser();
+  const page = await db.customPage.findUnique({
+    where: { id: pageId },
+    select: { ownerId: true },
+  });
+  if (!page) return {};
+  if (page.ownerId !== me.id) {
+    // page.publish = the "page admin" capability (Editor / Admin).
+    if (!(await canCurrentUser("page.publish"))) {
+      return { error: "只有頁面建立者或管理員可以刪除頁面" };
+    }
+  }
+  // Blocks + category joins cascade via FK onDelete: Cascade.
+  await db.customPage.delete({ where: { id: pageId } });
+  revalidatePath("/app/pages");
+  return {};
+}
+
+/**
+ * Toggle whether a page is open to collaborative editing. Owner or a page
+ * admin (page.publish) only.
+ */
+export async function setPageCollabAction(pageId: string, allow: boolean): Promise<void> {
+  const me = await requireCurrentUser();
+  const page = await db.customPage.findUnique({
+    where: { id: pageId },
+    select: { ownerId: true, slug: true },
+  });
+  if (!page) return;
+  if (page.ownerId !== me.id) {
+    await requirePermission("page.publish");
+  }
+  await db.customPage.update({ where: { id: pageId }, data: { allowCollab: allow } });
+  revalidatePath(`/app/pages/${page.slug}`);
 }

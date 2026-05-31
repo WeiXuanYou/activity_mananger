@@ -4,8 +4,9 @@ import { useFormStatus } from "react-dom";
 import { createPostFormAction, type CreatePostState } from "@/modules/core/posts/actions";
 import type { Category } from "@/modules/core/categories";
 import { COLOR_CLASSES, CreateCategoryModal } from "@/modules/core/categories";
-import { BONUS_KINDS } from "@/modules/core/posts";
+import { BONUS_KINDS, MAX_POST_IMAGES } from "@/modules/core/posts";
 import type { BonusKind } from "@/modules/core/posts";
+import { MultiImageUpload } from "@/modules/uploads";
 
 export function NewPostForm({
   categories: initialCategories,
@@ -67,6 +68,14 @@ export function NewPostForm({
         />
       </label>
 
+      <div className="rounded-soft border border-sand bg-cream/20 p-3">
+        <MultiImageUpload
+          name="images"
+          label="🖼 圖片（可選，可多張）"
+          max={MAX_POST_IMAGES}
+        />
+      </div>
+
       {/* Hidden inputs sync the picker state to the form */}
       {selectedSlugs.map((s) => (
         <input key={s} type="hidden" name="category" value={s} />
@@ -124,6 +133,16 @@ export function NewPostForm({
       />
 
       <BonusToggle />
+
+      <label className="flex items-start gap-3 px-3 py-2.5 rounded-soft border bg-cream/30 border-sand cursor-pointer">
+        <input name="allowCollab" type="checkbox" className="mt-1 rounded text-sage-dark" />
+        <div className="flex-1">
+          <div className="text-sm font-medium text-ink">🤝 允許其他成員一起編輯</div>
+          <div className="text-xs text-ink/55 mt-0.5">
+            打開後，任何成員都能編輯這篇的內容。刪除 / 隱藏仍然只有你或管理員可以。
+          </div>
+        </div>
+      </label>
 
       <label
         className={`flex items-start gap-3 px-3 py-2.5 rounded-soft border transition cursor-pointer ${

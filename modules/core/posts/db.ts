@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
 import { visiblePostsWhere } from "@/modules/core/visibility";
-import type { Post, PostKind, BonusKind } from "./types";
+import type { Post, PostKind, BonusKind, PostImage } from "./types";
 
 type UserWithRole = {
   id: string; name: string; handle: string;
@@ -36,9 +36,26 @@ type PostRow = {
   bonus: string | null;
   bonusKind: string | null;
   bonusLimit: number | null;
+  images: string | null;
+  allowCollab: boolean;
   createdAt: Date;
   categories: { category: CategoryRow }[];
 };
+
+/** Parse the JSON-encoded `images` column into a typed array. Tolerant of
+ *  null / malformed data (legacy rows) — returns [] rather than throwing. */
+function parsePostImages(raw: string | null): PostImage[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((x): x is PostImage => Boolean(x) && typeof x.url === "string")
+      .map((x) => ({ url: x.url, thumbUrl: typeof x.thumbUrl === "string" ? x.thumbUrl : undefined }));
+  } catch {
+    return [];
+  }
+}
 
 /** Best-effort relative time. Phase C+ swap for a proper i18n formatter. */
 function relativeTime(d: Date): string {
@@ -79,6 +96,8 @@ export function prismaPostToPost(
     // the card renderer.
     bonusKind: isBonusKind(row.bonusKind) ? row.bonusKind : null,
     bonusLimit: row.bonusLimit,
+    images: parsePostImages(row.images),
+    allowCollab: row.allowCollab,
   };
 }
 
@@ -120,13 +139,49 @@ async function loadPostsWithCounts(rows: PostRow[]): Promise<Post[]> {
   );
 }
 
-export async function listPostsDb(): Promise<Post[]> {
+/**
+ * Build the post `where` that decides which hidden posts a viewer may see.
+ *
+ *   - Default: hidden posts are excluded for everyone.
+ *   - `viewerId`: that user ALSO sees their OWN hidden posts (so you can
+ *     find + un-hide your own stuff).
+ *   - `includeHidden` (admins only, opt-in via toggle): include ALL hidden
+ *     posts.
+ */
+function postVisibilityWhere(opts?: { viewerId?: string; includeHidden?: boolean; categoryId?: string }) {
+  const categoryFilter = opts?.categoryId
+    ? { categories: { some: { categoryId: opts.categoryId } } }
+    : {};
+  if (opts?.includeHidden) return { ...categoryFilter }; // admin "show hidden" — no hide filter
+  if (opts?.viewerId) {
+    // Visible (not hidden) OR hidden-but-mine.
+    return { ...categoryFilter, OR: [{ hiddenAt: null }, { authorId: opts.viewerId }] };
+  }
+  return { ...categoryFilter, ...visiblePostsWhere() };
+}
+
+export async function listPostsDb(opts?: {
+  viewerId?: string;
+  includeHidden?: boolean;
+  categoryId?: string;
+  /** Pagination — number of posts to return. Omit for all. */
+  take?: number;
+  /** Pagination — number to skip. */
+  skip?: number;
+}): Promise<Post[]> {
   const rows = await db.post.findMany({
-    where: visiblePostsWhere(),
+    where: postVisibilityWhere(opts),
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     include: POST_INCLUDE,
+    ...(opts?.take !== undefined ? { take: opts.take } : {}),
+    ...(opts?.skip !== undefined ? { skip: opts.skip } : {}),
   });
   return loadPostsWithCounts(rows);
+}
+
+/** Total post count under the same visibility rules — for "load more". */
+export async function countPostsDb(opts?: { viewerId?: string; includeHidden?: boolean; categoryId?: string }): Promise<number> {
+  return db.post.count({ where: postVisibilityWhere(opts) });
 }
 
 export async function listPinnedPostsDb(): Promise<Post[]> {

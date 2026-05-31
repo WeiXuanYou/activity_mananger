@@ -12,6 +12,7 @@
 import { useState, useRef, useTransition, useEffect } from "react";
 import { Avatar, findMember, type Member } from "@/modules/core/members";
 import { createCommentAction, editCommentAction, deleteCommentAction } from "../actions";
+import { uploadImageAction } from "@/modules/uploads/actions";
 import type { Comment, CommentParentType } from "../types";
 
 export function CommentItem({
@@ -103,9 +104,22 @@ export function CommentItem({
                 )}
               </div>
             </div>
-            <p className="text-ink/80 text-sm leading-relaxed whitespace-pre-wrap">
-              {comment.body}
-            </p>
+            {comment.body && (
+              <p className="text-ink/80 text-sm leading-relaxed whitespace-pre-wrap">
+                {comment.body}
+              </p>
+            )}
+            {comment.image && (
+              <a href={comment.image} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={comment.image}
+                  alt=""
+                  className="max-h-60 rounded-soft border border-sand"
+                  loading="lazy"
+                />
+              </a>
+            )}
           </div>
         )}
 
@@ -200,18 +214,32 @@ function ReplyForm({
   parentCommentId: string;
 }) {
   const [body, setBody] = useState("");
+  const [image, setImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
 
+  const onFile = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    const fd = new FormData();
+    fd.set("file", file);
+    const r = await uploadImageAction(fd);
+    setUploading(false);
+    if (r.ok) setImage(r.url);
+    else setError(r.error);
+  };
+
   const submit = () => {
-    if (!body.trim()) return;
+    if (!body.trim() && !image) return;
     setError(null);
     startTransition(async () => {
-      const r = await createCommentAction({ parentType, parentId, body, parentCommentId });
+      const r = await createCommentAction({ parentType, parentId, body, image, parentCommentId });
       if (r.error) setError(r.error);
-      else { setBody(""); onCancel(); }
+      else { setBody(""); setImage(null); onCancel(); }
     });
   };
 
@@ -231,16 +259,39 @@ function ReplyForm({
             if (e.key === "Escape") onCancel();
           }}
         />
+        {image && (
+          <div className="mt-1.5 relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image} alt="" className="max-h-24 rounded-soft border border-sand" />
+            <button
+              type="button"
+              onClick={() => setImage(null)}
+              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white border border-sand text-[10px] text-terracotta shadow-card"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {error && <p className="text-xs text-terracotta-dark mt-1">⚠ {error}</p>}
         <div className="flex items-center gap-2 mt-1">
           <button
             type="button"
             onClick={submit}
-            disabled={pending || !body.trim()}
+            disabled={pending || (!body.trim() && !image)}
             className="px-3 py-1 rounded-soft bg-terracotta text-white text-xs font-medium hover:bg-terracotta-dark transition disabled:opacity-50"
           >
             {pending ? "..." : "送出"}
           </button>
+          <label className={`text-xs ${uploading ? "opacity-50" : "cursor-pointer"} text-ink/55 hover:text-terracotta`}>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              disabled={uploading}
+              onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }}
+              className="hidden"
+            />
+            {uploading ? "上傳中…" : "🖼"}
+          </label>
           <button
             type="button"
             onClick={onCancel}

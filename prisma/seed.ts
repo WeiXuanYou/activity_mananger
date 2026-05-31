@@ -417,7 +417,9 @@ async function main() {
       isPinned: false, cats: ["family", "gift"] },
     { author: "andy",    kind: "ARTICLE",      title: "畢業十年，我們還是會吵架",
       body: "昨晚同學會結束後，我在回家的路上想了很多。十年了，這群朋友還是會吵會鬧，但散場前還是會擁抱。",
-      isPinned: false, cats: ["friends"] },
+      isPinned: false, cats: ["friends"],
+      // Demo collaborative post — any member can co-edit it.
+      allowCollab: true },
   ];
   for (const p of postSeed) {
     await db.post.create({
@@ -425,6 +427,7 @@ async function main() {
         authorId: userRows[p.author].id,
         kind: p.kind, title: p.title, body: p.body,
         isPinned: p.isPinned, pinnedById: p.isPinned && p.pinnedBy ? userRows[p.pinnedBy].id : null,
+        allowCollab: (p as { allowCollab?: boolean }).allowCollab ?? false,
         categories: { create: p.cats.map((slug) => ({ categoryId: catRows[slug].id })) },
       },
     });

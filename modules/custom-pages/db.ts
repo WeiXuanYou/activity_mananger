@@ -39,6 +39,7 @@ type PageRow = {
   cover: string;
   ownerId: string;
   owner: UserWithRole;
+  allowCollab: boolean;
   blocks: { id: string; type: string; order: number; data: string }[];
   categories: { category: CategoryRow }[];
 };
@@ -71,6 +72,7 @@ export function prismaPageToCustomPage(row: PageRow): CustomPage {
     cover: row.cover,
     ownerId: row.ownerId,
     owner: prismaUserToMember(row.owner),
+    allowCollab: row.allowCollab,
     blocks: row.blocks.length,
     resolvedBlocks: rowToBlocks(row.blocks),
     categoryIds: row.categories.map((c) => c.category.id),

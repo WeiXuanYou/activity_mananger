@@ -63,7 +63,32 @@ export function PostCard({
         {ownerActions}
       </div>
       {post.title && <h3 className="serif text-xl text-ink mb-2">{post.title}</h3>}
-      <p className="text-ink/75 leading-relaxed mb-3">{post.body}</p>
+      <p className="text-ink/75 leading-relaxed mb-3 whitespace-pre-wrap">{post.body}</p>
+      {post.images && post.images.length > 0 && (
+        <div className={`mb-3 grid gap-1.5 ${
+          post.images.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+        }`}>
+          {post.images.map((img, i) => (
+            <a
+              key={`${i}-${img.url}`}
+              href={img.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`block overflow-hidden rounded-soft border border-sand/60 bg-cream/30 ${
+                post.images!.length === 1 ? "" : "aspect-square"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.thumbUrl ?? img.url}
+                alt=""
+                className={post.images!.length === 1 ? "w-full max-h-[28rem] object-cover" : "w-full h-full object-cover"}
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
       {post.bonus && (() => {
         const meta = post.bonusKind ? BONUS_KINDS[post.bonusKind] : null;
         const emoji = meta?.emoji ?? "🎁";

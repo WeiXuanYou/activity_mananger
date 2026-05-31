@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Category } from "../types";
 import { COLOR_CLASSES } from "../types";
+import { CategoryIcon } from "./CategoryChip";
 import { CreateCategoryButton } from "./CreateCategoryButton";
 
 /**
@@ -51,7 +52,7 @@ export function CategoryFilterBar({
                 : `bg-white text-ink/70 border-sand hover:${c.bgSoft} hover:${c.text}`
             }`}
           >
-            <span className="leading-none">{cat.emoji}</span>
+            <CategoryIcon category={cat} px={16} />
             <span>{cat.name}</span>
           </Link>
         );

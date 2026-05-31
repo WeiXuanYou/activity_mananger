@@ -22,6 +22,7 @@ type CommentRow = {
   parentType: string;
   parentId: string;
   body: string;
+  image: string | null;
   parentCommentId: string | null;
   createdAt: Date;
 };
@@ -47,6 +48,7 @@ function toComment(row: CommentRow): Comment {
     parentType: row.parentType as CommentParentType,
     parentId: row.parentId,
     body: row.body,
+    image: row.image ?? null,
     parentCommentId: row.parentCommentId ?? undefined,
     createdAt: relativeTime(row.createdAt),
   };

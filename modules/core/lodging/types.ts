@@ -25,6 +25,9 @@ export type Lodging = {
   rating?: number | null;
   addedById: string;
   addedBy?: Member;
+  /** When true, any member can edit this entry (creator opt-in). Delete
+   *  stays owner-or-admin. */
+  allowCollab?: boolean;
   stayedAt?: string | null;
   activityId?: string | null;
   activityTitle?: string | null;
