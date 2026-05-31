@@ -87,6 +87,7 @@ model User {
   emailVerifications EmailVerification[]
   feedback          Feedback[]            @relation("FeedbackAuthor")
   feedbackHandled   Feedback[]            @relation("FeedbackHandler")
+  pushSubscriptions PushSubscription[]
 
   @@index([roleId])
 }

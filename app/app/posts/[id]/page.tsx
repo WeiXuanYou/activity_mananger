@@ -34,6 +34,11 @@ export default async function PostDetailPage({ params }: Params) {
 
   const isOwnerOrMod = canModeratePosts || post.authorId === me.id;
 
+  // Access gate: findPostDb applies NO visibility filter, so enforce the
+  // hidden rule here — a hidden post is reachable only by its author or a
+  // moderator. Everyone else gets a 404 (not the content + a banner).
+  if (post.hiddenAt && !isOwnerOrMod) notFound();
+
   const meMember = {
     id: me.id, name: me.name, handle: me.handle,
     role: me.role.name as "Guest" | "Member" | "Editor" | "Admin",

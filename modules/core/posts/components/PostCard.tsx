@@ -30,6 +30,7 @@ export function PostCard({
   likedByMe,
   reactionSummary,
   ownerActions,
+  showCommentLink = true,
 }: {
   post: Post;
   likedByMe?: boolean;
@@ -40,6 +41,9 @@ export function PostCard({
   /** Server-rendered owner-actions menu (⋯ Edit/Delete). Caller decides
    *  visibility — present → render, absent → no menu. */
   ownerActions?: React.ReactNode;
+  /** When true (default), the 💬 count links to the post detail page where
+   *  comments live. Set false on the detail page itself to avoid a self-link. */
+  showCommentLink?: boolean;
 }) {
   // Prefer pre-resolved fields (DB source); fall back to sync mock lookup
   const author = post.author ?? findMember(post.authorId);
