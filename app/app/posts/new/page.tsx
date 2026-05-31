@@ -10,9 +10,10 @@ import { NewPostForm } from "./NewPostForm";
 
 export default async function NewPostPage() {
   const me = await requireCurrentUser();
-  const [categories, canPin] = await Promise.all([
+  const [categories, canPin, canCreateCategory] = await Promise.all([
     listCategoriesDb(),
     canCurrentUser("post.pin"),
+    canCurrentUser("category.create"),
   ]);
 
   return (
@@ -22,7 +23,7 @@ export default async function NewPostPage() {
       </Link>
 
       <div className="mb-6">
-        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · WRITE</p>
+        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">寫文章</p>
         <h1 className="serif text-3xl text-ink">寫一篇文章</h1>
         <p className="text-ink/60 text-sm mt-1">
           以 <strong className="text-ink/80">{me.name}</strong> 發布 ·
@@ -30,7 +31,7 @@ export default async function NewPostPage() {
         </p>
       </div>
 
-      <NewPostForm categories={categories} canPin={canPin} />
+      <NewPostForm categories={categories} canPin={canPin} canCreateCategory={canCreateCategory} />
     </main>
   );
 }

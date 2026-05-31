@@ -36,16 +36,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SetupForm
           initial={{
             name: user.name === "新成員" || user.name === "Admin" ? "" : user.name,
-            handle: user.handle === "admin" ? "" : user.handle,
+            // The bootstrap admin keeps `handle: "admin"` (reserved, can't
+            // be renamed — see enforceBootstrapAdminHandle in
+            // modules/auth/actions.ts). Show it pre-filled so the user
+            // knows it's locked rather than yanking it out and asking
+            // them to type something the server will then reject.
+            handle: user.handle,
             initial: "",
             avatarColor: user.avatarColor,
             avatarImage: user.avatarImage ?? null,
+            email: user.email ?? null,
             birthday: null,
           }}
           /* Force password rotation if the user already has a password set —
              that means they're the bootstrap admin (only path that ships
              with a password but setupCompleted=false). */
           mustResetPassword={Boolean(user.passwordHash)}
+          handleLocked={user.handle === "admin"}
         />
       </main>
     );
@@ -116,6 +123,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <Avatar member={me} size={32} />
               <span className="font-medium text-ink/80">{me.name}</span>
               <RoleBadge role={me.role} />
+            </Link>
+            <Link
+              href="/app/account"
+              className="hidden md:inline-flex text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40"
+              title="改頭像、名字、Email、密碼"
+            >
+              ⚙ 設定
             </Link>
             <form action={signOutAction} className="hidden md:block">
               <button className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40">

@@ -1,4 +1,5 @@
-export type { Post, PostKind } from "./types";
+export type { Post, PostKind, BonusKind } from "./types";
+export { BONUS_KINDS } from "./types";
 
 // Phase A — sync mock helpers (used by /mockup/*)
 export { posts } from "./data";

@@ -10,12 +10,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:seed:production": "SEED_MODE=production prisma db seed",
-    "db:reset": "rm -f prisma/dev.db prisma/dev.db-journal && prisma db push && prisma db seed",
-    "db:reset:production": "rm -f prisma/dev.db prisma/dev.db-journal && prisma db push && SEED_MODE=production prisma db seed",
-    "db:studio": "prisma studio"
+    "db:reset": "prisma migrate reset --force",
+    "db:reset:production": "prisma migrate reset --force --skip-seed && SEED_MODE=production prisma db seed",
+    "db:studio": "prisma studio",
+    "db:export-json": "tsx scripts/db-export-json.ts",
+    "db:import-json": "tsx scripts/db-import-json.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

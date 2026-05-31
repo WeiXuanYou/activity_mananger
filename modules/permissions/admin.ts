@@ -15,6 +15,23 @@ import type { Role } from "@/modules/auth";
 import { requirePermission } from "./guard";
 import { notify } from "@/modules/notifications";
 
+/** The bootstrap admin's handle is hardcoded and protected from deletion
+ *  / demotion / renaming. Without this, a careless admin could lock the
+ *  whole install out of its only super-user. Kept inline as the literal
+ *  "admin" because a `"use server"` file can only export async functions
+ *  — and a brand-new clone never has to migrate this way.
+ *
+ *  Same string is hardcoded in `modules/auth/actions.ts`'s
+ *  `enforceBootstrapAdminHandle`. Cheaper than introducing a shared
+ *  non-"use server" constants module for one string. */
+async function isBootstrapAdmin(userId: string): Promise<boolean> {
+  const u = await db.user.findUnique({
+    where: { id: userId },
+    select: { handle: true },
+  });
+  return u?.handle === "admin";
+}
+
 /** Generate a fresh invite code for the given default role. Gate is
  *  `invite.create` — Admin / Editor get it by role, and individual
  *  Guest/Member users can be granted it via the UserPermissionGrant
@@ -37,6 +54,12 @@ export async function setUserRoleAction(userId: string, roleName: Role): Promise
   await requirePermission("admin.approve");
   const me = await requireCurrentUser();
   if (userId === me.id) return; // can't demote yourself by accident
+
+  // The bootstrap admin can never be demoted below Admin. The whole
+  // point of the protected handle is "there's always a super-user".
+  if (roleName !== "Admin" && (await isBootstrapAdmin(userId))) {
+    throw new Error("admin 帳號不能降權，請保留為管理員");
+  }
 
   const role = await db.role.findUniqueOrThrow({ where: { name: roleName } });
   await db.user.update({ where: { id: userId }, data: { roleId: role.id } });
@@ -76,9 +99,16 @@ export async function deleteUserAction(userId: string): Promise<void> {
 
   const target = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, handle: true },
   });
   if (!target) return;
+
+  // The bootstrap admin row is non-deletable. If the operator really
+  // wants to retire it they can demote a different account up to Admin
+  // first — but the `admin` handle itself stays around as a safety net.
+  if (target.handle === "admin") {
+    throw new Error("admin 帳號不能刪除（系統保留帳號）");
+  }
 
   // Gather all content ids the user owns — we need them to clean up
   // the polymorphic comment / reaction tables (no FK from parentId).

@@ -1,37 +1,13 @@
 "use client";
 import { useState, useTransition, useRef } from "react";
 import { completeSetupAction } from "@/modules/auth/actions";
-
-/** Built-in palette — matches the avatar colors used by the seed.
- *  Users can also paste any hex into the input below, but the swatches
- *  are the friendly defaults. */
-const PALETTE = [
-  "#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7",
-  "#B58FBF", "#D98090", "#7AA68F", "#E5994A",
-  "#5B7B9F", "#8E6A3D",
-];
-
-/** Client-side resize to 256x256 square cover and re-encode as JPEG.
- *  Keeps the inline-in-DB avatar tiny (~30 KB after compression) so
- *  the User row stays small even for a phone-camera upload. */
-async function fileToCroppedDataUrl(file: File): Promise<string> {
-  const bmp = await createImageBitmap(file);
-  const SIZE = 256;
-  // Center-crop to square
-  const side = Math.min(bmp.width, bmp.height);
-  const sx = (bmp.width - side) / 2;
-  const sy = (bmp.height - side) / 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = SIZE; canvas.height = SIZE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas 2d unavailable");
-  ctx.drawImage(bmp, sx, sy, side, side, 0, 0, SIZE, SIZE);
-  return canvas.toDataURL("image/jpeg", 0.82);
-}
+import { AVATAR_PALETTE } from "@/modules/auth/validation";
+import { fileToCroppedDataUrl } from "@/lib/avatar";
 
 export function SetupForm({
   initial,
   mustResetPassword = false,
+  handleLocked = false,
 }: {
   initial: {
     name: string;
@@ -39,12 +15,16 @@ export function SetupForm({
     initial: string;
     avatarColor: string;
     avatarImage?: string | null;
+    email?: string | null;
     birthday: string | null;
   };
   /** If true, the password field is required and the explanation banner
    *  swaps to "the default admin/admin password must be replaced". Used
    *  for the bootstrap admin's first login. */
   mustResetPassword?: boolean;
+  /** True when the user is the bootstrap admin — the handle is a
+   *  reserved system value and the field is rendered read-only. */
+  handleLocked?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [handle, setHandle] = useState(initial.handle);
@@ -55,6 +35,7 @@ export function SetupForm({
    *  data:image/...;base64,... = new upload. */
   const [avatarImage, setAvatarImage] = useState<string | undefined>(undefined);
   const [previewImage, setPreviewImage] = useState<string | null>(initial.avatarImage ?? null);
+  const [email, setEmail] = useState(initial.email ?? "");
   const [birthday, setBirthday] = useState(initial.birthday ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +77,7 @@ export function SetupForm({
         initial: displayInitial,
         avatarColor,
         avatarImage,
+        email,                       // empty string = no email
         birthday: birthday || null,
         password: password || undefined,
         mustResetPassword,
@@ -166,17 +148,34 @@ export function SetupForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-ink/80">暱稱（網址用，限英數和 -）</span>
+        <span className="text-sm font-medium text-ink/80">
+          暱稱（登入帳號 · 限英數和 . _ -）
+          {handleLocked && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium">
+              🔒 系統保留
+            </span>
+          )}
+        </span>
         <input
           value={handle}
-          onChange={(e) => setHandle(e.target.value.toLowerCase())}
+          onChange={(e) => !handleLocked && setHandle(e.target.value.toLowerCase())}
           placeholder="grandma"
           required
           minLength={2}
-          maxLength={24}
-          pattern="[a-z0-9-]+"
-          className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+          maxLength={40}
+          pattern="[a-z0-9._-]+"
+          readOnly={handleLocked}
+          aria-readonly={handleLocked}
+          title={handleLocked ? "admin 帳號的暱稱不能更改" : undefined}
+          className={`mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm ${
+            handleLocked ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         />
+        {handleLocked && (
+          <p className="mt-1 text-xs text-ink/55">
+            這是系統保留的管理員帳號 —— 你可以改名字、頭像、密碼，但「admin」這個登入帳號要保留。
+          </p>
+        )}
       </label>
 
       <label className="block">
@@ -193,7 +192,7 @@ export function SetupForm({
       <div>
         <span className="text-sm font-medium text-ink/80 block mb-2">頭像顏色</span>
         <div className="flex flex-wrap gap-2 items-center">
-          {PALETTE.map((c) => (
+          {AVATAR_PALETTE.map((c) => (
             <button
               key={c}
               type="button"
@@ -215,6 +214,22 @@ export function SetupForm({
           />
         </div>
       </div>
+
+      <label className="block">
+        <span className="text-sm font-medium text-ink/80">Email · 必填</span>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          placeholder="someone@example.com"
+          className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+        />
+        <p className="mt-1 text-xs text-ink/50">
+          忘記密碼或帳號時，就是靠這個 Email 把你找回來，請填一個能收信的信箱。
+        </p>
+      </label>
 
       <label className="block">
         <span className="text-sm font-medium text-ink/80">生日（可選 · 讓家人朋友記得幫你慶祝 🎂）</span>
@@ -258,7 +273,7 @@ export function SetupForm({
       <button
         type="button"
         onClick={submit}
-        disabled={pending || !name.trim() || !handle.trim()}
+        disabled={pending || !name.trim() || !handle.trim() || !email.trim()}
         className="w-full sm:w-auto px-6 py-3 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
       >
         {pending ? "儲存中..." : "完成設定，進入相聚 →"}

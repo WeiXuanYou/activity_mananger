@@ -26,6 +26,25 @@ model User {
   /// so a family/friends scale install doesn't need separate blob storage;
   /// the action layer caps incoming size (~500 KB) before write.
   avatarImage String?
+  /// Contact email — optional in the DB but required at setup completion
+  /// (the requirement is enforced in `completeSetupAction`, not the
+  /// schema, because the row exists before the user has picked an
+  /// email — invite redemption and the bootstrap admin both create the
+  /// row first). Drives the password-reset and handle-recovery flows.
+  email       String?   @unique
+  /// When the user clicked the verification link sent to `email`.
+  /// Null = unverified (just set their email, but we haven't confirmed
+  /// they own the address). The recovery flow currently sends to both
+  /// verified and unverified addresses for backward compatibility; a
+  /// later release may require verification for password reset once
+  /// existing users have had time to verify.
+  emailVerifiedAt DateTime?
+  /// When we last emailed this user their handle (for the "I forgot my
+  /// handle" flow). Used to enforce the same 60-second cooldown as
+  /// password resets, but kept on User instead of in a separate table
+  /// because handle recovery doesn't issue a token — there's nothing
+  /// to revoke, just a "wait a minute" guard against mail-bombing.
+  lastHandleRecoveryAt DateTime?
   /// Birthday. Year is significant for the age-display widget on
   /// profiles; the cron only matches month-day. Optional — users can
   /// leave it blank.
@@ -64,6 +83,8 @@ model User {
   permissionGrants    UserPermissionGrant[] @relation("PermissionGrantee")
   permissionsGranted  UserPermissionGrant[] @relation("PermissionGranter")
   lodgings          Lodging[]             @relation("LodgingAddedBy")
+  passwordResets    PasswordReset[]
+  emailVerifications EmailVerification[]
 
   @@index([roleId])
 }
@@ -364,6 +385,20 @@ model Post {
   pinnedBy   User?    @relation("PostPinner", fields: [pinnedById], references: [id])
   /// Manually hidden by the owner or a moderator. See Activity.hiddenAt.
   hiddenAt   DateTime?
+  /// Optional "bonus" / reward attached to the post.
+  /// `bonus` is the human-readable description; the structured fields
+  /// (`bonusKind`, `bonusLimit`) are presentation hints so the card can
+  /// render an emoji + headline without parsing prose. All three are
+  /// optional individually — minimum to "have a bonus" is `bonus`
+  /// non-null. Authors opt in via a toggle on the create form.
+  bonus      String?
+  /// Coarse category — MEAL / DRINK / MONEY / TASK / OTHER. Used by
+  /// PostCard to pick the headline emoji and label. NULL keeps the
+  /// generic 🎁 fallback for legacy bonuses or "I don't want to pick".
+  bonusKind  String?
+  /// How many people the bonus is offered to (e.g. "前 3 名"). NULL =
+  /// unlimited / not specified.
+  bonusLimit Int?
   createdAt  DateTime @default(now())
 
   categories PostCategory[]
@@ -476,6 +511,51 @@ model Notification {
 // =====================================================================
 // Analytics (firewall — never JOINs into core)
 // =====================================================================
+
+// =====================================================================
+// PasswordReset — one-shot tokens for the "forgot password" flow.
+// We store the SHA-256 of the token, not the token itself, so a DB
+// leak can't be used to forge a reset link (same threat model as
+// Session). Default TTL is 1 hour. `usedAt` is set when the token is
+// consumed so the same link can't reset twice.
+// =====================================================================
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The email this token was issued to. Pinned at issue time so that
+  /// if the user later changes their address, an old token that leaked
+  /// to the previous mailbox (or was forwarded by mistake) can't be
+  /// redeemed. Verified to match `User.email` at consumption.
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// =====================================================================
+// EmailVerification — same shape as PasswordReset but for the "prove
+// you own this email" flow. Issued whenever a user sets a new email
+// (at setup, or when they change it in account settings). 24h TTL —
+// longer than password reset because it's convenience, not a security
+// race. Email is pinned at issue so a forwarded link can't verify a
+// later address change.
+// =====================================================================
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
 
 model AnalyticsEvent {
   id          String   @id @default(cuid())

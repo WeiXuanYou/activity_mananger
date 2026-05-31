@@ -6,7 +6,8 @@
 
 ```
 modules/
-├── auth/                 身份識別（邀請碼、cookie session）............... ✅ Phase B 上線
+├── auth/                 身份識別 + 帳戶 + 密碼/帳號找回 + 限流 ........... ✅ 上線
+├── mail/                 寄信（Resend API，無 key 時寫 server log） ......... ✅ 上線
 ├── permissions/          角色矩陣 + requirePermission() 通道 ............... ✅ Phase B 上線
 ├── core/                 社群核心
 │   ├── members/          成員 + 頭像 ........................................ ✅ Phase A
@@ -15,6 +16,9 @@ modules/
 │   ├── posts/            文章 / 推薦 / 隨筆 + 置頂 ............................ ✅ Phase A
 │   ├── polls/            Line 風格投票 ...................................... ✅ Phase A
 │   └── feed/             混合時間軸（組合模組） ............................. ✅ Phase A
+├── comments/             巢狀留言 + 編輯 .................................... ✅ 上線
+├── notifications/        站內提醒（核准 / 留言 / RSVP） ..................... ✅ 上線
+├── uploads/              圖片上傳 + 縮圖（sharp） ........................... ✅ 上線
 ├── custom-pages/         CMS 自訂頁面 + block renderer registry ............. ✅ Phase A
 ├── analytics/            事件流分析（單向，可獨立抽出） ..................... ✅ Phase A
 └── ai-assistant/         AI 助手骨架（stub，待接 Anthropic SDK） ............. ⬜ Phase G

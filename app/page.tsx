@@ -50,7 +50,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-12 text-center text-ink/45 text-sm">
-          Phase A 視覺原型 · Phase B 認證 + Prisma 已上線
+          給家人朋友的私密小社群 · 自架版本
         </p>
       </div>
     </main>

@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
 import { requirePermission } from "@/modules/permissions";
 import { emit } from "@/modules/analytics";
-import type { PostKind } from "./types";
+import type { PostKind, BonusKind } from "./types";
+import { BONUS_KINDS } from "./types";
 
 export type CreatePostState = { error?: string; createdId?: string };
 
@@ -29,8 +30,27 @@ export async function createPostFormAction(
   const body = String(formData.get("body") ?? "").trim();
   const isPinned = formData.get("pin") === "on";
   const categorySlugs = formData.getAll("category").map(String).filter(Boolean);
+  // Bonus is opt-in via a checkbox. When the toggle's off we ignore the
+  // companion fields. `bonus` (description) is the required one;
+  // `bonusKind` and `bonusLimit` are presentation hints.
+  const bonusOn = formData.get("bonusOn") === "on";
+  const bonusRaw = String(formData.get("bonus") ?? "").trim();
+  const bonus = bonusOn && bonusRaw ? bonusRaw.slice(0, 200) : null;
+  // Kind: validate against the known set; treat anything else as "no
+  // structured hint" (legacy + safety).
+  const kindRaw = String(formData.get("bonusKind") ?? "");
+  const bonusKind: BonusKind | null =
+    bonusOn && (kindRaw in BONUS_KINDS) ? (kindRaw as BonusKind) : null;
+  // Limit: 1..999 if a positive integer was sent, else null.
+  const limitRaw = String(formData.get("bonusLimit") ?? "").trim();
+  const limitParsed = limitRaw ? Number.parseInt(limitRaw, 10) : NaN;
+  const bonusLimit =
+    bonusOn && Number.isFinite(limitParsed) && limitParsed >= 1 && limitParsed <= 999
+      ? limitParsed
+      : null;
 
   if (!body) return { error: "請寫點內容" };
+  if (bonusOn && !bonusRaw) return { error: "勾了「加入獎勵」但沒寫獎勵內容" };
   if (isPinned) {
     // Pinning is a separate permission — Editor+ only
     await requirePermission("post.pin");
@@ -51,6 +71,9 @@ export async function createPostFormAction(
       kind,
       title: title || null,
       body,
+      bonus,
+      bonusKind,
+      bonusLimit,
       isPinned,
       pinnedById: isPinned ? me.id : null,
       categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },

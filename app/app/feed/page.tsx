@@ -4,7 +4,9 @@
  *   browser → middleware (cookie check) → AppLayout (session lookup)
  *   → THIS page → module queries (modules/core/x/db.ts) → Prisma → render
  *
- * No direct Prisma calls in this file — everything goes through module barrels.
+ * No direct Prisma calls in this file — everything goes through module
+ * barrels. The user-facing copy stays consumer-friendly (no "REAL DB"
+ * or "Prisma" leaks); the technical stack is documented in /preview.
  */
 import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
@@ -30,7 +32,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
 
   // Fetch everything in parallel — they're independent queries
-  const [posts, activities, polls, categories, activeCategory, canPost] =
+  const [posts, activities, polls, categories, activeCategory, canPost, canCreateCategory] =
     await Promise.all([
       listPostsDb(),
       listUpcomingActivitiesDb(),
@@ -38,6 +40,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
       canCurrentUser("post.create"),
+      canCurrentUser("category.create"),
     ]);
 
   // Apply category filter on the joined client-side; cheap given dataset size
@@ -64,11 +67,10 @@ export default async function AppFeedPage({ searchParams }: Search) {
   return (
     <main className="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-6">
       <div className="mb-6">
-        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · /app</p>
+        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">動態</p>
         <h1 className="serif text-3xl text-ink">嗨，{me.name}</h1>
         <p className="text-ink/60 text-sm mt-1">
-          你的角色：<strong className="text-ink/80">{me.role.name}</strong> ·
-          資料完全來自 Prisma；按 RSVP / 投票 / 發文都會真的寫進 DB
+          看看大家最近在做什麼，或<Link href="/app/posts/new" className="text-terracotta hover:underline">寫點什麼</Link>給其他人。
         </p>
         <div className="mt-3 flex gap-2 flex-wrap">
           {canPost && (
@@ -99,6 +101,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
           categories={categories}
           activeSlug={slug}
           basePath="/app/feed"
+          canCreate={canCreateCategory}
         />
       </div>
 

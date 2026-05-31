@@ -24,3 +24,5 @@ export {
 export { CategoryChip, CategoryChipList } from "./components/CategoryChip";
 export { CategoryFilterBar } from "./components/CategoryFilterBar";
 export { CategoryPicker } from "./components/CategoryPicker";
+export { CreateCategoryModal } from "./components/CreateCategoryModal";
+export { CreateCategoryButton } from "./components/CreateCategoryButton";

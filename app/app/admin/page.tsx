@@ -73,39 +73,70 @@ export default async function AdminPage() {
       {/* Role management */}
       <section className="mb-10">
         <h2 className="serif text-xl text-ink mb-1">👥 成員角色</h2>
-        <p className="text-sm text-ink/60 mb-4">直接調整成員角色（繞過申請流程）。改完會通知該成員。</p>
+        <p className="text-sm text-ink/60 mb-3">直接調整成員角色（繞過申請流程）。改完會通知該成員。</p>
+        <p className="text-xs text-sage-dark bg-sage-soft/30 border border-sage/30 rounded-soft px-3 py-2 mb-4 flex items-start gap-2">
+          <span>🔒</span>
+          <span><strong>admin</strong> 是系統保留帳號，永遠存在 · 角色固定為 Admin、不能刪除、不能改 handle。其他欄位（名字 / 頭像 / Email / 密碼）一樣可以自由更改。</span>
+        </p>
 
         <div className="bg-white rounded-soft shadow-card border border-sand/60 divide-y divide-sand">
-          {members.map((m) => (
-            <div key={m.id} className="p-3 flex items-center gap-3">
-              <Avatar member={m} size={32} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink">{m.name}</div>
-                <div className="text-xs text-ink/40">@{m.handle}</div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {m.id === me.id ? (
-                  <span className="text-xs text-ink/50 flex items-center gap-2">
-                    <RoleBadge role={m.role} size="xs" /> （你自己）
-                  </span>
-                ) : (
-                  <>
-                    <RoleSelect userId={m.id} current={m.role} />
-                    {/* invite.create grant is meaningless when role already
-                        has it (Editor / Admin) — only surface for Guest /
-                        Member where it's a real delegation. */}
-                    {(m.role === "Guest" || m.role === "Member") && (
-                      <InviteGrantToggle
-                        userId={m.id}
-                        granted={inviteGrantSet.has(m.id)}
-                      />
+          {members.map((m) => {
+            // The bootstrap admin row is protected at the server-action
+            // layer (see modules/permissions/admin.ts and
+            // modules/auth/actions.ts). Mirror that here so the operator
+            // sees WHY the controls are disabled instead of clicking and
+            // bouncing off an error alert.
+            const isReserved = m.handle === "admin";
+            return (
+              <div key={m.id} className="p-3 flex items-center gap-3">
+                <Avatar member={m} size={32} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-ink flex items-center gap-2 flex-wrap">
+                    <span>{m.name}</span>
+                    {isReserved && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium"
+                        title="系統保留帳號，不能刪除或降權"
+                      >
+                        🔒 系統保留
+                      </span>
                     )}
-                    <DeleteUserButton userId={m.id} name={m.name} />
-                  </>
-                )}
+                  </div>
+                  <div className="text-xs text-ink/40">@{m.handle}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {m.id === me.id ? (
+                    <span className="text-xs text-ink/50 flex items-center gap-2">
+                      <RoleBadge role={m.role} size="xs" /> （你自己）
+                    </span>
+                  ) : (
+                    <>
+                      <RoleSelect userId={m.id} current={m.role} disabled={isReserved} />
+                      {/* invite.create grant is meaningless when role already
+                          has it (Editor / Admin) — only surface for Guest /
+                          Member where it's a real delegation. */}
+                      {(m.role === "Guest" || m.role === "Member") && (
+                        <InviteGrantToggle
+                          userId={m.id}
+                          granted={inviteGrantSet.has(m.id)}
+                        />
+                      )}
+                      {isReserved ? (
+                        <span
+                          className="text-xs px-2 py-1 rounded-soft bg-cream/40 border border-sand text-ink/40 cursor-not-allowed"
+                          title="admin 是系統保留帳號，不能刪除"
+                        >
+                          🔒 不可刪除
+                        </span>
+                      ) : (
+                        <DeleteUserButton userId={m.id} name={m.name} />
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

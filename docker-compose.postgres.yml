@@ -1,0 +1,42 @@
+# Local PostgreSQL for the "I outgrew SQLite" path.
+#
+# Brings up a single Postgres 16 container that persists to a named
+# volume so restarts don't lose data. Aligns with the migration walk-
+# through in README.md → "從 SQLite 平移到 PostgreSQL".
+#
+# Usage:
+#   docker compose -f docker-compose.postgres.yml up -d        # start
+#   docker compose -f docker-compose.postgres.yml down         # stop (data kept)
+#   docker compose -f docker-compose.postgres.yml down -v      # stop + wipe data
+#
+# Connection string (matches .env.postgres.example):
+#   postgresql://together:together@localhost:5432/together
+#
+# The image, port, and credentials are all fine for local dev. For
+# production: use a managed Postgres (RDS / Cloud SQL / Neon / Supabase),
+# point DATABASE_URL at it, and skip this file entirely.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: together-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: together
+      POSTGRES_PASSWORD: together
+      POSTGRES_DB: together
+    ports:
+      # Exposed on localhost only — never bind to 0.0.0.0 with the
+      # default password in production.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - together_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U together -d together"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  together_pgdata:
+    name: together_pgdata

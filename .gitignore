@@ -18,4 +18,8 @@ tsconfig.tsbuildinfo
 
 # Uploaded user images (runtime; keep dir, ignore contents)
 public/uploads/*
+
+# JSON dumps from scripts/db-export-json.ts (runtime artefact, not source)
+tmp/
+.env.postgres
 !public/uploads/.gitkeep

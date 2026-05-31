@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { randomBytes } from "node:crypto";
+import { AVATAR_PALETTE } from "./validation";
 
 export type InviteRedeemResult =
   | { ok: true; userId: string; isNewUser: boolean }
@@ -44,8 +45,7 @@ export async function redeemInvite(rawCode: string): Promise<InviteRedeemResult>
   // user and sign in as the winner instead.
   const suffix = randomBytes(2).toString("hex");
   const handle = `new-${suffix}`;
-  const palette = ["#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7", "#B58FBF", "#D98090"];
-  const color = palette[Math.floor(Math.random() * palette.length)];
+  const color = AVATAR_PALETTE[Math.floor(Math.random() * AVATAR_PALETTE.length)];
 
   const user = await db.user.create({
     data: {

@@ -15,11 +15,12 @@ export default async function AppPagesIndex({ searchParams }: Search) {
   const { cat: slug } = await searchParams;
   await requireCurrentUser();
 
-  const [pages, categories, activeCategory, canCreate] = await Promise.all([
+  const [pages, categories, activeCategory, canCreate, canCreateCategory] = await Promise.all([
     slug ? filterCustomPagesByCategorySlugDb(slug) : listCustomPagesDb(),
     listCategoriesDb(),
     slug ? findCategoryBySlugDb(slug) : null,
     canCurrentUser("page.create"),
+    canCurrentUser("category.create"),
   ]);
 
   // Hydrate owners
@@ -31,7 +32,7 @@ export default async function AppPagesIndex({ searchParams }: Search) {
     <main className="max-w-6xl mx-auto px-5 py-8">
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
-          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CUSTOM PAGES · LIVE DB</p>
+          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CUSTOM PAGES</p>
           <h1 className="serif text-3xl text-ink">自訂頁面</h1>
           <p className="text-ink/60 text-sm mt-1">
             {activeCategory ? `「${activeCategory.name}」分類 · ${pages.length} 個頁面` : "用 block 堆出自己的小頁面"}
@@ -48,7 +49,7 @@ export default async function AppPagesIndex({ searchParams }: Search) {
       </div>
 
       <div className="mb-6">
-        <CategoryFilterBar categories={categories} activeSlug={slug} basePath="/app/pages" />
+        <CategoryFilterBar categories={categories} activeSlug={slug} basePath="/app/pages" canCreate={canCreateCategory} />
       </div>
 
       {pages.length === 0 ? (

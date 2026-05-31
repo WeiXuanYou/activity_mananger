@@ -73,7 +73,15 @@ export default async function MemberProfilePage({ params }: Params) {
                 {ROLE_LABEL[member.role] ?? member.role}
               </span>
               {isMe && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-cream text-ink/60 font-medium">這是你</span>
+                <>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-cream text-ink/60 font-medium">這是你</span>
+                  <Link
+                    href="/app/account"
+                    className="text-xs px-2 py-0.5 rounded-full bg-white border border-sand text-ink/65 hover:bg-cream/40"
+                  >
+                    ⚙ 帳戶設定
+                  </Link>
+                </>
               )}
             </div>
             <p className="text-ink/55 text-sm">@{member.handle}</p>
