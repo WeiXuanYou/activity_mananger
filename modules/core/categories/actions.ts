@@ -62,13 +62,15 @@ export async function createCategoryAction(input: {
     return { error: "不認得這個顏色" };
   }
 
-  // Reject duplicate-by-name to keep the picker tidy (case-insensitive
-  // compare since the field is short and user-controlled).
-  const dupName = await db.category.findFirst({
-    where: { name: { equals: name } },
-    select: { id: true },
-  });
-  if (dupName) return { error: "已經有同名分類了，換一個吧" };
+  // Reject duplicate-by-name to keep the picker tidy. SQLite's Prisma
+  // connector doesn't support `mode: "insensitive"`, so we do the
+  // case-fold in JS — fine because the table is tiny (~12 rows). This
+  // treats "Food" and "food" as the same name.
+  const allNames = await db.category.findMany({ select: { name: true } });
+  const wanted = name.toLowerCase();
+  if (allNames.some((c) => c.name.toLowerCase() === wanted)) {
+    return { error: "已經有同名分類了，換一個吧" };
+  }
 
   // Slug uniqueness — retry a few times if the auto-slug collides
   // (collisions are rare given the suffix logic above).

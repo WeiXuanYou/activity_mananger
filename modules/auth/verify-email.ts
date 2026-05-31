@@ -22,7 +22,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { sendEmail, renderEmailLayout, renderButton, escapeHtml } from "@/modules/mail";
-import { normalizeEmail } from "./validation";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -157,9 +156,3 @@ function verifyEmailHtml(p: { name: string; link: string }): string {
     `,
   });
 }
-
-// normalizeEmail is intentionally imported for symmetry with recovery.ts
-// even though this module doesn't currently use it directly. Keeping the
-// import documents the convention; static-only `void` reference avoids
-// an unused-import lint nag.
-void normalizeEmail;

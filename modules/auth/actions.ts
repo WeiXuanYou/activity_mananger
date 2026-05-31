@@ -197,12 +197,12 @@ export async function signOutAction() {
  * here — that lets the seed ship a known weak default (admin/admin)
  * and force a rotation on first login.
  *
- * Validation:
+ * Validation (all via the shared validators in ./validation):
  *   - name: 1–40 chars (required)
- *   - handle: 2–24 chars, /^[a-z0-9-]+$/, unique
+ *   - handle: 2–40 chars, /^[a-z0-9._-]+$/, unique, `admin` reserved
+ *   - email: required + valid + unique (recovery channel)
  *   - initial: 1 char (we display it on the avatar circle)
- *   - avatarColor: hex string from the picker; we don't enforce a
- *     specific palette so people can paste any color
+ *   - avatarColor: hex string from the picker
  *   - birthday: optional YYYY-MM-DD
  *   - password: optional unless `mustResetPassword` flag is set
  */

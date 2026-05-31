@@ -4,9 +4,9 @@
  * provider switch).
  *
  * Order is the same as the export (parent → child) so FK targets always
- * exist when their children land. We use `createMany` with
- * `skipDuplicates: true` so re-runs are idempotent (handy after a
- * partial import or a botched first attempt).
+ * exist when their children land. We use plain `createMany` (no
+ * `skipDuplicates` — it's Postgres/MySQL-only, not supported on SQLite);
+ * idempotency is handled instead by the empty-DB safety guard below.
  *
  * SQLite stored DATETIME as ISO strings; Prisma's client serializes
  * them as ISO strings; the Postgres provider parses them back into
