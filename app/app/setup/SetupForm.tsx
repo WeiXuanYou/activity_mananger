@@ -1,33 +1,8 @@
 "use client";
 import { useState, useTransition, useRef } from "react";
 import { completeSetupAction } from "@/modules/auth/actions";
-
-/** Built-in palette — matches the avatar colors used by the seed.
- *  Users can also paste any hex into the input below, but the swatches
- *  are the friendly defaults. */
-const PALETTE = [
-  "#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7",
-  "#B58FBF", "#D98090", "#7AA68F", "#E5994A",
-  "#5B7B9F", "#8E6A3D",
-];
-
-/** Client-side resize to 256x256 square cover and re-encode as JPEG.
- *  Keeps the inline-in-DB avatar tiny (~30 KB after compression) so
- *  the User row stays small even for a phone-camera upload. */
-async function fileToCroppedDataUrl(file: File): Promise<string> {
-  const bmp = await createImageBitmap(file);
-  const SIZE = 256;
-  // Center-crop to square
-  const side = Math.min(bmp.width, bmp.height);
-  const sx = (bmp.width - side) / 2;
-  const sy = (bmp.height - side) / 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = SIZE; canvas.height = SIZE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas 2d unavailable");
-  ctx.drawImage(bmp, sx, sy, side, side, 0, 0, SIZE, SIZE);
-  return canvas.toDataURL("image/jpeg", 0.82);
-}
+import { AVATAR_PALETTE } from "@/modules/auth/validation";
+import { fileToCroppedDataUrl } from "@/lib/avatar";
 
 export function SetupForm({
   initial,
