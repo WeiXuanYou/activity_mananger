@@ -48,6 +48,22 @@ npm run dev
 | `TOGETHER-DEMO-ADMIN`  | Admin |
 | `TOGETHER-DEMO-GUEST`  | Guest |
 
+## 帳戶 / 密碼找回
+
+- 登入畫面有「忘記密碼或帳號？」連結，公開的 `/forgot` 頁面可同時：
+  - 用 Email 重設密碼（信箱會收到 1 小時內有效的連結 → 自動登入）
+  - 用 Email 找回登入帳號（handle）
+- 登入後的 `/app/account`（header `⚙ 設定`）可改：頭像、名字、暱稱、Email、生日、密碼。
+- 改密碼成功後，可用「🚪 把其他裝置登出」一次清掉其他所有 session。
+
+### 寄信設定
+
+| Env var | 用途 |
+|---|---|
+| `RESEND_API_KEY` | 不設 → 找回信件**只寫進 server log**（自架/開發可用，由管理員把連結貼給使用者）。設了 → 經 [Resend](https://resend.com) API 真的寄出。 |
+| `MAIL_FROM` | 寄件人格式，預設 `相聚 Together <onboarding@resend.dev>`。正式環境請改成你在 Resend 驗證過的網域。 |
+| `APP_URL` | 用來組重設連結。預設讀 request 的 host header；佈署在反向代理後可手動設成 `https://your.domain`。 |
+
 ## 目錄結構
 
 ```

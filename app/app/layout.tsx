@@ -40,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             initial: "",
             avatarColor: user.avatarColor,
             avatarImage: user.avatarImage ?? null,
+            email: user.email ?? null,
             birthday: null,
           }}
           /* Force password rotation if the user already has a password set —
@@ -116,6 +117,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <Avatar member={me} size={32} />
               <span className="font-medium text-ink/80">{me.name}</span>
               <RoleBadge role={me.role} />
+            </Link>
+            <Link
+              href="/app/account"
+              className="hidden md:inline-flex text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40"
+              title="改頭像、名字、Email、密碼"
+            >
+              ⚙ 設定
             </Link>
             <form action={signOutAction} className="hidden md:block">
               <button className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/70 hover:bg-cream/40">

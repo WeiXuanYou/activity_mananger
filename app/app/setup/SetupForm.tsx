@@ -39,6 +39,7 @@ export function SetupForm({
     initial: string;
     avatarColor: string;
     avatarImage?: string | null;
+    email?: string | null;
     birthday: string | null;
   };
   /** If true, the password field is required and the explanation banner
@@ -55,6 +56,7 @@ export function SetupForm({
    *  data:image/...;base64,... = new upload. */
   const [avatarImage, setAvatarImage] = useState<string | undefined>(undefined);
   const [previewImage, setPreviewImage] = useState<string | null>(initial.avatarImage ?? null);
+  const [email, setEmail] = useState(initial.email ?? "");
   const [birthday, setBirthday] = useState(initial.birthday ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export function SetupForm({
         initial: displayInitial,
         avatarColor,
         avatarImage,
+        email,                       // empty string = no email
         birthday: birthday || null,
         password: password || undefined,
         mustResetPassword,
@@ -215,6 +218,21 @@ export function SetupForm({
           />
         </div>
       </div>
+
+      <label className="block">
+        <span className="text-sm font-medium text-ink/80">Email（可選 · 用來找回密碼或帳號）</span>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          placeholder="someone@example.com"
+          className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+        />
+        <p className="mt-1 text-xs text-ink/50">
+          沒填也沒關係，之後可以在「帳戶設定」補上。沒填 Email 將無法用「忘記密碼」找回。
+        </p>
+      </label>
 
       <label className="block">
         <span className="text-sm font-medium text-ink/80">生日（可選 · 讓家人朋友記得幫你慶祝 🎂）</span>

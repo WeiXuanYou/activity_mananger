@@ -26,6 +26,13 @@ model User {
   /// so a family/friends scale install doesn't need separate blob storage;
   /// the action layer caps incoming size (~500 KB) before write.
   avatarImage String?
+  /// Contact email — optional but unique when present. Drives both the
+  /// password-reset flow and the "I forgot my handle" recovery. We don't
+  /// require email verification yet because for the family/friends scale
+  /// the user-facing trade-off is "one less click on day one" vs. "we
+  /// trust the person who issued the invite". When verification matters
+  /// we can add a verifiedAt column without migrating existing rows.
+  email       String?   @unique
   /// Birthday. Year is significant for the age-display widget on
   /// profiles; the cron only matches month-day. Optional — users can
   /// leave it blank.
@@ -64,6 +71,7 @@ model User {
   permissionGrants    UserPermissionGrant[] @relation("PermissionGrantee")
   permissionsGranted  UserPermissionGrant[] @relation("PermissionGranter")
   lodgings          Lodging[]             @relation("LodgingAddedBy")
+  passwordResets    PasswordReset[]
 
   @@index([roleId])
 }
@@ -476,6 +484,25 @@ model Notification {
 // =====================================================================
 // Analytics (firewall — never JOINs into core)
 // =====================================================================
+
+// =====================================================================
+// PasswordReset — one-shot tokens for the "forgot password" flow.
+// We store the SHA-256 of the token, not the token itself, so a DB
+// leak can't be used to forge a reset link (same threat model as
+// Session). Default TTL is 1 hour. `usedAt` is set when the token is
+// consumed so the same link can't reset twice.
+// =====================================================================
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
 
 model AnalyticsEvent {
   id          String   @id @default(cuid())

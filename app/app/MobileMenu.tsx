@@ -121,6 +121,7 @@ export function MobileMenu({
               <Link href="/app/analytics" className={link}>📊 分析</Link>
               {isAdmin && <Link href="/app/admin" className={link}>⚙️ 管理</Link>}
               <Link href="/app/help" className={link}>❓ 使用說明</Link>
+              <Link href="/app/account" className={link}>⚙️ 帳戶設定</Link>
             </nav>
 
             <div className="px-2 pt-2 mt-1 border-t border-sand">

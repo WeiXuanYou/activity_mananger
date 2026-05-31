@@ -1,9 +1,34 @@
 "use server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { redeemInvite } from "./invite";
 import { createSession, setSessionCookie, signOut as doSignOut, requireCurrentUser } from "./session";
 import { hashPassword, verifyPassword } from "./password";
+import {
+  requestPasswordReset,
+  requestHandleRecovery,
+  consumeResetTokenAndSetPassword,
+} from "./recovery";
+
+/** RFC-5322 is impossibly hard to express exactly; this catches the
+ *  shape that matters (something@something.tld) and rejects whitespace.
+ *  Real "is it deliverable?" gets answered when the email actually
+ *  goes out. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Best-effort read of the current request's origin so we can build
+ *  absolute recovery links. Falls back to APP_URL env in production. */
+async function currentOrigin(): Promise<string | undefined> {
+  try {
+    const h = await headers();
+    const proto = h.get("x-forwarded-proto") || "http";
+    const host = h.get("host");
+    if (host) return `${proto}://${host}`;
+  } catch {}
+  return undefined;
+}
 
 export type SignInState = { error?: string; success?: boolean };
 
@@ -109,6 +134,9 @@ export async function completeSetupAction(input: {
    *  Pass `""` (empty string) to explicitly clear an existing image and
    *  fall back to the initial+color circle. `undefined` = leave unchanged. */
   avatarImage?: string;
+  /** Optional contact email. Required for password / handle recovery
+   *  to work. Empty string is treated as "no email". */
+  email?: string;
   birthday?: string | null;
   password?: string;
   /** True when the existing password is known-weak (bootstrap admin
@@ -133,6 +161,26 @@ export async function completeSetupAction(input: {
     select: { id: true },
   });
   if (taken) return { error: "這個暱稱已被使用，換一個吧" };
+
+  // Email validation + uniqueness (optional field — empty string clears
+  // any prior value). We store lowercased so lookups (also lowercased)
+  // hit the unique index regardless of how the user typed it.
+  let emailValue: string | null | undefined = undefined;
+  if (input.email !== undefined) {
+    const e = input.email.trim().toLowerCase();
+    if (e === "") {
+      emailValue = null;
+    } else if (!EMAIL_RE.test(e)) {
+      return { error: "Email 格式看起來不太對" };
+    } else {
+      const emailTaken = await db.user.findFirst({
+        where: { email: e, NOT: { id: me.id } },
+        select: { id: true },
+      });
+      if (emailTaken) return { error: "這個 Email 已被別人使用" };
+      emailValue = e;
+    }
+  }
 
   // Avatar image validation. Accept only inline data URLs we expect;
   // reject http(s)/blob/javascript schemes — those would let someone
@@ -181,9 +229,242 @@ export async function completeSetupAction(input: {
       birthday: birthdayDate,
       setupCompleted: true,
       ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
+      ...(emailValue !== undefined ? { email: emailValue } : {}),
       ...(newPasswordHash !== undefined ? { passwordHash: newPasswordHash } : {}),
     },
   });
 
+  redirect("/app/feed");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Account-settings actions (post-setup self-service updates).
+//
+// Three actions kept separate on purpose:
+//   - updateProfileAction  — name / handle / avatar / birthday / email
+//   - changePasswordAction — current + new password (requires old)
+//   - signOutOtherSessionsAction — security hygiene after password change
+//
+// Each returns `{ ok | error }` so the client form can show inline
+// feedback without losing the other fields' state.
+// ─────────────────────────────────────────────────────────────────────
+
+export type AccountResult = { ok?: true; error?: string };
+
+export async function updateProfileAction(input: {
+  name: string;
+  handle: string;
+  initial: string;
+  avatarColor: string;
+  avatarImage?: string;
+  email?: string;
+  birthday?: string | null;
+}): Promise<AccountResult> {
+  const me = await requireCurrentUser();
+  const name = input.name.trim();
+  const handle = input.handle.trim().toLowerCase();
+  const initial = input.initial.trim();
+  const avatarColor = input.avatarColor.trim();
+
+  if (!name) return { error: "請填名字" };
+  if (name.length > 40) return { error: "名字太長（上限 40 字）" };
+  if (!/^[a-z0-9-]{2,24}$/.test(handle)) return { error: "暱稱限 2-24 字小寫英數與 -" };
+  if (initial.length < 1) return { error: "頭像字母不能空白" };
+  if (!/^#[0-9a-fA-F]{6}$/.test(avatarColor)) return { error: "頭像顏色格式不對" };
+
+  const handleTaken = await db.user.findFirst({
+    where: { handle, NOT: { id: me.id } },
+    select: { id: true },
+  });
+  if (handleTaken) return { error: "這個暱稱已被使用，換一個吧" };
+
+  let avatarImageValue: string | null | undefined = undefined;
+  if (input.avatarImage !== undefined) {
+    const v = input.avatarImage;
+    if (v === "") {
+      avatarImageValue = null;
+    } else {
+      if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(v)) {
+        return { error: "頭像格式不對（只接受 png / jpeg / webp / gif）" };
+      }
+      if (v.length > AVATAR_MAX_BYTES) {
+        return { error: "頭像太大（請壓到 500KB 以下）" };
+      }
+      avatarImageValue = v;
+    }
+  }
+
+  let emailValue: string | null | undefined = undefined;
+  if (input.email !== undefined) {
+    const e = input.email.trim().toLowerCase();
+    if (e === "") {
+      emailValue = null;
+    } else if (!EMAIL_RE.test(e)) {
+      return { error: "Email 格式看起來不太對" };
+    } else {
+      const emailTaken = await db.user.findFirst({
+        where: { email: e, NOT: { id: me.id } },
+        select: { id: true },
+      });
+      if (emailTaken) return { error: "這個 Email 已被別人使用" };
+      emailValue = e;
+    }
+  }
+
+  let birthdayDate: Date | null | undefined = undefined;
+  if (input.birthday !== undefined) {
+    if (input.birthday === null || input.birthday === "") {
+      birthdayDate = null;
+    } else {
+      const d = new Date(input.birthday);
+      if (Number.isNaN(d.getTime())) return { error: "生日格式不對" };
+      birthdayDate = d;
+    }
+  }
+
+  await db.user.update({
+    where: { id: me.id },
+    data: {
+      name,
+      handle,
+      initial: initial.slice(0, 2),
+      avatarColor,
+      ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
+      ...(emailValue !== undefined ? { email: emailValue } : {}),
+      ...(birthdayDate !== undefined ? { birthday: birthdayDate } : {}),
+    },
+  });
+
+  revalidatePath("/app/account");
+  revalidatePath("/app");
+  return { ok: true };
+}
+
+/**
+ * Change the user's password.
+ *
+ * Two-factor by intent:
+ *   - know the current password (proves the operator is the account owner)
+ *   - have an active session (proves the operator has the cookie)
+ *
+ * Without the current-password requirement, anyone who hijacked a
+ * session cookie could lock the real owner out by rotating the
+ * password. Worth the extra field.
+ *
+ * If the user has no password yet (invite-only signup, never set one),
+ * `currentPassword` is treated as a no-op and we skip the verify step.
+ * In that case this is "set my first password".
+ */
+export async function changePasswordAction(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<AccountResult> {
+  const me = await requireCurrentUser();
+  if (!input.newPassword || input.newPassword.length < 8) {
+    return { error: "新密碼至少 8 個字" };
+  }
+  if (me.passwordHash) {
+    const ok = await verifyPassword(input.currentPassword ?? "", me.passwordHash);
+    if (!ok) return { error: "目前的密碼不對" };
+    // Block recycling the exact same password — a small but real
+    // benefit: stops a "rotate to itself" no-op.
+    if (input.currentPassword === input.newPassword) {
+      return { error: "新密碼不能跟舊密碼一樣" };
+    }
+  }
+  const passwordHash = await hashPassword(input.newPassword);
+  await db.user.update({ where: { id: me.id }, data: { passwordHash } });
+  return { ok: true };
+}
+
+/**
+ * Kill every session for the current user EXCEPT the one driving this
+ * request. Used as the natural "I just changed my password, log me out
+ * of other devices" step. The current session lives because the cookie
+ * value is what identifies "this" session and we don't want the form
+ * to log itself out mid-submit.
+ *
+ * We delete by NOT-equals on the current tokenHash — re-deriving it
+ * from the cookie since `requireCurrentUser` doesn't expose the hash.
+ */
+export async function signOutOtherSessionsAction(): Promise<AccountResult> {
+  const me = await requireCurrentUser();
+  const { createHash } = await import("node:crypto");
+  const { cookies } = await import("next/headers");
+  const c = await cookies();
+  const tok = c.get("together_session")?.value;
+  const currentHash = tok
+    ? createHash("sha256").update(tok).digest("hex")
+    : null;
+
+  await db.session.deleteMany({
+    where: {
+      userId: me.id,
+      ...(currentHash ? { tokenHash: { not: currentHash } } : {}),
+    },
+  });
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Public recovery actions — no auth required, generic responses.
+// ─────────────────────────────────────────────────────────────────────
+
+export type RecoveryState = {
+  /** Always the same "we sent if we have it" copy — never reveals match. */
+  sent?: boolean;
+  error?: string;
+};
+
+export async function requestPasswordResetAction(
+  _prev: RecoveryState | undefined,
+  formData: FormData,
+): Promise<RecoveryState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email || !EMAIL_RE.test(email)) {
+    return { error: "Email 格式看起來不太對" };
+  }
+  const origin = await currentOrigin();
+  await requestPasswordReset(email, origin);
+  return { sent: true };
+}
+
+export async function requestHandleRecoveryAction(
+  _prev: RecoveryState | undefined,
+  formData: FormData,
+): Promise<RecoveryState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email || !EMAIL_RE.test(email)) {
+    return { error: "Email 格式看起來不太對" };
+  }
+  await requestHandleRecovery(email);
+  return { sent: true };
+}
+
+export type ResetState = { error?: string };
+
+export async function resetPasswordWithTokenAction(
+  _prev: ResetState | undefined,
+  formData: FormData,
+): Promise<ResetState> {
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < 8) return { error: "密碼至少 8 個字" };
+  if (password !== confirm) return { error: "兩次輸入的密碼不一樣" };
+
+  const r = await consumeResetTokenAndSetPassword(token, password);
+  if (!r.ok) {
+    const map = {
+      INVALID: "這個重設連結無效或已失效",
+      EXPIRED: "這個重設連結已過期，請重新申請",
+      USED:    "這個重設連結已被使用過了",
+    };
+    return { error: map[r.reason] };
+  }
+
+  // Sign the user in with the new password by creating a fresh session.
+  const token2 = await createSession(r.userId);
+  await setSessionCookie(token2);
   redirect("/app/feed");
 }

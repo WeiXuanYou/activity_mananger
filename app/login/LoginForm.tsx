@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useActionState } from "react";
+import Link from "next/link";
 import {
   signInWithInviteAction,
   signInWithPasswordAction,
@@ -97,9 +98,12 @@ function PasswordPanel() {
 
       <SubmitButton label="進入相聚 →" pendingLabel="驗證中..." />
 
-      <p className="text-xs text-ink/50 leading-relaxed pt-2">
-        第一次使用？請用上面「✨ 用邀請碼註冊」。沒有邀請碼請聯絡家人朋友取得。
-      </p>
+      <div className="flex items-center justify-between text-xs pt-2">
+        <Link href="/forgot" className="text-ink/55 hover:text-terracotta">
+          忘記密碼或帳號？
+        </Link>
+        <span className="text-ink/40">第一次使用 → 用邀請碼註冊 ↑</span>
+      </div>
     </form>
   );
 }
