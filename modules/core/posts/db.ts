@@ -10,7 +10,8 @@ import { db } from "@/lib/db";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
 import { visiblePostsWhere } from "@/modules/core/visibility";
-import type { Post, PostKind, BonusKind, PostImage } from "./types";
+import type { Post, PostKind, BonusKind } from "./types";
+import { parsePostImages } from "./types";
 
 type UserWithRole = {
   id: string; name: string; handle: string;
@@ -41,21 +42,6 @@ type PostRow = {
   createdAt: Date;
   categories: { category: CategoryRow }[];
 };
-
-/** Parse the JSON-encoded `images` column into a typed array. Tolerant of
- *  null / malformed data (legacy rows) — returns [] rather than throwing. */
-function parsePostImages(raw: string | null): PostImage[] {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr
-      .filter((x): x is PostImage => Boolean(x) && typeof x.url === "string")
-      .map((x) => ({ url: x.url, thumbUrl: typeof x.thumbUrl === "string" ? x.thumbUrl : undefined }));
-  } catch {
-    return [];
-  }
-}
 
 /** Best-effort relative time. Phase C+ swap for a proper i18n formatter. */
 function relativeTime(d: Date): string {

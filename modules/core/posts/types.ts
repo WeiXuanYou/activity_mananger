@@ -56,6 +56,28 @@ export type PostImage = {
 /** Max images per post — keeps the card readable + the inline JSON small. */
 export const MAX_POST_IMAGES = 6;
 
+/**
+ * Parse a raw images value into a validated PostImage[].
+ *
+ * Single source of truth for BOTH the read path (db adapter, raw =
+ * JSON string from the column) and the write path (action, raw = a
+ * client-sent array or JSON string). Tolerant of null / malformed input
+ * — returns [] rather than throwing. Pass `cap` to enforce the per-post
+ * limit on writes.
+ */
+export function parsePostImages(raw: unknown, cap?: number): PostImage[] {
+  let arr: unknown = raw;
+  if (typeof raw === "string") {
+    if (!raw) return [];
+    try { arr = JSON.parse(raw); } catch { return []; }
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = arr
+    .filter((x): x is PostImage => Boolean(x) && typeof (x as PostImage).url === "string")
+    .map((x) => ({ url: x.url, thumbUrl: typeof x.thumbUrl === "string" ? x.thumbUrl : undefined }));
+  return cap !== undefined ? out.slice(0, cap) : out;
+}
+
 /** Coarse bonus categories. UI maps these to emoji + label; the choices
  *  match the family/friends use cases the feature was added for:
  *

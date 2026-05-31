@@ -17,7 +17,14 @@ export function FeedbackForm() {
       <div className="bg-sage-soft/30 rounded-soft border border-sage/30 p-8 text-center">
         <div className="text-4xl mb-2">✅</div>
         <p className="serif text-lg text-ink mb-1">已送出，謝謝你的回饋！</p>
-        <p className="text-sm text-ink/60">管理員會看到你的訊息。需要的話我們會透過你的帳號 Email 或留下的聯絡方式回覆。</p>
+        <p className="text-sm text-ink/60 mb-4">管理員會看到你的訊息。需要的話我們會透過你的帳號 Email 或留下的聯絡方式回覆。</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-sm px-4 py-2 rounded-soft bg-white border border-sand text-ink/75 hover:bg-cream/40 transition"
+        >
+          ＋ 再送一則
+        </button>
       </div>
     );
   }

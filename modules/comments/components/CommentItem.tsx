@@ -52,13 +52,14 @@ export function CommentItem({
         {mode === "edit" ? (
           <EditForm
             initial={comment.body}
+            initialImage={comment.image ?? null}
             pending={pending}
             error={error}
             onCancel={() => { setMode("view"); setError(null); }}
-            onSave={(body) => {
+            onSave={(body, image) => {
               setError(null);
               startTransition(async () => {
-                const r = await editCommentAction({ id: comment.id, body });
+                const r = await editCommentAction({ id: comment.id, body, image });
                 if (r.error) setError(r.error);
                 else setMode("view");
               });
@@ -142,18 +143,23 @@ export function CommentItem({
 
 function EditForm({
   initial,
+  initialImage,
   pending,
   error,
   onCancel,
   onSave,
 }: {
   initial: string;
+  initialImage: string | null;
   pending: boolean;
   error: string | null;
   onCancel: () => void;
-  onSave: (body: string) => void;
+  /** image: undefined = unchanged, null = removed, string = replaced. */
+  onSave: (body: string, image: string | null | undefined) => void;
 }) {
   const [body, setBody] = useState(initial);
+  const [image, setImage] = useState<string | null>(initialImage);
+  const [uploading, setUploading] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   // Autofocus + place caret at end on open
   useEffect(() => {
@@ -162,6 +168,23 @@ function EditForm({
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.set("file", file);
+    const r = await uploadImageAction(fd);
+    setUploading(false);
+    if (r.ok) setImage(r.url);
+  };
+
+  // Pass image only when it changed, so an untouched comment keeps its image.
+  const imageArg = image === initialImage ? undefined : image;
+  const dirty = body !== initial || imageArg !== undefined;
+  const hasContent = Boolean(body.trim() || image);
+  const save = () => onSave(body, imageArg);
+
   return (
     <div className="bg-cream/50 rounded-soft px-4 py-3">
       <textarea
@@ -171,20 +194,43 @@ function EditForm({
         rows={3}
         className="w-full px-3 py-2 rounded-soft border border-sand bg-white focus:outline-none focus:border-terracotta text-sm resize-none"
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSave(body);
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") save();
           if (e.key === "Escape") onCancel();
         }}
       />
+      {image && (
+        <div className="mt-2 relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="" className="max-h-28 rounded-soft border border-sand" />
+          <button
+            type="button"
+            onClick={() => setImage(null)}
+            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white border border-sand text-[10px] text-terracotta shadow-card"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {error && <p className="text-xs text-terracotta-dark mt-1">⚠ {error}</p>}
       <div className="flex items-center gap-2 mt-2">
         <button
           type="button"
-          onClick={() => onSave(body)}
-          disabled={pending || !body.trim() || body === initial}
+          onClick={save}
+          disabled={pending || !hasContent || !dirty}
           className="px-3 py-1 rounded-soft bg-terracotta text-white text-xs font-medium hover:bg-terracotta-dark transition disabled:opacity-50"
         >
           {pending ? "..." : "儲存"}
         </button>
+        <label className={`text-xs ${uploading ? "opacity-50" : "cursor-pointer"} text-ink/55 hover:text-terracotta`}>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={uploading}
+            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }}
+            className="hidden"
+          />
+          {uploading ? "上傳中…" : image ? "🖼 換圖" : "🖼 加圖"}
+        </label>
         <button
           type="button"
           onClick={onCancel}

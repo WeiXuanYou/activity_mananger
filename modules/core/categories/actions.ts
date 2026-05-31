@@ -20,6 +20,7 @@ function revalidateCategorySurfaces() {
   revalidatePath("/app/pages");
   revalidatePath("/app/posts/new");
   revalidatePath("/app/activities/new");
+  revalidatePath("/app/categories");
 }
 
 export type CreateCategoryState = { error?: string; created?: Category };

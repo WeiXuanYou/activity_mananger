@@ -73,11 +73,6 @@ export async function createCustomPageAction(
 
   if (!title) return { error: "請填標題" };
 
-  // Slug is auto-assigned from the title — users never type it. We slugify
-  // the title (ASCII-safe), fall back to a random id for CJK-only titles,
-  // and append a numeric suffix if it collides.
-  const slug = await generateUniquePageSlug(title);
-
   const categoryIds: string[] = [];
   if (categorySlugs.length) {
     const cats = await db.category.findMany({
@@ -87,24 +82,42 @@ export async function createCustomPageAction(
     categoryIds.push(...cats.map((c) => c.id));
   }
 
-  const created = await db.customPage.create({
-    data: {
-      slug,
-      title,
-      excerpt: excerpt || title,
-      ownerId: me.id,
-      cover: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)",
-      publishedAt: new Date(),
-      categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
-      blocks: markdown
-        ? { create: [{ type: "markdown", order: 0, data: JSON.stringify({ source: markdown }) }] }
-        : undefined,
-    },
-  });
-
-  void emit("post.created", { type: "page", id: created.id }, { slug, blockTypes: ["markdown"] }, me.id);
+  // Slug is auto-assigned from the title — users never type it. We slugify
+  // the title (ASCII-safe), fall back to a random id for CJK-only titles,
+  // and append a numeric suffix if it collides. Because two requests can
+  // race between "pick a free slug" and "insert it", we retry on the
+  // unique-constraint violation (P2002) with a freshly-generated slug
+  // instead of crashing.
+  let slug = "";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    slug = await generateUniquePageSlug(title);
+    try {
+      const created = await db.customPage.create({
+        data: {
+          slug,
+          title,
+          excerpt: excerpt || title,
+          ownerId: me.id,
+          cover: "linear-gradient(135deg, #E8B5A2 0%, #C75B3A 100%)",
+          publishedAt: new Date(),
+          categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
+          blocks: markdown
+            ? { create: [{ type: "markdown", order: 0, data: JSON.stringify({ source: markdown }) }] }
+            : undefined,
+        },
+      });
+      void emit("post.created", { type: "page", id: created.id }, { slug, blockTypes: ["markdown"] }, me.id);
+      break;
+    } catch (e) {
+      const err = e as { code?: string };
+      if (err?.code === "P2002" && attempt < 4) continue; // slug raced — try again
+      if (err?.code === "P2002") return { error: "建立失敗，請再試一次" };
+      throw e;
+    }
+  }
 
   revalidatePath("/app/pages");
+  // redirect() throws internally — must stay OUTSIDE the try/catch above.
   redirect(`/app/pages/${slug}`);
 }
 
@@ -186,7 +199,9 @@ export async function addStarterBlockAction(pageId: string, type: BlockType) {
   const defaults: Record<BlockType, Record<string, unknown>> = {
     markdown:      { source: "## 新段落\n\n你想分享什麼..." },
     richtext:      { html: "<p>新段落…</p>" },
-    html:          { html: "<div><!-- 寫進你的 HTML --></div>" },
+    // HTML renderer + inline editor both read `data.source` (NOT `html`),
+    // so the starter must use `source` or the placeholder renders blank.
+    html:          { source: "<p>寫進你的 HTML…</p>" },
     image:         { url: "", caption: "" },
     "embed-poll":  { pollId: "" },
     "photo-album": { photos: [], cols: 3 },

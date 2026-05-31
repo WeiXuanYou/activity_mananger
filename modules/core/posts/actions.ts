@@ -9,21 +9,12 @@ import { requireCurrentUser } from "@/modules/auth";
 import { requirePermission, canCurrentUser } from "@/modules/permissions";
 import { emit } from "@/modules/analytics";
 import type { PostKind, BonusKind, PostImage } from "./types";
-import { BONUS_KINDS, MAX_POST_IMAGES } from "./types";
+import { BONUS_KINDS, MAX_POST_IMAGES, parsePostImages } from "./types";
 
-/** Normalise a raw images value (from FormData JSON or a passed array)
- *  into a capped, validated PostImage[] ready for JSON storage. */
-function normalizePostImages(raw: unknown): PostImage[] {
-  let arr: unknown = raw;
-  if (typeof raw === "string") {
-    try { arr = JSON.parse(raw); } catch { return []; }
-  }
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .filter((x): x is PostImage => Boolean(x) && typeof (x as PostImage).url === "string")
-    .slice(0, MAX_POST_IMAGES)
-    .map((x) => ({ url: x.url, thumbUrl: typeof x.thumbUrl === "string" ? x.thumbUrl : undefined }));
-}
+/** Normalise a raw images value (FormData JSON or a passed array) into a
+ *  capped, validated PostImage[] ready for storage. Thin wrapper over the
+ *  shared parser with the per-post cap applied. */
+const normalizePostImages = (raw: unknown) => parsePostImages(raw, MAX_POST_IMAGES);
 
 export type CreatePostState = { error?: string; createdId?: string };
 
