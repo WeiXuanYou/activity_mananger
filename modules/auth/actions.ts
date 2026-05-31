@@ -162,14 +162,20 @@ export async function completeSetupAction(input: {
   });
   if (taken) return { error: "這個暱稱已被使用，換一個吧" };
 
-  // Email validation + uniqueness (optional field — empty string clears
-  // any prior value). We store lowercased so lookups (also lowercased)
-  // hit the unique index regardless of how the user typed it.
-  let emailValue: string | null | undefined = undefined;
+  // Email is REQUIRED to finish onboarding — it's the only recovery
+  // channel for password / handle, and we'd rather refuse setup than
+  // strand a family member with no way back in. The DB column stays
+  // nullable on purpose (invite redemption + the bootstrap admin create
+  // a row *before* a person picks an email); the requirement is
+  // enforced here, at the moment onboarding completes.
+  //
+  // We store lowercased so later lookups (also lowercased) hit the
+  // unique index regardless of how the user typed it.
+  let emailValue: string | undefined = undefined;
   if (input.email !== undefined) {
     const e = input.email.trim().toLowerCase();
     if (e === "") {
-      emailValue = null;
+      return { error: "請填 Email — 之後忘記密碼或帳號要靠它找回" };
     } else if (!EMAIL_RE.test(e)) {
       return { error: "Email 格式看起來不太對" };
     } else {
@@ -180,6 +186,12 @@ export async function completeSetupAction(input: {
       if (emailTaken) return { error: "這個 Email 已被別人使用" };
       emailValue = e;
     }
+  }
+  // If the field wasn't sent at all, only block when the user doesn't
+  // already have one on file (e.g. a re-run of setup keeps the existing
+  // address). New users always send the field, so this catches them.
+  if (emailValue === undefined && !me.email) {
+    return { error: "請填 Email — 之後忘記密碼或帳號要靠它找回" };
   }
 
   // Avatar image validation. Accept only inline data URLs we expect;
@@ -294,11 +306,14 @@ export async function updateProfileAction(input: {
     }
   }
 
-  let emailValue: string | null | undefined = undefined;
+  // Email is required and CANNOT be cleared from account settings — a
+  // setup-completed user always keeps a working recovery channel. To
+  // change it they replace it with another valid address.
+  let emailValue: string | undefined = undefined;
   if (input.email !== undefined) {
     const e = input.email.trim().toLowerCase();
     if (e === "") {
-      emailValue = null;
+      return { error: "Email 不能清空（要靠它找回密碼 / 帳號）" };
     } else if (!EMAIL_RE.test(e)) {
       return { error: "Email 格式看起來不太對" };
     } else {

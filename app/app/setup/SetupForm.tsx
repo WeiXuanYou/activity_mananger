@@ -220,9 +220,10 @@ export function SetupForm({
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-ink/80">Email（可選 · 用來找回密碼或帳號）</span>
+        <span className="text-sm font-medium text-ink/80">Email · 必填</span>
         <input
           type="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
@@ -230,7 +231,7 @@ export function SetupForm({
           className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
         />
         <p className="mt-1 text-xs text-ink/50">
-          沒填也沒關係，之後可以在「帳戶設定」補上。沒填 Email 將無法用「忘記密碼」找回。
+          忘記密碼或帳號時，就是靠這個 Email 把你找回來，請填一個能收信的信箱。
         </p>
       </label>
 
@@ -276,7 +277,7 @@ export function SetupForm({
       <button
         type="button"
         onClick={submit}
-        disabled={pending || !name.trim() || !handle.trim()}
+        disabled={pending || !name.trim() || !handle.trim() || !email.trim()}
         className="w-full sm:w-auto px-6 py-3 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
       >
         {pending ? "儲存中..." : "完成設定，進入相聚 →"}

@@ -188,17 +188,18 @@ function ProfileSection({ initial }: { initial: Initial }) {
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-ink/80">Email（用來找回密碼 / 帳號）</span>
+          <span className="text-sm font-medium text-ink/80">Email · 必填（用來找回密碼 / 帳號）</span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
+            required
             autoComplete="email"
             placeholder="someone@example.com"
             className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
           />
           <p className="mt-1 text-xs text-ink/50">
-            空白即代表不設 Email。沒設 Email 將無法用「忘記密碼」找回帳號。
+            可以換成別的信箱，但不能留空 —— 這是你忘記密碼 / 帳號時唯一的找回管道。
           </p>
         </label>
 
@@ -250,7 +251,7 @@ function ProfileSection({ initial }: { initial: Initial }) {
         <button
           type="button"
           onClick={submit}
-          disabled={pending || !name.trim() || !handle.trim()}
+          disabled={pending || !name.trim() || !handle.trim() || !email.trim()}
           className="px-5 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
         >
           {pending ? "儲存中..." : "儲存個人檔案"}

@@ -35,6 +35,11 @@ import { sendEmail } from "@/modules/mail";
 import { hashPassword } from "./password";
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+// Minimum gap between consecutive reset emails to the same account.
+// Stops someone from using the public form to flood a victim's inbox
+// (a "mail bomb"); 60s is invisible to a real person who just mistyped
+// once and tried again, but caps abuse to one mail/minute/account.
+const RESEND_COOLDOWN_MS = 60 * 1000;
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -77,10 +82,21 @@ export async function requestPasswordReset(
     return;
   }
 
-  // Clear any prior unused resets for this user — limits the blast
-  // radius if an attacker captures an older link.
+  // Cooldown: if we already emailed a fresh link in the last minute,
+  // silently skip — don't create a row, don't send. The caller still
+  // gets the same generic "we sent it if we know you" response, so this
+  // is invisible to a legitimate user and to an enumeration attacker.
+  const recent = await db.passwordReset.findFirst({
+    where: { userId: user.id, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
+    select: { id: true },
+  });
+  if (recent) return;
+
+  // Clear prior resets for this user — unused ones limit the blast
+  // radius if an old link leaks; expired ones are just dead rows. We
+  // GC both here rather than running a scheduled job (family scale).
   await db.passwordReset.deleteMany({
-    where: { userId: user.id, usedAt: null },
+    where: { userId: user.id, OR: [{ usedAt: null }, { expiresAt: { lt: new Date() } }] },
   });
 
   await db.passwordReset.create({
