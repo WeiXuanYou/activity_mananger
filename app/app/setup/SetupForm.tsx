@@ -196,7 +196,7 @@ export function SetupForm({
       <div>
         <span className="text-sm font-medium text-ink/80 block mb-2">頭像顏色</span>
         <div className="flex flex-wrap gap-2 items-center">
-          {PALETTE.map((c) => (
+          {AVATAR_PALETTE.map((c) => (
             <button
               key={c}
               type="button"

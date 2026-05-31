@@ -12,28 +12,8 @@ import {
   changePasswordAction,
   signOutOtherSessionsAction,
 } from "@/modules/auth/actions";
-
-const PALETTE = [
-  "#C75B3A", "#7A8E6E", "#D4A574", "#8FA7B7",
-  "#B58FBF", "#D98090", "#7AA68F", "#E5994A",
-  "#5B7B9F", "#8E6A3D",
-];
-
-/** Same client-side resize as SetupForm — kept in sync so an avatar
- *  uploaded from either entry point looks identical. */
-async function fileToCroppedDataUrl(file: File): Promise<string> {
-  const bmp = await createImageBitmap(file);
-  const SIZE = 256;
-  const side = Math.min(bmp.width, bmp.height);
-  const sx = (bmp.width - side) / 2;
-  const sy = (bmp.height - side) / 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = SIZE; canvas.height = SIZE;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas 2d unavailable");
-  ctx.drawImage(bmp, sx, sy, side, side, 0, 0, SIZE, SIZE);
-  return canvas.toDataURL("image/jpeg", 0.82);
-}
+import { AVATAR_PALETTE } from "@/modules/auth/validation";
+import { fileToCroppedDataUrl } from "@/lib/avatar";
 
 type Initial = {
   name: string;
@@ -227,7 +207,7 @@ function ProfileSection({ initial }: { initial: Initial }) {
         <div>
           <span className="text-sm font-medium text-ink/80 block mb-2">頭像顏色</span>
           <div className="flex flex-wrap gap-2 items-center">
-            {PALETTE.map((c) => (
+            {AVATAR_PALETTE.map((c) => (
               <button
                 key={c}
                 type="button"

@@ -1,6 +1,5 @@
 "use server";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { redeemInvite } from "./invite";
@@ -11,24 +10,16 @@ import {
   requestHandleRecovery,
   consumeResetTokenAndSetPassword,
 } from "./recovery";
-
-/** RFC-5322 is impossibly hard to express exactly; this catches the
- *  shape that matters (something@something.tld) and rejects whitespace.
- *  Real "is it deliverable?" gets answered when the email actually
- *  goes out. */
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Best-effort read of the current request's origin so we can build
- *  absolute recovery links. Falls back to APP_URL env in production. */
-async function currentOrigin(): Promise<string | undefined> {
-  try {
-    const h = await headers();
-    const proto = h.get("x-forwarded-proto") || "http";
-    const host = h.get("host");
-    if (host) return `${proto}://${host}`;
-  } catch {}
-  return undefined;
-}
+import { getRequestMeta } from "./request-meta";
+import { loginRateLimiter } from "./rate-limit";
+import {
+  validateName,
+  validateHandle,
+  validateAvatarColor,
+  validateEmail,
+  validateAvatarImage,
+  validateBirthday,
+} from "./validation";
 
 export type SignInState = { error?: string; success?: boolean };
 
@@ -44,8 +35,18 @@ export async function signInWithInviteAction(
   formData: FormData,
 ): Promise<SignInState> {
   const code = String(formData.get("code") ?? "");
+
+  // Throttle by IP so the short invite codes can't be brute-forced
+  // (TOGETHER-XXXXXX is only ~16M combos). Shares the login limiter.
+  const { ip } = await getRequestMeta();
+  const gate = loginRateLimiter.check(`invite:${ip}`);
+  if (!gate.allowed) {
+    return { error: "嘗試太多次了，請稍後再試" };
+  }
+
   const result = await redeemInvite(code);
   if (!result.ok) {
+    loginRateLimiter.hit(`invite:${ip}`);
     const messages = {
       INVALID: "找不到這個邀請碼",
       EXPIRED: "邀請碼已過期",
@@ -53,6 +54,7 @@ export async function signInWithInviteAction(
     };
     return { error: messages[result.reason] };
   }
+  loginRateLimiter.reset(`invite:${ip}`);
 
   const token = await createSession(result.userId);
   await setSessionCookie(token);
@@ -76,6 +78,17 @@ export async function signInWithPasswordAction(
   const password = String(formData.get("password") ?? "");
   if (!handle || !password) return { error: "請輸入帳號和密碼" };
 
+  // Brute-force protection: throttle by client IP (NOT by account, which
+  // would let anyone lock a victim out). 10 misses / 15 min — invisible
+  // to a forgetful family member, fatal to online password guessing.
+  const { ip } = await getRequestMeta();
+  const key = `login:${ip}`;
+  const gate = loginRateLimiter.check(key);
+  if (!gate.allowed) {
+    const mins = Math.ceil(gate.retryAfterMs / 60_000);
+    return { error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
+  }
+
   const user = await db.user.findUnique({
     where: { handle },
     select: { id: true, passwordHash: true },
@@ -85,7 +98,11 @@ export async function signInWithPasswordAction(
   // a user-enumeration timing oracle.
   const stored = user?.passwordHash ?? "scrypt$16384$00$00";
   const ok = await verifyPassword(password, stored);
-  if (!user || !ok) return { error: "帳號或密碼錯誤" };
+  if (!user || !ok) {
+    loginRateLimiter.hit(key);
+    return { error: "帳號或密碼錯誤" };
+  }
+  loginRateLimiter.reset(key); // clear the window on success
 
   const token = await createSession(user.id);
   await setSessionCookie(token);
@@ -120,11 +137,6 @@ export async function signOutAction() {
  */
 export type CompleteSetupState = { error?: string };
 
-/** Cap on inline avatar image size. ~600 KB of base64 ≈ ~450 KB raw —
- *  big enough for a phone snapshot, small enough to keep User rows
- *  readable. The setup form pre-resizes client-side to stay well under. */
-const AVATAR_MAX_BYTES = 600_000;
-
 export async function completeSetupAction(input: {
   name: string;
   handle: string;
@@ -144,16 +156,21 @@ export async function completeSetupAction(input: {
   mustResetPassword?: boolean;
 }): Promise<CompleteSetupState> {
   const me = await requireCurrentUser();
-  const name = input.name.trim();
-  const handle = input.handle.trim().toLowerCase();
   const initial = input.initial.trim();
-  const avatarColor = input.avatarColor.trim();
 
-  if (!name) return { error: "請填名字" };
-  if (name.length > 40) return { error: "名字太長（上限 40 字）" };
-  if (!/^[a-z0-9-]{2,24}$/.test(handle)) return { error: "暱稱限 2-24 字小寫英數與 -" };
+  // Format validation via the shared isomorphic validators (same rules
+  // the client form pre-checks). Uniqueness + email policy are handled
+  // below because they need the DB / differ by flow.
+  const nameR = validateName(input.name);
+  if (!nameR.ok) return { error: nameR.error };
+  const handleR = validateHandle(input.handle);
+  if (!handleR.ok) return { error: handleR.error };
   if (initial.length < 1) return { error: "頭像字母不能空白" };
-  if (!/^#[0-9a-fA-F]{6}$/.test(avatarColor)) return { error: "avatar 顏色格式不對" };
+  const colorR = validateAvatarColor(input.avatarColor);
+  if (!colorR.ok) return { error: colorR.error };
+  const name = nameR.value;
+  const handle = handleR.value;
+  const avatarColor = colorR.value;
 
   // handle uniqueness: skip if this user already owns it
   const taken = await db.user.findFirst({
@@ -168,24 +185,19 @@ export async function completeSetupAction(input: {
   // nullable on purpose (invite redemption + the bootstrap admin create
   // a row *before* a person picks an email); the requirement is
   // enforced here, at the moment onboarding completes.
-  //
-  // We store lowercased so later lookups (also lowercased) hit the
-  // unique index regardless of how the user typed it.
   let emailValue: string | undefined = undefined;
   if (input.email !== undefined) {
-    const e = input.email.trim().toLowerCase();
-    if (e === "") {
-      return { error: "請填 Email — 之後忘記密碼或帳號要靠它找回" };
-    } else if (!EMAIL_RE.test(e)) {
-      return { error: "Email 格式看起來不太對" };
-    } else {
-      const emailTaken = await db.user.findFirst({
-        where: { email: e, NOT: { id: me.id } },
-        select: { id: true },
-      });
-      if (emailTaken) return { error: "這個 Email 已被別人使用" };
-      emailValue = e;
+    const emailR = validateEmail(input.email);
+    if (!emailR.ok) {
+      // Map the generic "請填 Email" to onboarding-specific copy.
+      return { error: input.email.trim() === "" ? "請填 Email — 之後忘記密碼或帳號要靠它找回" : emailR.error };
     }
+    const emailTaken = await db.user.findFirst({
+      where: { email: emailR.value, NOT: { id: me.id } },
+      select: { id: true },
+    });
+    if (emailTaken) return { error: "這個 Email 已被別人使用" };
+    emailValue = emailR.value;
   }
   // If the field wasn't sent at all, only block when the user doesn't
   // already have one on file (e.g. a re-run of setup keeps the existing
@@ -194,31 +206,14 @@ export async function completeSetupAction(input: {
     return { error: "請填 Email — 之後忘記密碼或帳號要靠它找回" };
   }
 
-  // Avatar image validation. Accept only inline data URLs we expect;
-  // reject http(s)/blob/javascript schemes — those would let someone
-  // hot-link tracking pixels or worse from a user profile.
-  let avatarImageValue: string | null | undefined = undefined;
-  if (input.avatarImage !== undefined) {
-    const v = input.avatarImage;
-    if (v === "") {
-      avatarImageValue = null;
-    } else {
-      if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(v)) {
-        return { error: "頭像格式不對（只接受 png / jpeg / webp / gif）" };
-      }
-      if (v.length > AVATAR_MAX_BYTES) {
-        return { error: "頭像太大（請壓到 500KB 以下）" };
-      }
-      avatarImageValue = v;
-    }
-  }
+  const avatarR = validateAvatarImage(input.avatarImage);
+  if (!avatarR.ok) return { error: avatarR.error };
+  const avatarImageValue = avatarR.value;
 
-  let birthdayDate: Date | null = null;
-  if (input.birthday) {
-    const d = new Date(input.birthday);
-    if (Number.isNaN(d.getTime())) return { error: "生日格式不對" };
-    birthdayDate = d;
-  }
+  const birthdayR = validateBirthday(input.birthday);
+  if (!birthdayR.ok) return { error: birthdayR.error };
+  // Setup always persists birthday (defaulting to null) like before.
+  const birthdayDate = birthdayR.value ?? null;
 
   // Password rules: required when mustResetPassword, optional otherwise.
   // Same min-length enforcement (8 chars) whether you're setting your
@@ -273,16 +268,18 @@ export async function updateProfileAction(input: {
   birthday?: string | null;
 }): Promise<AccountResult> {
   const me = await requireCurrentUser();
-  const name = input.name.trim();
-  const handle = input.handle.trim().toLowerCase();
   const initial = input.initial.trim();
-  const avatarColor = input.avatarColor.trim();
 
-  if (!name) return { error: "請填名字" };
-  if (name.length > 40) return { error: "名字太長（上限 40 字）" };
-  if (!/^[a-z0-9-]{2,24}$/.test(handle)) return { error: "暱稱限 2-24 字小寫英數與 -" };
+  const nameR = validateName(input.name);
+  if (!nameR.ok) return { error: nameR.error };
+  const handleR = validateHandle(input.handle);
+  if (!handleR.ok) return { error: handleR.error };
   if (initial.length < 1) return { error: "頭像字母不能空白" };
-  if (!/^#[0-9a-fA-F]{6}$/.test(avatarColor)) return { error: "頭像顏色格式不對" };
+  const colorR = validateAvatarColor(input.avatarColor);
+  if (!colorR.ok) return { error: colorR.error };
+  const name = nameR.value;
+  const handle = handleR.value;
+  const avatarColor = colorR.value;
 
   const handleTaken = await db.user.findFirst({
     where: { handle, NOT: { id: me.id } },
@@ -290,52 +287,31 @@ export async function updateProfileAction(input: {
   });
   if (handleTaken) return { error: "這個暱稱已被使用，換一個吧" };
 
-  let avatarImageValue: string | null | undefined = undefined;
-  if (input.avatarImage !== undefined) {
-    const v = input.avatarImage;
-    if (v === "") {
-      avatarImageValue = null;
-    } else {
-      if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(v)) {
-        return { error: "頭像格式不對（只接受 png / jpeg / webp / gif）" };
-      }
-      if (v.length > AVATAR_MAX_BYTES) {
-        return { error: "頭像太大（請壓到 500KB 以下）" };
-      }
-      avatarImageValue = v;
-    }
-  }
+  const avatarR = validateAvatarImage(input.avatarImage);
+  if (!avatarR.ok) return { error: avatarR.error };
+  const avatarImageValue = avatarR.value;
 
   // Email is required and CANNOT be cleared from account settings — a
   // setup-completed user always keeps a working recovery channel. To
   // change it they replace it with another valid address.
   let emailValue: string | undefined = undefined;
   if (input.email !== undefined) {
-    const e = input.email.trim().toLowerCase();
-    if (e === "") {
+    if (input.email.trim() === "") {
       return { error: "Email 不能清空（要靠它找回密碼 / 帳號）" };
-    } else if (!EMAIL_RE.test(e)) {
-      return { error: "Email 格式看起來不太對" };
-    } else {
-      const emailTaken = await db.user.findFirst({
-        where: { email: e, NOT: { id: me.id } },
-        select: { id: true },
-      });
-      if (emailTaken) return { error: "這個 Email 已被別人使用" };
-      emailValue = e;
     }
+    const emailR = validateEmail(input.email);
+    if (!emailR.ok) return { error: emailR.error };
+    const emailTaken = await db.user.findFirst({
+      where: { email: emailR.value, NOT: { id: me.id } },
+      select: { id: true },
+    });
+    if (emailTaken) return { error: "這個 Email 已被別人使用" };
+    emailValue = emailR.value;
   }
 
-  let birthdayDate: Date | null | undefined = undefined;
-  if (input.birthday !== undefined) {
-    if (input.birthday === null || input.birthday === "") {
-      birthdayDate = null;
-    } else {
-      const d = new Date(input.birthday);
-      if (Number.isNaN(d.getTime())) return { error: "生日格式不對" };
-      birthdayDate = d;
-    }
-  }
+  const birthdayR = validateBirthday(input.birthday);
+  if (!birthdayR.ok) return { error: birthdayR.error };
+  const birthdayDate = birthdayR.value;
 
   await db.user.update({
     where: { id: me.id },
@@ -435,12 +411,10 @@ export async function requestPasswordResetAction(
   _prev: RecoveryState | undefined,
   formData: FormData,
 ): Promise<RecoveryState> {
-  const email = String(formData.get("email") ?? "").trim();
-  if (!email || !EMAIL_RE.test(email)) {
-    return { error: "Email 格式看起來不太對" };
-  }
-  const origin = await currentOrigin();
-  await requestPasswordReset(email, origin);
+  const emailR = validateEmail(String(formData.get("email") ?? ""));
+  if (!emailR.ok) return { error: emailR.error };
+  const { origin } = await getRequestMeta();
+  await requestPasswordReset(emailR.value, origin);
   return { sent: true };
 }
 
@@ -448,11 +422,9 @@ export async function requestHandleRecoveryAction(
   _prev: RecoveryState | undefined,
   formData: FormData,
 ): Promise<RecoveryState> {
-  const email = String(formData.get("email") ?? "").trim();
-  if (!email || !EMAIL_RE.test(email)) {
-    return { error: "Email 格式看起來不太對" };
-  }
-  await requestHandleRecovery(email);
+  const emailR = validateEmail(String(formData.get("email") ?? ""));
+  if (!emailR.ok) return { error: emailR.error };
+  await requestHandleRecovery(emailR.value);
   return { sent: true };
 }
 

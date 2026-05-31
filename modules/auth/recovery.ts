@@ -33,6 +33,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/modules/mail";
 import { hashPassword } from "./password";
+import { normalizeEmail } from "./validation";
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 // Minimum gap between consecutive reset emails to the same account.
@@ -63,7 +64,7 @@ export async function requestPasswordReset(
   rawEmail: string,
   origin?: string,
 ): Promise<void> {
-  const email = rawEmail.trim().toLowerCase();
+  const email = normalizeEmail(rawEmail);
   if (!email) return;
 
   const user = await db.user.findUnique({
@@ -145,7 +146,7 @@ ${link}
  * guard as `requestPasswordReset`.
  */
 export async function requestHandleRecovery(rawEmail: string): Promise<void> {
-  const email = rawEmail.trim().toLowerCase();
+  const email = normalizeEmail(rawEmail);
   if (!email) return;
 
   const user = await db.user.findUnique({
