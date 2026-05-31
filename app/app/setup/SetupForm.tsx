@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { completeSetupAction } from "@/modules/auth/actions";
 
 /** Built-in palette — matches the avatar colors used by the seed.
@@ -11,6 +11,24 @@ const PALETTE = [
   "#5B7B9F", "#8E6A3D",
 ];
 
+/** Client-side resize to 256x256 square cover and re-encode as JPEG.
+ *  Keeps the inline-in-DB avatar tiny (~30 KB after compression) so
+ *  the User row stays small even for a phone-camera upload. */
+async function fileToCroppedDataUrl(file: File): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  const SIZE = 256;
+  // Center-crop to square
+  const side = Math.min(bmp.width, bmp.height);
+  const sx = (bmp.width - side) / 2;
+  const sy = (bmp.height - side) / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE; canvas.height = SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d unavailable");
+  ctx.drawImage(bmp, sx, sy, side, side, 0, 0, SIZE, SIZE);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 export function SetupForm({
   initial,
   mustResetPassword = false,
@@ -20,6 +38,7 @@ export function SetupForm({
     handle: string;
     initial: string;
     avatarColor: string;
+    avatarImage?: string | null;
     birthday: string | null;
   };
   /** If true, the password field is required and the explanation banner
@@ -31,14 +50,42 @@ export function SetupForm({
   const [handle, setHandle] = useState(initial.handle);
   const [initialChar, setInitialChar] = useState(initial.initial);
   const [avatarColor, setAvatarColor] = useState(initial.avatarColor);
+  /** `undefined` = keep existing (don't send the field).
+   *  `""` = explicitly clear (revert to initial+color circle).
+   *  data:image/...;base64,... = new upload. */
+  const [avatarImage, setAvatarImage] = useState<string | undefined>(undefined);
+  const [previewImage, setPreviewImage] = useState<string | null>(initial.avatarImage ?? null);
   const [birthday, setBirthday] = useState(initial.birthday ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Default the avatar letter to the first non-space char of the name
   // when the user hasn't picked one yet. Keeps the preview lively.
   const displayInitial = initialChar.trim() || name.trim().slice(0, 1) || "新";
+
+  const onPickFile = async (file: File | null) => {
+    setError(null);
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      setError("請選擇圖片檔");
+      return;
+    }
+    try {
+      const dataUrl = await fileToCroppedDataUrl(file);
+      setAvatarImage(dataUrl);
+      setPreviewImage(dataUrl);
+    } catch {
+      setError("讀取圖片失敗，請換一張試試");
+    }
+  };
+
+  const clearImage = () => {
+    setAvatarImage("");      // signal: clear in DB
+    setPreviewImage(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const submit = () => {
     setError(null);
@@ -48,6 +95,7 @@ export function SetupForm({
         handle,
         initial: displayInitial,
         avatarColor,
+        avatarImage,
         birthday: birthday || null,
         password: password || undefined,
         mustResetPassword,
@@ -61,17 +109,47 @@ export function SetupForm({
 
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5 sm:p-6 space-y-5">
-      {/* Live avatar preview */}
-      <div className="flex items-center gap-4">
-        <div
-          className="w-20 h-20 rounded-full text-white text-3xl font-medium flex items-center justify-center shadow-card shrink-0"
-          style={{ background: avatarColor }}
-        >
-          {displayInitial}
-        </div>
+      {/* Live avatar preview + upload */}
+      <div className="flex items-center gap-4 flex-wrap">
+        {previewImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewImage}
+            alt="avatar preview"
+            className="w-20 h-20 rounded-full object-cover shadow-card shrink-0"
+          />
+        ) : (
+          <div
+            className="w-20 h-20 rounded-full text-white text-3xl font-medium flex items-center justify-center shadow-card shrink-0"
+            style={{ background: avatarColor }}
+          >
+            {displayInitial}
+          </div>
+        )}
         <div className="text-sm text-ink/55 flex-1 min-w-0">
           這是大家會看到的頭像 ↑<br />
           <span className="text-xs text-ink/40">會顯示在你發的每則內容旁邊</span>
+          <div className="mt-2 flex gap-2 flex-wrap">
+            <label className="text-xs px-3 py-1.5 rounded-soft bg-cream border border-sand text-ink/75 hover:bg-cream/60 cursor-pointer">
+              📷 上傳圖片
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {previewImage && (
+              <button
+                type="button"
+                onClick={clearImage}
+                className="text-xs px-3 py-1.5 rounded-soft bg-white border border-sand text-ink/65 hover:bg-cream/40"
+              >
+                改回字母頭像
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -88,7 +166,7 @@ export function SetupForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-ink/80">handle（網址用，限英數和 -）</span>
+        <span className="text-sm font-medium text-ink/80">暱稱（網址用，限英數和 -）</span>
         <input
           value={handle}
           onChange={(e) => setHandle(e.target.value.toLowerCase())}

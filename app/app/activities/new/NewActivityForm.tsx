@@ -38,14 +38,26 @@ export type ActivityPrefill = {
   categorySlugs?: string[];
 };
 
+/** Minimal lodging shape used for region-match hints under the location
+ *  input. Kept slim so the server can pass the full list cheaply. */
+export type LodgingHint = {
+  id: string;
+  name: string;
+  region: string;
+  rating: number | null;
+  stayedAt: string | null;
+};
+
 export function NewActivityForm({
   categories,
   editing,
   prefill,
+  lodgingHints = [],
 }: {
   categories: Category[];
   editing?: EditingActivity;
   prefill?: ActivityPrefill;
+  lodgingHints?: LodgingHint[];
 }) {
   const router = useRouter();
   // Seed initial state from `editing` first (full record), else prefill (hints), else blank
@@ -149,6 +161,39 @@ export function NewActivityForm({
           />
         </label>
       </div>
+
+      {/* Lodging hints: same-region matches from the lodging knowledge
+          base. Helps with "we're going to 宜蘭 again — where did we stay
+          last time?" without leaving the form. */}
+      {(() => {
+        const q = location.trim();
+        if (q.length < 2) return null;
+        const matches = lodgingHints.filter(
+          (l) => l.region.includes(q) || q.includes(l.region),
+        );
+        if (matches.length === 0) return null;
+        return (
+          <div className="rounded-soft border border-sage/30 bg-sage-soft/20 p-3">
+            <p className="text-xs text-sage-dark font-medium mb-2">
+              🏨 「{q}」附近有 {matches.length} 筆住宿紀錄
+            </p>
+            <ul className="space-y-1 text-sm">
+              {matches.slice(0, 4).map((l) => (
+                <li key={l.id} className="flex items-baseline gap-2">
+                  <span>{l.stayedAt ? "✓" : "·"}</span>
+                  <span className="text-ink truncate flex-1">{l.name}</span>
+                  <span className="text-xs text-ink/55 shrink-0">
+                    {l.region}{l.rating ? ` · ${"★".repeat(l.rating)}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <a href="/app/lodging" className="text-xs text-terracotta hover:underline mt-1 inline-block">
+              查看全部 →
+            </a>
+          </div>
+        );
+      })()}
 
       <label className="block">
         <span className="text-sm font-medium text-ink/80">活動描述</span>

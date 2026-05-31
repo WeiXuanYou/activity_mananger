@@ -14,6 +14,7 @@ import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
 import { RunRemindersButton } from "./RunRemindersButton";
 import { InviteGrantToggle } from "./InviteGrantToggle";
+import { DeleteUserButton } from "./DeleteUserButton";
 
 export default async function AdminPage() {
   const me = await requireCurrentUser();
@@ -99,6 +100,7 @@ export default async function AdminPage() {
                         granted={inviteGrantSet.has(m.id)}
                       />
                     )}
+                    <DeleteUserButton userId={m.id} name={m.name} />
                   </>
                 )}
               </div>

@@ -111,6 +111,7 @@ export function MobileMenu({
               <Link href="/app/feed" className={link}>📰 動態</Link>
               <Link href="/app/activities" className={link}>🍖 活動</Link>
               <Link href="/app/calendar" className={link}>📅 行事曆</Link>
+              <Link href="/app/lodging" className={link}>🏨 住宿</Link>
               <Link href="/app/pages" className={link}>📄 頁面</Link>
               <Link href="/app/search" className={link}>🔍 搜尋</Link>
               <Link href="/app/assistant" className={link}>✨ AI 助手</Link>

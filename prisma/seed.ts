@@ -465,8 +465,50 @@ async function main() {
     });
   }
 
+  // Lodging samples — keyed by region so the activity surfaces have
+  // something to hint at. Mix of "past stay" and "recommendation".
+  const lodgingSeed = [
+    {
+      name: "礁溪老爺酒店", region: "宜蘭礁溪",
+      address: "宜蘭縣礁溪鄉五峰路 69 號",
+      notes: "泡湯不錯，房內也有湯池。早餐 buffet 中等，停車免費。",
+      pricePerNightCents: 850000, rating: 4, url: "https://www.hotelroyal.com.tw/chiaohsi/",
+      addedBy: "mom", stayedDaysAgo: 200,
+    },
+    {
+      name: "宜蘭悅川酒店", region: "宜蘭",
+      notes: "靠近羅東夜市，房間新，適合帶長輩。",
+      pricePerNightCents: 620000, rating: 4, url: "https://www.lakeshore.com.tw/zh-tw",
+      addedBy: "grandma", stayedDaysAgo: null,
+    },
+    {
+      name: "墾丁夏都沙灘酒店", region: "墾丁",
+      address: "屏東縣恆春鎮墾丁路 451 號",
+      notes: "直接走出去就是海邊，小朋友超開心。早餐普通。",
+      pricePerNightCents: 1200000, rating: 5, url: "https://www.ktchateau.com.tw/",
+      addedBy: "andy", stayedDaysAgo: 365,
+    },
+  ];
+  for (const l of lodgingSeed) {
+    await db.lodging.create({
+      data: {
+        name: l.name, region: l.region,
+        address: l.address ?? null,
+        notes: l.notes ?? null,
+        pricePerNightCents: l.pricePerNightCents ?? null,
+        currency: "TWD",
+        url: l.url ?? null,
+        rating: l.rating ?? null,
+        addedById: userRows[l.addedBy].id,
+        stayedAt: l.stayedDaysAgo != null
+          ? new Date(Date.now() - l.stayedDaysAgo * 86400000)
+          : null,
+      },
+    });
+  }
+
   console.log("✅ Seed complete:");
-  console.log(`   ${MEMBERS.length} users · ${CATEGORIES.length} categories · ${activitySeed.length} activities · ${pollSeed.length} polls · ${postSeed.length} posts`);
+  console.log(`   ${MEMBERS.length} users · ${CATEGORIES.length} categories · ${activitySeed.length} activities · ${pollSeed.length} polls · ${postSeed.length} posts · ${lodgingSeed.length} lodgings`);
   console.log("\n   Try the demo invite codes at /login:");
   for (const c of codes) console.log(`     ${c.code}  →  ${c.role}`);
 }

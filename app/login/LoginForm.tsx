@@ -18,7 +18,7 @@ import {
   type SignInState,
 } from "@/modules/auth/actions";
 
-export function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
+export function LoginForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
   return (
     <div>
@@ -31,7 +31,7 @@ export function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
         </ModeTab>
       </div>
 
-      {mode === "login" ? <PasswordPanel isDemo={isDemo} /> : <InvitePanel isDemo={isDemo} />}
+      {mode === "login" ? <PasswordPanel /> : <InvitePanel />}
     </div>
   );
 }
@@ -60,7 +60,7 @@ function ModeTab({
   );
 }
 
-function PasswordPanel({ isDemo }: { isDemo: boolean }) {
+function PasswordPanel() {
   const [state, formAction] = useActionState<SignInState, FormData>(
     signInWithPasswordAction,
     {},
@@ -74,7 +74,7 @@ function PasswordPanel({ isDemo }: { isDemo: boolean }) {
           type="text"
           required
           autoComplete="username"
-          placeholder={isDemo ? "例如：admin" : "你的 handle"}
+          placeholder="你的 handle"
           className="mt-2 w-full px-4 py-3 rounded-soft border border-sand bg-cream/40 focus:outline-none focus:border-terracotta font-mono"
         />
       </label>
@@ -97,21 +97,14 @@ function PasswordPanel({ isDemo }: { isDemo: boolean }) {
 
       <SubmitButton label="進入相聚 →" pendingLabel="驗證中..." />
 
-      {/* Demo install shows the test-drive credentials. Production
-          installs hide them — admins read the README for first-time
-          setup; ordinary users don't need to see operator info. */}
-      {isDemo && (
-        <p className="text-xs text-ink/50 leading-relaxed pt-2">
-          第一次使用？預設管理員是 <code className="text-terracotta">admin</code> / <code className="text-terracotta">admin</code>，
-          登入後會強迫你換掉。<br />
-          家人朋友請用上面「✨ 用邀請碼註冊」。
-        </p>
-      )}
+      <p className="text-xs text-ink/50 leading-relaxed pt-2">
+        第一次使用？請用上面「✨ 用邀請碼註冊」。沒有邀請碼請聯絡家人朋友取得。
+      </p>
     </form>
   );
 }
 
-function InvitePanel({ isDemo }: { isDemo: boolean }) {
+function InvitePanel() {
   const [state, formAction] = useActionState<SignInState, FormData>(
     signInWithInviteAction,
     {},
@@ -125,7 +118,7 @@ function InvitePanel({ isDemo }: { isDemo: boolean }) {
           type="text"
           required
           autoComplete="off"
-          placeholder={isDemo ? "例如：TOGETHER-DEMO-MEMBER" : "請貼上你收到的邀請碼"}
+          placeholder="請貼上你收到的邀請碼"
           className="mt-2 w-full px-4 py-3 rounded-soft border border-sand bg-cream/40 focus:outline-none focus:border-terracotta font-mono tracking-wider"
         />
       </label>

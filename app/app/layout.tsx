@@ -39,6 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             handle: user.handle === "admin" ? "" : user.handle,
             initial: "",
             avatarColor: user.avatarColor,
+            avatarImage: user.avatarImage ?? null,
             birthday: null,
           }}
           /* Force password rotation if the user already has a password set —
@@ -58,6 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     role: user.role.name as "Guest" | "Member" | "Editor" | "Admin",
     avatarColor: user.avatarColor,
     initial: user.initial,
+    avatarImage: user.avatarImage ?? null,
   };
 
   const [unread, isAdmin, canInvite] = await Promise.all([
@@ -78,6 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
             <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
             <Link href="/app/calendar" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">行事曆</Link>
+            <Link href="/app/lodging" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">住宿</Link>
             <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
             <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">✨ AI</Link>
             <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>

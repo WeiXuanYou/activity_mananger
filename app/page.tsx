@@ -28,7 +28,7 @@ export default function HomePage() {
               href="/login"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-soft bg-terracotta text-white font-medium shadow-soft hover:bg-terracotta-dark transition"
             >
-              用邀請碼登入 <span>→</span>
+              登入 <span>→</span>
             </Link>
             <Link
               href="/preview"

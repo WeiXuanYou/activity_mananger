@@ -24,15 +24,25 @@ npm run dev
 
 打開 http://localhost:3000：
 - **首頁**：兩條入口（真實登入 / 看 Mockup）
-- **`/login`**：真實邀請碼登入（demo codes 列在頁面上）
+- **`/login`**：用 handle + 密碼登入，或用邀請碼註冊。登入畫面**不**會印出帳號密碼或 demo 邀請碼——所有開發測試用憑證集中在這份 README。
 - **`/app/feed`**：真實 Prisma 查詢的 feed（需登入）
 - **`/mockup/*`**：12 個視覺原型頁，用 mock data
 
-## Demo 邀請碼（seed 內建）
+## 登入憑證（Demo / 開發用）
+
+### 預設管理員（demo 模式）
+| handle | 密碼 |
+|---|---|
+| `admin` | `admin` |
+
+> 第一次登入會強迫換密碼。**正式環境跑 `SEED_MODE=production npm run db:seed` 不會建立任何 demo 邀請碼或範例使用者，僅建立 admin/admin 一個帳號，請立即在 `/app/setup` 換掉密碼並建立邀請碼。**
+
+### Demo 邀請碼（僅 demo 模式 seed 會建立）
 | 邀請碼 | 角色 |
 |---|---|
 | `TOGETHER-DEMO-MEMBER` | Member |
 | `TOGETHER-DEMO-EDITOR` | Editor |
+| `TOGETHER-DEMO-ADMIN`  | Admin |
 | `TOGETHER-DEMO-GUEST`  | Guest |
 
 ## 目錄結構

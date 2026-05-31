@@ -1,6 +1,22 @@
 import type { Member } from "../types";
 
 export function Avatar({ member, size = 40 }: { member: Member; size?: number }) {
+  // Image avatar takes precedence when present; falls back to the
+  // initial+color circle so existing seeded users still render.
+  if (member.avatarImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={member.avatarImage}
+        alt={member.name}
+        title={member.name}
+        width={size}
+        height={size}
+        className="rounded-full object-cover shrink-0 shadow-card"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div
       className="rounded-full flex items-center justify-center text-white font-medium shrink-0 shadow-card"

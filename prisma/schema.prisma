@@ -21,6 +21,11 @@ model User {
   bio         String?
   avatarColor String
   initial     String
+  /// Optional uploaded avatar (data URL, base64). When set, UI shows the
+  /// image instead of the initial+color circle. Kept inline in the row
+  /// so a family/friends scale install doesn't need separate blob storage;
+  /// the action layer caps incoming size (~500 KB) before write.
+  avatarImage String?
   /// Birthday. Year is significant for the age-display widget on
   /// profiles; the cron only matches month-day. Optional — users can
   /// leave it blank.
@@ -58,6 +63,7 @@ model User {
   expensesPaid      Expense[]             @relation("ExpensePayer")
   permissionGrants    UserPermissionGrant[] @relation("PermissionGrantee")
   permissionsGranted  UserPermissionGrant[] @relation("PermissionGranter")
+  lodgings          Lodging[]             @relation("LodgingAddedBy")
 
   @@index([roleId])
 }
@@ -214,6 +220,7 @@ model Activity {
   categories   ActivityCategory[]
   expenses     Expense[]
   reminders    ActivityReminder[]
+  lodgings     Lodging[]              @relation("LodgingActivity")
 
   @@index([startsAt])
   @@index([authorId])
@@ -481,4 +488,38 @@ model AnalyticsEvent {
 
   @@index([kind, createdAt])
   @@index([subjectType, subjectId])
+}
+
+// =====================================================================
+// Lodging — recommendations & past-stay history, keyed by region so we
+// can surface relevant accommodation when planning a new activity in
+// the same area. Owned at the community level (anyone can add), with
+// optional link to the activity that stayed there.
+// =====================================================================
+
+model Lodging {
+  id          String    @id @default(cuid())
+  name        String
+  /// Region/area key used for recommendations. Free text — matching is
+  /// substring-insensitive against `Activity.location`. Examples:
+  /// "宜蘭礁溪", "Kyoto", "墾丁".
+  region      String
+  address     String?
+  notes       String?
+  /// Per-night rate in 1/100 of currency unit (cents). Optional.
+  pricePerNightCents Int?
+  currency    String   @default("TWD")
+  url         String?
+  /// 1-5 community rating. Optional.
+  rating      Int?
+  addedById   String
+  addedBy     User     @relation("LodgingAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  /// When this lodging was used during a real trip. Null = recommendation only.
+  stayedAt    DateTime?
+  activityId  String?
+  activity    Activity? @relation("LodgingActivity", fields: [activityId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([region])
+  @@index([addedById])
 }

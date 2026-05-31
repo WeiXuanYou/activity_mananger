@@ -32,6 +32,7 @@ export default async function HelpPage() {
           <li>🍖 <strong>辦活動</strong>：上方選單「建立：活動」。設好時間地點，家人朋友會收到通知，可以 RSVP（會去 / 可能 / 不去）。</li>
           <li>📊 <strong>起投票</strong>：選「建立：投票」。支援多選、匿名、家人也能新增選項。也能做 Doodle 風格的「找共同時間」。</li>
           <li>📅 <strong>行事曆</strong>：所有活動都會出現在月曆上，可以一眼看到下個月的計畫。</li>
+          <li>🏨 <strong>住宿筆記</strong>：把住過或想推薦的飯店民宿存下來，依地區整理。下次在同一個地區辦活動時會自動跳出來給你參考。</li>
           <li>📄 <strong>自訂頁面</strong>：每個人都可以做自己的頁面（食譜、回憶、清單⋯⋯），可選擇自己看或所有成員看。</li>
           <li>💬 <strong>留言 + 按讚</strong>：每篇文章 / 活動 / 投票都能留言、按愛心。</li>
           <li>✨ <strong>AI 助手</strong>：寫不出文章開頭？想不到活動點子？選單按「AI」找 AI 聊聊。</li>

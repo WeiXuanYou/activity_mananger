@@ -95,11 +95,20 @@ export async function signOutAction() {
  */
 export type CompleteSetupState = { error?: string };
 
+/** Cap on inline avatar image size. ~600 KB of base64 ≈ ~450 KB raw —
+ *  big enough for a phone snapshot, small enough to keep User rows
+ *  readable. The setup form pre-resizes client-side to stay well under. */
+const AVATAR_MAX_BYTES = 600_000;
+
 export async function completeSetupAction(input: {
   name: string;
   handle: string;
   initial: string;
   avatarColor: string;
+  /** Optional uploaded avatar as a data URL (data:image/...;base64,...).
+   *  Pass `""` (empty string) to explicitly clear an existing image and
+   *  fall back to the initial+color circle. `undefined` = leave unchanged. */
+  avatarImage?: string;
   birthday?: string | null;
   password?: string;
   /** True when the existing password is known-weak (bootstrap admin
@@ -114,7 +123,7 @@ export async function completeSetupAction(input: {
 
   if (!name) return { error: "請填名字" };
   if (name.length > 40) return { error: "名字太長（上限 40 字）" };
-  if (!/^[a-z0-9-]{2,24}$/.test(handle)) return { error: "handle 限 2-24 字小寫英數與 -" };
+  if (!/^[a-z0-9-]{2,24}$/.test(handle)) return { error: "暱稱限 2-24 字小寫英數與 -" };
   if (initial.length < 1) return { error: "頭像字母不能空白" };
   if (!/^#[0-9a-fA-F]{6}$/.test(avatarColor)) return { error: "avatar 顏色格式不對" };
 
@@ -123,7 +132,26 @@ export async function completeSetupAction(input: {
     where: { handle, NOT: { id: me.id } },
     select: { id: true },
   });
-  if (taken) return { error: "這個 handle 已被使用，換一個吧" };
+  if (taken) return { error: "這個暱稱已被使用，換一個吧" };
+
+  // Avatar image validation. Accept only inline data URLs we expect;
+  // reject http(s)/blob/javascript schemes — those would let someone
+  // hot-link tracking pixels or worse from a user profile.
+  let avatarImageValue: string | null | undefined = undefined;
+  if (input.avatarImage !== undefined) {
+    const v = input.avatarImage;
+    if (v === "") {
+      avatarImageValue = null;
+    } else {
+      if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(v)) {
+        return { error: "頭像格式不對（只接受 png / jpeg / webp / gif）" };
+      }
+      if (v.length > AVATAR_MAX_BYTES) {
+        return { error: "頭像太大（請壓到 500KB 以下）" };
+      }
+      avatarImageValue = v;
+    }
+  }
 
   let birthdayDate: Date | null = null;
   if (input.birthday) {
@@ -152,6 +180,7 @@ export async function completeSetupAction(input: {
       avatarColor,
       birthday: birthdayDate,
       setupCompleted: true,
+      ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
       ...(newPasswordHash !== undefined ? { passwordHash: newPasswordHash } : {}),
     },
   });

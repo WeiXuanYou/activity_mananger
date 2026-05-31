@@ -18,7 +18,12 @@ import type { Member } from "./types";
  * controls the include scope (we don't over-fetch).
  */
 export function prismaUserToMember(
-  row: { id: string; name: string; handle: string; avatarColor: string; initial: string; role: { name: string } },
+  row: {
+    id: string; name: string; handle: string;
+    avatarColor: string; initial: string;
+    avatarImage?: string | null;
+    role: { name: string };
+  },
 ): Member {
   return {
     id: row.id,
@@ -27,6 +32,7 @@ export function prismaUserToMember(
     role: row.role.name as Role,
     avatarColor: row.avatarColor,
     initial: row.initial,
+    avatarImage: row.avatarImage ?? null,
   };
 }
 

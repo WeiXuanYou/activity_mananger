@@ -37,4 +37,7 @@ export { RoleBadge } from "./components/RoleBadge";
 // Phase F — admin tools
 export type { InviteCodeRow } from "./admin-db";
 export { listInviteCodesDb, listAllMembersDb } from "./admin-db";
+// admin.ts server actions (setUserRoleAction / generateInviteCodeAction /
+// deleteUserAction) are imported directly from "./admin" by callers so
+// this barrel stays client-safe.
 
