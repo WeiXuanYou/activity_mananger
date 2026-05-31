@@ -112,6 +112,7 @@ export function MobileMenu({
               <Link href="/app/activities" className={link}>🍖 活動</Link>
               <Link href="/app/calendar" className={link}>📅 行事曆</Link>
               <Link href="/app/lodging" className={link}>🏨 住宿</Link>
+              <Link href="/app/photos" className={link}>🖼 相簿牆</Link>
               <Link href="/app/pages" className={link}>📄 頁面</Link>
               <Link href="/app/categories" className={link}>🏷 分類</Link>
               <Link href="/app/search" className={link}>🔍 搜尋</Link>

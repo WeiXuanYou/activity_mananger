@@ -33,4 +33,20 @@ export async function notify(input: {
     // eslint-disable-next-line no-console
     console.error("[notify] failed", { kind: input.kind, err });
   }
+
+  // Also fan out to Web Push so the same event reaches the user's phone
+  // lock screen, not just the in-app bell. Fire-and-forget + lazy import so
+  // a deploy without VAPID keys (push disabled) pays nothing here.
+  void (async () => {
+    try {
+      const { pushToUser } = await import("@/modules/push");
+      await pushToUser(input.userId, {
+        title: input.title,
+        body: input.body,
+        link: input.link,
+      });
+    } catch {
+      // push is best-effort; ignore
+    }
+  })();
 }

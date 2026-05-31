@@ -76,7 +76,7 @@ export async function createCommentAction(input: {
           where: { id: input.parentId },
           select: { authorId: true, title: true },
         });
-        if (p) { ownerId = p.authorId; title = `「${p.title ?? "你的文章"}」有新留言`; link = "/app/feed"; }
+        if (p) { ownerId = p.authorId; title = `「${p.title ?? "你的文章"}」有新留言`; link = `/app/posts/${input.parentId}`; }
       } else if (input.parentType === "PAGE") {
         const pg = await db.customPage.findUnique({
           where: { id: input.parentId },
@@ -114,7 +114,7 @@ export async function createCommentAction(input: {
 
   // Revalidate paths that show this comment
   if (input.parentType === "ACTIVITY") revalidatePath(`/app/activity/${input.parentId}`);
-  if (input.parentType === "POST") revalidatePath("/app/feed");
+  if (input.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${input.parentId}`); }
   if (input.parentType === "PAGE") {
     const pg = await db.customPage.findUnique({ where: { id: input.parentId }, select: { slug: true } });
     if (pg) revalidatePath(`/app/pages/${pg.slug}`);
@@ -144,7 +144,7 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
   ]);
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
-  if (c.parentType === "POST") revalidatePath("/app/feed");
+  if (c.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${c.parentId}`); }
 }
 
 /** Edit a comment's body. Authors only — no moderator override (editing
@@ -175,7 +175,7 @@ export async function editCommentAction(input: {
   });
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
-  if (c.parentType === "POST") revalidatePath("/app/feed");
+  if (c.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${c.parentId}`); }
   if (c.parentType === "PAGE") {
     const pg = await db.customPage.findUnique({ where: { id: c.parentId }, select: { slug: true } });
     if (pg) revalidatePath(`/app/pages/${pg.slug}`);

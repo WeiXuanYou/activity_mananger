@@ -9,6 +9,7 @@
  * Like button: pass `likedByMe` to render the live optimistic-UI
  * LikeButton. Omit it (mockup pages) and a static heart is shown instead.
  */
+import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Post } from "../types";
@@ -132,9 +133,18 @@ export function PostCard({
             ❤️ <span>{post.likes}</span>
           </button>
         )}
-        <span className="flex items-center gap-1.5 text-ink/60">
-          💬 <span>{post.comments}</span>
-        </span>
+        {showCommentLink ? (
+          <Link
+            href={`/app/posts/${post.id}`}
+            className="flex items-center gap-1.5 text-ink/60 hover:text-terracotta transition"
+          >
+            💬 <span>{post.comments}</span>
+          </Link>
+        ) : (
+          <span className="flex items-center gap-1.5 text-ink/60">
+            💬 <span>{post.comments}</span>
+          </span>
+        )}
         <span className="ml-auto text-xs text-ink/40">公開於相聚內</span>
       </div>
     </article>
