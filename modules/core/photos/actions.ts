@@ -62,9 +62,13 @@ export async function removeWallPhotoAction(input: RemovePhotoInput): Promise<{ 
       return { error: "只能移除自己的照片" };
     }
     // If the comment is image-only (no text), removing the image would
-    // leave an empty comment — delete the whole comment instead.
+    // leave an empty comment — delete the whole comment instead (and clear
+    // any reactions on it, which are polymorphic with no FK cascade).
     if (!c.body.trim()) {
-      await db.comment.delete({ where: { id: input.sourceId } });
+      await db.$transaction([
+        db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: input.sourceId } }),
+        db.comment.delete({ where: { id: input.sourceId } }),
+      ]);
     } else {
       await db.comment.update({ where: { id: input.sourceId }, data: { image: null } });
     }

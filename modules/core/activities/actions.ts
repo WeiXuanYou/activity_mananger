@@ -157,7 +157,13 @@ export async function deleteActivityAction(id: string): Promise<void> {
   const existing = await db.activity.findUnique({ where: { id }, select: { authorId: true } });
   if (!existing) return;
   await ensureOwnerOrModerator(me.id, existing.authorId);
+  // Also clear reactions on this activity's comments (polymorphic COMMENT
+  // reactions aren't swept by the ACTIVITY-scoped delete).
+  const commentIds = (
+    await db.comment.findMany({ where: { parentType: "ACTIVITY", parentId: id }, select: { id: true } })
+  ).map((c) => c.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: commentIds } } }),
     db.comment.deleteMany({ where: { parentType: "ACTIVITY", parentId: id } }),
     db.reaction.deleteMany({ where: { parentType: "ACTIVITY", parentId: id } }),
     db.activity.delete({ where: { id } }),

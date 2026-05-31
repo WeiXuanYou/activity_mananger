@@ -219,7 +219,13 @@ export async function deletePollAction(id: string): Promise<void> {
   const existing = await db.poll.findUnique({ where: { id }, select: { authorId: true } });
   if (!existing) return;
   await ensureOwnerOrModerator(me.id, existing.authorId);
+  // Clear reactions on this poll's comments too (polymorphic COMMENT
+  // reactions aren't swept by the POLL-scoped delete).
+  const commentIds = (
+    await db.comment.findMany({ where: { parentType: "POLL", parentId: id }, select: { id: true } })
+  ).map((c) => c.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: commentIds } } }),
     db.comment.deleteMany({ where: { parentType: "POLL", parentId: id } }),
     db.reaction.deleteMany({ where: { parentType: "POLL", parentId: id } }),
     db.poll.delete({ where: { id } }),

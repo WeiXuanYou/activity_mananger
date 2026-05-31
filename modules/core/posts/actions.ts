@@ -213,7 +213,14 @@ export async function deletePostAction(id: string): Promise<void> {
   const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } });
   if (!existing) return;
   await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+  // Reactions ON the post's comments are polymorphic (parentType:"COMMENT")
+  // and don't get swept by the POST-scoped deletes — gather the comment ids
+  // first so we can clear their reactions too, or they'd orphan.
+  const commentIds = (
+    await db.comment.findMany({ where: { parentType: "POST", parentId: id }, select: { id: true } })
+  ).map((c) => c.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: commentIds } } }),
     db.comment.deleteMany({ where: { parentType: "POST", parentId: id } }),
     db.reaction.deleteMany({ where: { parentType: "POST", parentId: id } }),
     db.post.delete({ where: { id } }),

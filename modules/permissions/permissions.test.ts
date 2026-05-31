@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ROLE_PERMISSIONS } from "./data";
+import { resolvePermission } from "./resolve";
 
 /**
  * Pin the role → permission expectations. If anyone ever drops "post.pin"
@@ -59,5 +60,37 @@ describe("ROLE_PERMISSIONS", () => {
 
   it("Admin is a strict superset of Editor", () => {
     expect(ROLE_PERMISSIONS.Admin).toEqual(expect.arrayContaining(ROLE_PERMISSIONS.Editor));
+  });
+});
+
+describe("resolvePermission (grant / deny override logic)", () => {
+  // The everyday case: a Member's role grants invite.create.
+  it("role grant with no overrides → allowed", () => {
+    expect(resolvePermission({ role: "Member", permission: "invite.create", hasGrant: false, hasDeny: false })).toBe(true);
+  });
+
+  it("role does not grant + no grant override → denied", () => {
+    expect(resolvePermission({ role: "Guest", permission: "invite.create", hasGrant: false, hasDeny: false })).toBe(false);
+  });
+
+  it("a per-user deny removes a role-granted permission for a Member", () => {
+    expect(resolvePermission({ role: "Member", permission: "invite.create", hasGrant: false, hasDeny: true })).toBe(false);
+  });
+
+  it("an explicit grant re-enables a denied permission (grant wins)", () => {
+    expect(resolvePermission({ role: "Member", permission: "invite.create", hasGrant: true, hasDeny: true })).toBe(true);
+  });
+
+  it("a Guest can be granted invite.create explicitly", () => {
+    expect(resolvePermission({ role: "Guest", permission: "invite.create", hasGrant: true, hasDeny: false })).toBe(true);
+  });
+
+  it("Admins are NEVER denied, even with a deny row", () => {
+    expect(resolvePermission({ role: "Admin", permission: "invite.create", hasGrant: false, hasDeny: true })).toBe(true);
+    expect(resolvePermission({ role: "Admin", permission: "admin.approve", hasGrant: false, hasDeny: true })).toBe(true);
+  });
+
+  it("a deny on a permission the role never had is a no-op (already denied)", () => {
+    expect(resolvePermission({ role: "Member", permission: "admin.approve", hasGrant: false, hasDeny: true })).toBe(false);
   });
 });

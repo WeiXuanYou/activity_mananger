@@ -138,7 +138,14 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
   if (c.authorId !== me.id) {
     await requirePermission("comment.moderate");
   }
+  // Gather the reply ids so we can clear reactions on the comment AND its
+  // replies — reactions are polymorphic (parentType:"COMMENT") with no FK,
+  // so deleting the comment rows alone would orphan them.
+  const replyIds = (
+    await db.comment.findMany({ where: { parentCommentId: commentId }, select: { id: true } })
+  ).map((r) => r.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: [commentId, ...replyIds] } } }),
     db.comment.deleteMany({ where: { parentCommentId: commentId } }),
     db.comment.delete({ where: { id: commentId } }),
   ]);

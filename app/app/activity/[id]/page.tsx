@@ -34,6 +34,10 @@ export default async function AppActivityDetailPage({ params }: Params) {
   ]);
 
   const canEditActivity = activity.hostId === me.id || canActivityModerate;
+  // Access gate for hidden activities: only the host or a moderator may
+  // view a hidden activity (matches the post detail page + the product
+  // rule "hidden = owner/admin only"). Everyone else gets a 404.
+  if (activity.hiddenAt && !canEditActivity) notFound();
   // Server-action thunk for the OwnerActions client component (server
   // actions can be passed across the boundary as long as we keep the
   // closure tiny). The action revalidates the cache + we redirect.
@@ -63,7 +67,7 @@ export default async function AppActivityDetailPage({ params }: Params) {
       {activity.hiddenAt && (
         <div className="mb-4 rounded-soft border border-sand bg-cream/60 px-4 py-3 text-sm text-ink/70 flex items-center gap-2">
           <span>🙈</span>
-          <span>這個活動已被隱藏，只有有連結的人或管理員看得到。</span>
+          <span>這個活動已被隱藏，只有發起人和管理員看得到。</span>
         </div>
       )}
 

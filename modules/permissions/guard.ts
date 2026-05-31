@@ -16,15 +16,11 @@ import type { Role } from "@/modules/auth";
 import { getCurrentUser, requireCurrentUser } from "@/modules/auth";
 import { db } from "@/lib/db";
 import type { PermissionKey } from "./types";
-import { ROLE_PERMISSIONS } from "./data";
+// Pure decision logic lives in resolve.ts (no server-only deps) so it's
+// shared + unit-testable. Re-export roleHas so existing imports still work.
+import { roleHas, resolvePermission, DENY_SUFFIX } from "./resolve";
 
-/**
- * Pure check: does the given role hold the given permission?
- * No I/O, no async. Cheap.
- */
-export function roleHas(role: Role, permission: PermissionKey): boolean {
-  return ROLE_PERMISSIONS[role].includes(permission);
-}
+export { roleHas, resolvePermission };
 
 /**
  * Has this user been GRANTED this permission directly by an admin (on
@@ -79,14 +75,11 @@ function mustCompleteSetup(user: { setupCompleted: boolean; passwordHash: string
 }
 
 /**
- * Per-user DENY override. A row in UserPermissionGrant whose key is
+ * Per-user DENY override lookup. A row in UserPermissionGrant whose key is
  * `<permission>:deny` removes a permission the user would otherwise have
- * from their role. Used so admins can turn OFF invite.create for a
- * specific member even though Members get it by default. Admins themselves
- * can never be denied (a deny on an Admin is ignored — they manage denies).
+ * from their role (admins are exempt — see resolvePermission). Used so
+ * admins can turn OFF invite.create for a specific member.
  */
-export const DENY_SUFFIX = ":deny";
-
 async function hasDenyDb(userId: string, permission: PermissionKey): Promise<boolean> {
   const row = await db.userPermissionGrant.findUnique({
     where: { userId_permissionKey: { userId, permissionKey: `${permission}${DENY_SUFFIX}` } },
@@ -114,17 +107,13 @@ export async function requirePermission(permission: PermissionKey): Promise<void
   // enforced here, not just in the layout render.
   if (mustCompleteSetup(user)) throw new SetupIncompleteError();
   const roleName = user.role.name as Role;
-  // Admins are never subject to deny overrides. For everyone else, an
-  // explicit per-user deny removes a role-granted permission.
-  if (roleName !== "Admin" && (await hasDenyDb(user.id, permission))) {
-    // A direct grant can still re-enable it (grant beats deny only when
-    // explicitly re-granted). Otherwise the deny wins.
-    if (!(await hasGrantDb(user.id, permission))) {
-      throw new PermissionDeniedError(roleName, permission);
-    }
-  }
-  if (roleHas(roleName, permission)) return;
-  if (await hasGrantDb(user.id, permission)) return;
+  // Only look up grant/deny when the role itself doesn't already grant it
+  // (Admins skip deny entirely inside resolvePermission).
+  const [hasGrant, hasDeny] = await Promise.all([
+    hasGrantDb(user.id, permission),
+    roleName === "Admin" ? Promise.resolve(false) : hasDenyDb(user.id, permission),
+  ]);
+  if (resolvePermission({ role: roleName, permission, hasGrant, hasDeny })) return;
   throw new PermissionDeniedError(roleName, permission);
 }
 
@@ -142,10 +131,10 @@ export async function canCurrentUser(permission: PermissionKey): Promise<boolean
   // is done — keeps UI gating consistent with requirePermission.
   if (mustCompleteSetup(user)) return false;
   const roleName = user.role.name as Role;
-  // Mirror requirePermission's deny logic so UI gating matches enforcement.
-  if (roleName !== "Admin" && (await hasDenyDb(user.id, permission))) {
-    if (!(await hasGrantDb(user.id, permission))) return false;
-  }
-  if (roleHas(roleName, permission)) return true;
-  return hasGrantDb(user.id, permission);
+  // Mirror requirePermission EXACTLY via the shared pure resolver.
+  const [hasGrant, hasDeny] = await Promise.all([
+    hasGrantDb(user.id, permission),
+    roleName === "Admin" ? Promise.resolve(false) : hasDenyDb(user.id, permission),
+  ]);
+  return resolvePermission({ role: roleName, permission, hasGrant, hasDeny });
 }
