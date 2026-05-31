@@ -31,4 +31,8 @@ export type Post = {
   categories?: Category[];
   /** Set to a truthy ISO when the owner / a moderator manually hid this. */
   hiddenAt?: string | null;
+  /** Optional reward / bonus description authored by the post creator
+   *  (free-text, e.g. "前 3 個 RSVP 的人請喝咖啡"). When non-null,
+   *  PostCard renders a "🎁 獎勵" badge. */
+  bonus?: string | null;
 };

@@ -29,8 +29,15 @@ export async function createPostFormAction(
   const body = String(formData.get("body") ?? "").trim();
   const isPinned = formData.get("pin") === "on";
   const categorySlugs = formData.getAll("category").map(String).filter(Boolean);
+  // Bonus is opt-in via a checkbox; when the toggle's off we ignore the
+  // text field entirely. Trim + cap so we can't smuggle a giant payload
+  // and so trailing whitespace doesn't render a phantom badge.
+  const bonusOn = formData.get("bonusOn") === "on";
+  const bonusRaw = String(formData.get("bonus") ?? "").trim();
+  const bonus = bonusOn && bonusRaw ? bonusRaw.slice(0, 200) : null;
 
   if (!body) return { error: "請寫點內容" };
+  if (bonusOn && !bonusRaw) return { error: "勾了「加入獎勵」但沒寫獎勵內容" };
   if (isPinned) {
     // Pinning is a separate permission — Editor+ only
     await requirePermission("post.pin");
@@ -51,6 +58,7 @@ export async function createPostFormAction(
       kind,
       title: title || null,
       body,
+      bonus,
       isPinned,
       pinnedById: isPinned ? me.id : null,
       categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },

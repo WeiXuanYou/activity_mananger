@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
+import { canCurrentUser } from "@/modules/permissions";
 import {
   listUpcomingActivitiesDb,
   listPastActivitiesDb,
@@ -16,13 +17,14 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
   const { tab = "upcoming", cat: slug } = await searchParams;
   await requireCurrentUser();
 
-  const [upcoming, past, categories, activeCategory, next] =
+  const [upcoming, past, categories, activeCategory, next, canCreateCategory] =
     await Promise.all([
       listUpcomingActivitiesDb(),
       listPastActivitiesDb(),
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
       findNextActivityDb(),
+      canCurrentUser("category.create"),
     ]);
 
   const filterByCat = <T extends { categoryIds: string[] }>(xs: T[]) =>
@@ -77,6 +79,7 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
           categories={categories}
           activeSlug={slug}
           basePath={`/app/activities?tab=${tab}&`.replace("?tab=upcoming&", "")}
+          canCreate={canCreateCategory}
         />
       </div>
 

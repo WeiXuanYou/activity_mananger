@@ -63,6 +63,15 @@ export function PostCard({
       </div>
       {post.title && <h3 className="serif text-xl text-ink mb-2">{post.title}</h3>}
       <p className="text-ink/75 leading-relaxed mb-3">{post.body}</p>
+      {post.bonus && (
+        <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-soft bg-amber-50 border border-amber-200/70">
+          <span className="text-base leading-none mt-0.5">🎁</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-medium text-amber-700 tracking-widest uppercase">獎勵 · BONUS</div>
+            <div className="text-sm text-amber-900/85 leading-relaxed mt-0.5">{post.bonus}</div>
+          </div>
+        </div>
+      )}
       {cats.length > 0 && (
         <div className="mb-3"><CategoryChipList categories={cats} size="xs" /></div>
       )}

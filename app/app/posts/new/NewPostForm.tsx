@@ -3,15 +3,21 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createPostFormAction, type CreatePostState } from "@/modules/core/posts/actions";
 import type { Category } from "@/modules/core/categories";
-import { COLOR_CLASSES } from "@/modules/core/categories";
+import { COLOR_CLASSES, CreateCategoryModal } from "@/modules/core/categories";
 
 export function NewPostForm({
-  categories,
+  categories: initialCategories,
   canPin,
+  canCreateCategory,
 }: {
   categories: Category[];
   canPin: boolean;
+  canCreateCategory: boolean;
 }) {
+  // Hold categories in local state so a newly-created one shows up in
+  // the picker without a full page navigation.
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [createCatOpen, setCreateCatOpen] = useState(false);
   const [state, formAction] = useActionState<CreatePostState | undefined, FormData>(
     createPostFormAction,
     undefined,
@@ -93,8 +99,29 @@ export function NewPostForm({
               </button>
             );
           })}
+          {canCreateCategory && (
+            <button
+              type="button"
+              onClick={() => setCreateCatOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm border border-dashed border-sand text-ink/50 hover:text-terracotta"
+            >
+              ＋ 新分類
+            </button>
+          )}
         </div>
       </div>
+
+      <CreateCategoryModal
+        open={createCatOpen}
+        onClose={() => setCreateCatOpen(false)}
+        onCreated={(cat) => {
+          // Insert into the local list and auto-select it.
+          setCategories((cur) => [...cur, cat]);
+          if (selectedSlugs.length < 3) setSelectedSlugs((cur) => [...cur, cat.slug]);
+        }}
+      />
+
+      <BonusToggle />
 
       <label
         className={`flex items-start gap-3 px-3 py-2.5 rounded-soft border transition cursor-pointer ${
@@ -140,5 +167,49 @@ function SubmitButton() {
     >
       {pending ? "發布中..." : "發布"}
     </button>
+  );
+}
+
+/**
+ * Optional "加入獎勵" toggle. Folded into the same form via two named
+ * inputs: `bonusOn` (checkbox) gates whether `bonus` (text) is taken
+ * into account by the server action. We render them inside one card
+ * because they're conceptually one switch.
+ */
+function BonusToggle() {
+  const [on, setOn] = useState(false);
+  const [text, setText] = useState("");
+  return (
+    <div className="rounded-soft border border-sand bg-amber-50/40">
+      <label className="flex items-start gap-3 px-3 py-2.5 cursor-pointer">
+        <input
+          name="bonusOn"
+          type="checkbox"
+          checked={on}
+          onChange={(e) => setOn(e.target.checked)}
+          className="mt-1 rounded text-amber-600"
+        />
+        <div className="flex-1">
+          <div className="text-sm font-medium text-ink">🎁 加入獎勵（可選）</div>
+          <div className="text-xs text-ink/55 mt-0.5">
+            幫這篇貼文掛一個小獎勵 —— 例：前 3 個 RSVP 的人請喝咖啡 ☕、完成幫忙送 100 元紅包。會顯示在貼文上。
+          </div>
+        </div>
+      </label>
+      {on && (
+        <div className="px-3 pb-3 pt-1">
+          <input
+            name="bonus"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={200}
+            placeholder="獎勵內容（200 字內）"
+            className="w-full px-3 py-2 rounded-soft border border-amber-200 bg-white focus:outline-none focus:border-amber-400 text-sm"
+            autoFocus
+          />
+          <div className="text-[11px] text-ink/40 mt-1 text-right">{text.length} / 200</div>
+        </div>
+      )}
+    </div>
   );
 }

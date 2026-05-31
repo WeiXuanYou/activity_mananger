@@ -79,7 +79,7 @@ npm run dev
 | Env var | 用途 |
 |---|---|
 | `RESEND_API_KEY` | 不設 → 找回信件**只寫進 server log**（自架/開發可用，由管理員把連結貼給使用者）。設了 → 經 [Resend](https://resend.com) API 真的寄出。 |
-| `MAIL_FROM` | 寄件人格式，預設 `相聚 Together <onboarding@resend.dev>`。正式環境請改成你在 Resend 驗證過的網域。 |
+| `MAIL_FROM` | 寄件人，預設 `相聚 Together <onboarding@resend.dev>`。⚠️ **預設這個 sandbox 寄件人只能寄到你註冊 Resend 用的那一個信箱**（其他收件人會收不到信、或進垃圾信，但 Resend 不會回報錯誤）。正式使用請務必：(1) 在 Resend 後台**驗證你的網域**，(2) 把這個變數改成 `名字 <noreply@your.domain>`。 |
 | `APP_URL` | 用來組重設連結。預設讀 request 的 host header；佈署在反向代理後可手動設成 `https://your.domain`。 |
 | `TRUST_PROXY` | 預設不信任 `X-Forwarded-For`（避免直連的客戶端偽造 IP 繞過登入限流）。**佈署在 Vercel / nginx / Caddy 等反向代理後請設成 `true`**，這樣每個 IP 才能正確區分。 |
 

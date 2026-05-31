@@ -21,7 +21,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/modules/mail";
+import { sendEmail, renderEmailLayout, renderButton, escapeHtml } from "@/modules/mail";
 import { normalizeEmail } from "./validation";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -137,29 +137,29 @@ export async function consumeVerificationToken(
 
 function verifyEmailHtml(p: { name: string; link: string }): string {
   const link = escapeHtml(p.link);
-  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
-  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 確認 Email</h2>
-  <p>嗨，${escapeHtml(p.name)}：</p>
-  <p>請點下面的按鈕確認這個 Email 是你的（<strong>24 小時內有效</strong>）：</p>
-  <p style="text-align: center; margin: 24px 0;">
-    <a href="${link}" style="background: #C75B3A; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">確認 Email</a>
-  </p>
-  <p style="font-size: 13px; color: #6F6862;">或複製連結：<br><a href="${link}" style="color: #C75B3A; word-break: break-all;">${link}</a></p>
-  <p style="font-size: 13px; color: #6F6862;">確認後，未來忘記密碼或帳號時，我們才能透過這個信箱找回你。</p>
-</div>`;
+  return renderEmailLayout({
+    title: "確認你的 Email",
+    preheader: `${p.name}，請點連結確認這是你的信箱（24 小時內有效）。`,
+    body: `
+      <p style="margin:0 0 12px 0;">嗨，<strong>${escapeHtml(p.name)}</strong>：</p>
+      <p style="margin:0 0 8px 0;">請點下面的按鈕確認這個 Email 是你的<br><strong style="color:#C75B3A;">（24 小時內有效）</strong>：</p>
+      ${renderButton(p.link, "確認 Email")}
+      <p style="margin:18px 0 0 0; font-size:13px; color:#6F6862;">
+        如果按鈕沒反應，請複製這個連結貼到瀏覽器：<br>
+        <a href="${link}" style="color:#C75B3A; word-break:break-all; text-decoration:underline;">${link}</a>
+      </p>
+      <p style="margin:14px 0 0 0; font-size:13px; color:#6F6862;">
+        確認後，未來忘記密碼或帳號時，我們才能透過這個信箱找回你。
+      </p>
+      <p style="margin:14px 0 0 0; font-size:13px; color:#6F6862;">
+        ⚠️ 如果你沒有註冊「相聚」，這封信可以忽略。
+      </p>
+    `,
+  });
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// Avoid an unused-import lint warning when normalizeEmail isn't needed
-// at runtime (kept around for symmetry with recovery.ts; we may use it
-// when handling a self-service "resend verification to a corrected
-// address" flow).
+// normalizeEmail is intentionally imported for symmetry with recovery.ts
+// even though this module doesn't currently use it directly. Keeping the
+// import documents the convention; static-only `void` reference avoids
+// an unused-import lint nag.
 void normalizeEmail;

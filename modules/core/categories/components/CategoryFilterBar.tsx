@@ -1,20 +1,27 @@
 import Link from "next/link";
 import type { Category } from "../types";
 import { COLOR_CLASSES } from "../types";
+import { CreateCategoryButton } from "./CreateCategoryButton";
 
 /**
  * URL-driven category filter. Reads the active slug from `activeSlug` (the
  * page passes searchParams.cat) and renders Links that update the query
  * string. Server-component-friendly — no client state.
+ *
+ * Pass `canCreate` to render the "+ 新分類" pill (gated by the caller
+ * on the `category.create` permission so we don't show a button the
+ * user can't actually use).
  */
 export function CategoryFilterBar({
   categories,
   activeSlug,
   basePath,
+  canCreate = false,
 }: {
   categories: Category[];
   activeSlug?: string;
   basePath: string;
+  canCreate?: boolean;
 }) {
   const allActive = !activeSlug || activeSlug === "all";
 
@@ -49,9 +56,7 @@ export function CategoryFilterBar({
           </Link>
         );
       })}
-      <button className="shrink-0 ml-1 px-3 py-1.5 rounded-full text-sm text-ink/50 hover:text-terracotta border border-dashed border-sand">
-        ＋ 新分類
-      </button>
+      {canCreate && <CreateCategoryButton basePath={basePath} />}
     </div>
   );
 }

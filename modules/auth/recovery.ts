@@ -39,7 +39,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/modules/mail";
+import { sendEmail, renderEmailLayout, renderButton, escapeHtml } from "@/modules/mail";
 import { hashPassword } from "./password";
 import { normalizeEmail } from "./validation";
 
@@ -235,39 +235,57 @@ export async function consumeResetTokenAndSetPassword(
   });
 }
 
-// ─── HTML templates ────────────────────────────────────────────────
+// ─── HTML templates (use the shared email layout for cross-client safety) ──
 
 function passwordResetHtml(p: { name: string; handle: string; link: string }): string {
   const link = escapeHtml(p.link);
-  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
-  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 重設密碼</h2>
-  <p>嗨，${escapeHtml(p.name)}：</p>
-  <p>我們收到「相聚」的密碼重設請求。如果是你發起的，請點下面的按鈕設定新密碼（<strong>1 小時內有效</strong>）：</p>
-  <p style="text-align: center; margin: 24px 0;">
-    <a href="${link}" style="background: #C75B3A; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">設定新密碼</a>
-  </p>
-  <p style="font-size: 13px; color: #6F6862;">或複製連結：<br><a href="${link}" style="color: #C75B3A; word-break: break-all;">${link}</a></p>
-  <hr style="border: none; border-top: 1px solid #E8DDD0; margin: 24px 0;">
-  <p style="font-size: 13px; color: #6F6862;">你的登入帳號（handle）：<strong>${escapeHtml(p.handle)}</strong></p>
-  <p style="font-size: 13px; color: #6F6862;">如果不是你發起的，這封信可以忽略，你的密碼不會改變。</p>
-</div>`;
+  return renderEmailLayout({
+    title: "重設你的密碼",
+    preheader: `${p.name}，重設密碼的連結 1 小時內有效。`,
+    body: `
+      <p style="margin:0 0 12px 0;">嗨，<strong>${escapeHtml(p.name)}</strong>：</p>
+      <p style="margin:0 0 8px 0;">我們收到「相聚」的密碼重設請求。如果是你發起的，請點下面的按鈕設定新密碼<br><strong style="color:#C75B3A;">（1 小時內有效）</strong>：</p>
+      ${renderButton(p.link, "設定新密碼")}
+      <p style="margin:18px 0 0 0; font-size:13px; color:#6F6862;">
+        如果按鈕沒反應，請複製這個連結貼到瀏覽器：<br>
+        <a href="${link}" style="color:#C75B3A; word-break:break-all; text-decoration:underline;">${link}</a>
+      </p>
+      <div style="height:1px; background:#E8DDD0; margin:20px 0; line-height:1px; font-size:1px;">&nbsp;</div>
+      <p style="margin:0 0 6px 0; font-size:13px; color:#6F6862;">
+        順便附上你的登入帳號（handle）：
+      </p>
+      <p style="margin:0 0 12px 0; font-family:ui-monospace, Menlo, monospace; font-size:15px; background:#FAF5EE; padding:8px 12px; border-radius:6px; display:inline-block;">
+        ${escapeHtml(p.handle)}
+      </p>
+      <p style="margin:14px 0 0 0; font-size:13px; color:#6F6862;">
+        ⚠️ 如果不是你發起的，請忽略這封信 —— 你的密碼不會改變。
+      </p>
+    `,
+  });
 }
 
 function handleRecoveryHtml(p: { name: string; handle: string }): string {
-  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
-  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 你的登入帳號</h2>
-  <p>嗨，${escapeHtml(p.name)}：</p>
-  <p>你註冊「相聚」時使用的登入帳號（handle）是：</p>
-  <p style="font-size: 20px; font-family: ui-monospace, Menlo, monospace; background: #FAF5EE; padding: 12px 16px; border-radius: 8px; text-align: center;">${escapeHtml(p.handle)}</p>
-  <p style="font-size: 13px; color: #6F6862;">如果你也忘了密碼，可以到 <code>/forgot</code> 重設。</p>
-</div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return renderEmailLayout({
+    title: "你的登入帳號",
+    preheader: `${p.name}，你的登入帳號是 ${p.handle}。`,
+    body: `
+      <p style="margin:0 0 12px 0;">嗨，<strong>${escapeHtml(p.name)}</strong>：</p>
+      <p style="margin:0 0 14px 0;">你註冊「相聚」時使用的登入帳號（handle）是：</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:14px auto;">
+        <tr>
+          <td align="center" bgcolor="#FAF5EE" style="padding:14px 28px; border-radius:8px; border:1px solid #E8DDD0;">
+            <span style="font-family:ui-monospace, Menlo, monospace; font-size:20px; color:#2C2825; letter-spacing:1px;">
+              ${escapeHtml(p.handle)}
+            </span>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:14px 0 0 0; font-size:13px; color:#6F6862;">
+        用這個帳號 + 你的密碼就可以登入。如果你也忘了密碼，可以到登入頁的「忘記密碼或帳號」重設。
+      </p>
+      <p style="margin:14px 0 0 0; font-size:13px; color:#6F6862;">
+        ⚠️ 如果你沒有發起這個請求，這封信可以忽略。
+      </p>
+    `,
+  });
 }

@@ -33,6 +33,7 @@ type PostRow = {
   isPinned: boolean;
   pinnedById: string | null;
   hiddenAt: Date | null;
+  bonus: string | null;
   createdAt: Date;
   categories: { category: CategoryRow }[];
 };
@@ -69,6 +70,7 @@ export function prismaPostToPost(
     categoryIds: row.categories.map((c) => c.category.id),
     categories: row.categories.map((c) => prismaCategoryToCategory(c.category)),
     hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : null,
+    bonus: row.bonus,
   };
 }
 

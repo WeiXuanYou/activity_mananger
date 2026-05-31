@@ -32,7 +32,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
 
   // Fetch everything in parallel — they're independent queries
-  const [posts, activities, polls, categories, activeCategory, canPost] =
+  const [posts, activities, polls, categories, activeCategory, canPost, canCreateCategory] =
     await Promise.all([
       listPostsDb(),
       listUpcomingActivitiesDb(),
@@ -40,6 +40,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
       listCategoriesDb(),
       slug ? findCategoryBySlugDb(slug) : null,
       canCurrentUser("post.create"),
+      canCurrentUser("category.create"),
     ]);
 
   // Apply category filter on the joined client-side; cheap given dataset size
@@ -100,6 +101,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
           categories={categories}
           activeSlug={slug}
           basePath="/app/feed"
+          canCreate={canCreateCategory}
         />
       </div>
 

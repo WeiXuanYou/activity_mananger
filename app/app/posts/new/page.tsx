@@ -10,9 +10,10 @@ import { NewPostForm } from "./NewPostForm";
 
 export default async function NewPostPage() {
   const me = await requireCurrentUser();
-  const [categories, canPin] = await Promise.all([
+  const [categories, canPin, canCreateCategory] = await Promise.all([
     listCategoriesDb(),
     canCurrentUser("post.pin"),
+    canCurrentUser("category.create"),
   ]);
 
   return (
@@ -30,7 +31,7 @@ export default async function NewPostPage() {
         </p>
       </div>
 
-      <NewPostForm categories={categories} canPin={canPin} />
+      <NewPostForm categories={categories} canPin={canPin} canCreateCategory={canCreateCategory} />
     </main>
   );
 }

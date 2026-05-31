@@ -15,11 +15,12 @@ export default async function AppPagesIndex({ searchParams }: Search) {
   const { cat: slug } = await searchParams;
   await requireCurrentUser();
 
-  const [pages, categories, activeCategory, canCreate] = await Promise.all([
+  const [pages, categories, activeCategory, canCreate, canCreateCategory] = await Promise.all([
     slug ? filterCustomPagesByCategorySlugDb(slug) : listCustomPagesDb(),
     listCategoriesDb(),
     slug ? findCategoryBySlugDb(slug) : null,
     canCurrentUser("page.create"),
+    canCurrentUser("category.create"),
   ]);
 
   // Hydrate owners
@@ -48,7 +49,7 @@ export default async function AppPagesIndex({ searchParams }: Search) {
       </div>
 
       <div className="mb-6">
-        <CategoryFilterBar categories={categories} activeSlug={slug} basePath="/app/pages" />
+        <CategoryFilterBar categories={categories} activeSlug={slug} basePath="/app/pages" canCreate={canCreateCategory} />
       </div>
 
       {pages.length === 0 ? (

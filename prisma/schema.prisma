@@ -385,6 +385,15 @@ model Post {
   pinnedBy   User?    @relation("PostPinner", fields: [pinnedById], references: [id])
   /// Manually hidden by the owner or a moderator. See Activity.hiddenAt.
   hiddenAt   DateTime?
+  /// Optional "bonus" / reward attached to the post. Free-text on
+  /// purpose — at family/friends scale the author and reader sort
+  /// out fulfillment between themselves (e.g. "前 3 個 RSVP 的人請
+  ///喝咖啡 ☕" or "完成這項任務送 100 元紅包"). Null = no bonus, no
+  /// badge shown. Authors opt in via a checkbox on the create form.
+  /// Future evolution can add structured fields (amount, type, claim
+  /// flow) without breaking this column — it stays as the
+  /// human-readable description.
+  bonus      String?
   createdAt  DateTime @default(now())
 
   categories PostCategory[]
