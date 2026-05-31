@@ -3,31 +3,39 @@ import { headers } from "next/headers";
 
 /**
  * Best-effort read of the incoming request's origin and client IP from
- * the proxy headers. Centralized so the recovery-link builder and the
- * login rate limiter agree on how we derive these.
+ * the proxy headers. Centralized so the recovery-link builder, the
+ * rate limiter, and any future audit logging agree on the derivation.
  *
- * Caveats:
- *   - Behind a proxy you trust (Vercel, nginx with `proxy_set_header`),
- *     `x-forwarded-*` are reliable. With NO trusted proxy a client can
- *     spoof them — acceptable here because the IP only feeds a
- *     best-effort rate limiter, never an authorization decision.
- *   - `origin` falls back to the APP_URL env, then localhost for dev.
+ * Trust model:
+ *   - `x-forwarded-for` is only honoured when `TRUST_PROXY=true` is
+ *     set in the environment. Without that flag we ignore the
+ *     headers entirely and fall back to a per-deployment constant —
+ *     because a client connecting directly to the app can spoof those
+ *     headers freely, and we'd rather collapse to one bucket and lose
+ *     fine-grained rate-limiting than be neutered by trivial forgery.
+ *   - When `TRUST_PROXY=true` (typical for Vercel / nginx / Caddy
+ *     setups), the leftmost address in `x-forwarded-for` is taken as
+ *     the client IP.
+ *   - `origin` always falls back to `APP_URL` then `localhost`.
  */
 export async function getRequestMeta(): Promise<{ origin?: string; ip: string }> {
+  const trustProxy = process.env.TRUST_PROXY === "true";
   try {
     const h = await headers();
     const proto = h.get("x-forwarded-proto") || "http";
     const host = h.get("host");
     const origin = host ? `${proto}://${host}` : process.env.APP_URL || undefined;
-    // x-forwarded-for can be a comma list "client, proxy1, proxy2";
-    // the first hop is the original client.
-    const fwd = h.get("x-forwarded-for");
-    const ip =
-      (fwd ? fwd.split(",")[0]?.trim() : "") ||
-      h.get("x-real-ip") ||
-      "unknown";
+    let ip = "unknown";
+    if (trustProxy) {
+      const fwd = h.get("x-forwarded-for");
+      ip = (fwd ? fwd.split(",")[0]?.trim() : "") || h.get("x-real-ip") || "unknown";
+    }
     return { origin, ip };
-  } catch {
+  } catch (e) {
+    // Header context unavailable (e.g. called outside a request). The
+    // limiter caller treats "unknown" as one shared bucket; it's the
+    // safe-but-noisy default. Log so a real misconfiguration is visible.
+    console.warn("[request-meta] headers() failed:", (e as Error).message);
     return { origin: process.env.APP_URL || undefined, ip: "unknown" };
   }
 }

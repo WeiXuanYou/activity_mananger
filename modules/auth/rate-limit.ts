@@ -84,3 +84,29 @@ export const loginRateLimiter = createRateLimiter({
   max: 10,
   windowMs: 15 * 60 * 1000,
 });
+
+/**
+ * Public recovery endpoints (`/forgot` → password reset / handle lookup).
+ * Tighter than login because:
+ *   - there's no "I just mistyped" recovery path that requires retries
+ *   - it's the surface an enumeration attacker would hammer
+ *   - successful sends are GUESS-FREE for the attacker, so we count
+ *     every hit, not just failures
+ * 5 requests per 15 min per IP. A real user filling in their email
+ * once or twice never trips it.
+ */
+export const recoveryRateLimiter = createRateLimiter({
+  max: 5,
+  windowMs: 15 * 60 * 1000,
+});
+
+/**
+ * "Change my password" while signed in. Lower volume than login —
+ * 5 wrong-current-password attempts before we cool off — but keyed by
+ * USER (not IP) so a hijacked session can't grind the limit on the
+ * legitimate owner's IP while they're somewhere else.
+ */
+export const changePasswordRateLimiter = createRateLimiter({
+  max: 5,
+  windowMs: 15 * 60 * 1000,
+});

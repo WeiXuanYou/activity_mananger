@@ -56,6 +56,24 @@ npm run dev
 - 登入後的 `/app/account`（header `⚙ 設定`）可改：頭像、名字、暱稱、Email、生日、密碼。
 - 改密碼成功後，可用「🚪 把其他裝置登出」一次清掉其他所有 session。
 
+### 部署資料庫（重要）
+
+正式環境一律用 **`npm run db:deploy`**（= `prisma migrate deploy`）— 它只**套用**未跑過的 migration，**不會刪資料**。
+
+> ⚠️ **已經在跑舊版（Phase A–R）的自架使用者注意**
+> 如果你的正式 DB 已經有資料、而且**從未跑過任何 migration**（之前是用 `prisma db push`），你需要先把第一個基準 migration 標記為「已套用」，再讓 Prisma 跑後續的 ALTER：
+>
+> ```bash
+> # 一次性：告訴 Prisma 你的 DB 已經是基準狀態
+> npx prisma migrate resolve --applied 20260531064910_init_with_email_and_password_reset
+> # 然後正常套用後續 migration（加 email 欄位、PasswordReset 等）
+> npm run db:deploy
+> ```
+>
+> 全新安裝、或是空 DB 不需要這步。
+
+`db:reset` 會砍掉重建並重新 seed —— **僅限開發機**。
+
 ### 寄信設定
 
 | Env var | 用途 |
@@ -63,6 +81,7 @@ npm run dev
 | `RESEND_API_KEY` | 不設 → 找回信件**只寫進 server log**（自架/開發可用，由管理員把連結貼給使用者）。設了 → 經 [Resend](https://resend.com) API 真的寄出。 |
 | `MAIL_FROM` | 寄件人格式，預設 `相聚 Together <onboarding@resend.dev>`。正式環境請改成你在 Resend 驗證過的網域。 |
 | `APP_URL` | 用來組重設連結。預設讀 request 的 host header；佈署在反向代理後可手動設成 `https://your.domain`。 |
+| `TRUST_PROXY` | 預設不信任 `X-Forwarded-For`（避免直連的客戶端偽造 IP 繞過登入限流）。**佈署在 Vercel / nginx / Caddy 等反向代理後請設成 `true`**，這樣每個 IP 才能正確區分。 |
 
 ## 目錄結構
 

@@ -24,6 +24,19 @@ export const AVATAR_IMAGE_RE = /^data:image\/(png|jpeg|webp|gif);base64,/;
 /** ~600 KB of base64 ≈ ~450 KB raw — fits a phone snapshot, keeps the
  *  User row readable. Forms pre-resize client-side to stay well under. */
 export const AVATAR_MAX_BYTES = 600_000;
+/** Minimum password length. Single source of truth — duplicating this
+ *  across actions has been a recurring drift hazard. */
+export const MIN_PASSWORD_LEN = 8;
+/** First few bytes of supported image formats. We decode a small prefix
+ *  of the base64 and check it actually starts with one of these — so a
+ *  client can't claim `data:image/png;base64,` for arbitrary bytes and
+ *  smuggle non-image content into the User.avatarImage column. */
+const IMAGE_MAGIC: Record<string, number[][]> = {
+  png:  [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+  jpeg: [[0xFF, 0xD8, 0xFF]],
+  webp: [[0x52, 0x49, 0x46, 0x46]],          // "RIFF" — webp container
+  gif:  [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]], // GIF87a / GIF89a
+};
 
 /** The avatar background colors offered in the pickers and used to pick
  *  a random color for invite-created users. Single source of truth. */
@@ -69,6 +82,14 @@ export function validateEmail(raw: string): FieldResult<string> {
   return { ok: true, value: email };
 }
 
+/** Password length policy. */
+export function validatePassword(raw: string): FieldResult<string> {
+  if (!raw || raw.length < MIN_PASSWORD_LEN) {
+    return { ok: false, error: `密碼至少 ${MIN_PASSWORD_LEN} 個字` };
+  }
+  return { ok: true, value: raw };
+}
+
 /**
  * Validate an optional avatar-image field with the tri-state contract
  * shared by both forms:
@@ -82,11 +103,29 @@ export function validateAvatarImage(
 ): FieldResult<string | null | undefined> {
   if (v === undefined) return { ok: true, value: undefined };
   if (v === "") return { ok: true, value: null };
-  if (!AVATAR_IMAGE_RE.test(v)) {
+  const m = v.match(/^data:image\/(png|jpeg|webp|gif);base64,(.+)$/);
+  if (!m) {
     return { ok: false, error: "頭像格式不對（只接受 png / jpeg / webp / gif）" };
   }
   if (v.length > AVATAR_MAX_BYTES) {
     return { ok: false, error: "頭像太大（請壓到 500KB 以下）" };
+  }
+  // Magic-bytes check: decode the first ~16 raw bytes and confirm they
+  // match the claimed format's file signature. Blocks a client from
+  // sending text-as-png to slip past the avatar pipeline. Cheap — only
+  // the head of the payload is decoded.
+  const format = m[1];
+  const head = m[2].slice(0, 24); // 24 base64 chars → 18 raw bytes, enough for every magic above
+  let raw: Buffer;
+  try {
+    raw = Buffer.from(head, "base64");
+  } catch {
+    return { ok: false, error: "頭像資料無法解析" };
+  }
+  const sigs = IMAGE_MAGIC[format] ?? [];
+  const matches = sigs.some((sig) => sig.every((b, i) => raw[i] === b));
+  if (!matches) {
+    return { ok: false, error: "頭像不是有效的圖片檔" };
   }
   return { ok: true, value: v };
 }

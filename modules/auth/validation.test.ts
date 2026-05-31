@@ -6,11 +6,24 @@ import {
   validateEmail,
   validateAvatarImage,
   validateBirthday,
+  validatePassword,
   normalizeEmail,
   normalizeHandle,
   AVATAR_MAX_BYTES,
   AVATAR_PALETTE,
+  MIN_PASSWORD_LEN,
 } from "./validation";
+
+/** Build a data URL whose body starts with the given file-signature bytes
+ *  followed by zero padding. Used to exercise the magic-bytes check. */
+function dataUrlWithMagic(mime: "png" | "jpeg" | "webp" | "gif", magic: number[]): string {
+  const buf = Buffer.concat([Buffer.from(magic), Buffer.alloc(32)]);
+  return `data:image/${mime};base64,${buf.toString("base64")}`;
+}
+const PNG_MAGIC  = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const JPEG_MAGIC = [0xFF, 0xD8, 0xFF];
+const WEBP_MAGIC = [0x52, 0x49, 0x46, 0x46];
+const GIF_MAGIC  = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
 
 /**
  * These rules are the single source of truth for profile-field format,
@@ -71,16 +84,35 @@ describe("validateEmail", () => {
   });
 });
 
-describe("validateAvatarImage (tri-state)", () => {
+describe("validateAvatarImage (tri-state + magic-bytes)", () => {
   it("undefined → leave untouched", () => {
     expect(validateAvatarImage(undefined)).toEqual({ ok: true, value: undefined });
   });
   it("empty string → clear (null)", () => {
     expect(validateAvatarImage("")).toEqual({ ok: true, value: null });
   });
-  it("accepts an allowed data URL", () => {
-    const v = "data:image/jpeg;base64,AAAA";
+  it("accepts a real PNG signature", () => {
+    const v = dataUrlWithMagic("png", PNG_MAGIC);
     expect(validateAvatarImage(v)).toEqual({ ok: true, value: v });
+  });
+  it("accepts a real JPEG signature", () => {
+    const v = dataUrlWithMagic("jpeg", JPEG_MAGIC);
+    expect(validateAvatarImage(v).ok).toBe(true);
+  });
+  it("accepts a real WebP signature", () => {
+    const v = dataUrlWithMagic("webp", WEBP_MAGIC);
+    expect(validateAvatarImage(v).ok).toBe(true);
+  });
+  it("accepts a real GIF89a signature", () => {
+    const v = dataUrlWithMagic("gif", GIF_MAGIC);
+    expect(validateAvatarImage(v).ok).toBe(true);
+  });
+  it("rejects mime/magic mismatch (PNG mime + JPEG body)", () => {
+    const v = dataUrlWithMagic("png", JPEG_MAGIC);
+    expect(validateAvatarImage(v).ok).toBe(false);
+  });
+  it("rejects garbage body claiming to be PNG (smuggling check)", () => {
+    expect(validateAvatarImage("data:image/png;base64,AAAA").ok).toBe(false);
   });
   it("rejects non-image / wrong scheme", () => {
     expect(validateAvatarImage("https://evil/x.png").ok).toBe(false);
@@ -89,6 +121,19 @@ describe("validateAvatarImage (tri-state)", () => {
   it("rejects oversize", () => {
     const big = "data:image/png;base64," + "A".repeat(AVATAR_MAX_BYTES + 1);
     expect(validateAvatarImage(big).ok).toBe(false);
+  });
+});
+
+describe("validatePassword", () => {
+  it("rejects empty / too short", () => {
+    expect(validatePassword("").ok).toBe(false);
+    expect(validatePassword("a".repeat(MIN_PASSWORD_LEN - 1)).ok).toBe(false);
+  });
+  it("accepts minimum length", () => {
+    expect(validatePassword("a".repeat(MIN_PASSWORD_LEN))).toEqual({
+      ok: true,
+      value: "a".repeat(MIN_PASSWORD_LEN),
+    });
   });
 });
 

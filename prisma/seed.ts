@@ -191,8 +191,12 @@ async function main() {
   for (const m of MEMBERS) {
     const u = await db.user.upsert({
       where: { handle: m.handle },
-      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email },
-      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email },
+      // Normalize email at write time so the invariant "every stored email
+      // matches what `normalizeEmail` would have produced" holds whether
+      // the row came from the form or from the seed. Avoids a future
+      // `Foo@x.com` row that fails to match a lowercased lookup.
+      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase() },
+      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase() },
     });
     userRows[m.handle] = { id: u.id, handle: u.handle, role: m.role };
   }

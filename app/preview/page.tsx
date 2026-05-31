@@ -122,12 +122,77 @@ export default function PreviewPage() {
         <Section label="真實應用 App（需登入）" count={APP.length}><Grid shots={APP} /></Section>
         <Section label="設計稿 Mockup（純前端假資料）" count={MOCKUP.length}><Grid shots={MOCKUP} /></Section>
 
+        <TechStack />
+
         <footer className="mt-16 pt-6 border-t border-sand text-sm text-ink/50">
           相聚 Together · {PUBLIC.length + APP.length + MOCKUP.length} 個畫面 ·
           縮圖以 <code className="text-terracotta">node gen-preview.mjs</code> 重新產生
         </footer>
       </div>
     </main>
+  );
+}
+
+/**
+ * Technical stack callout. Lives only on /preview because end users
+ * shouldn't see "we use Prisma" on their feed — but operators / devs /
+ * curious self-hosters absolutely should be able to find this in one place.
+ */
+function TechStack() {
+  return (
+    <section className="mb-12">
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="serif text-2xl text-ink">技術細節</h2>
+        <div className="flex-1 divider-dashed" />
+        <span className="text-xs text-ink/40">給想自架的人看</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <TechCard title="📦 核心框架">
+          <ul className="space-y-1">
+            <li><strong>Next.js 15</strong> · App Router · Server Components + Server Actions</li>
+            <li><strong>TypeScript</strong>（嚴格模式）</li>
+            <li><strong>Tailwind CSS</strong> + 自家 design tokens（暖色家庭相簿風）</li>
+            <li><strong>React 19</strong></li>
+          </ul>
+        </TechCard>
+        <TechCard title="🗄 資料 & 持久化">
+          <ul className="space-y-1">
+            <li><strong>SQLite</strong> + <strong>Prisma</strong> ORM（一個檔案就跑得動，適合家人朋友規模）</li>
+            <li><strong>Prisma Migrations</strong> 版本化 schema：開發 <code className="bg-cream/60 px-1 rounded">db:migrate</code>，正式 <code className="bg-cream/60 px-1 rounded">db:deploy</code>（不洗資料）</li>
+            <li>頭像直接以 base64 inline 存在 User row（家庭規模毋須 blob storage）</li>
+            <li>規模長大可平移到 Postgres：只改 <code className="bg-cream/60 px-1 rounded">DATABASE_URL</code> 與 provider</li>
+          </ul>
+        </TechCard>
+        <TechCard title="🔐 身份與安全">
+          <ul className="space-y-1">
+            <li>Cookie session（30 天 TTL，DB 只存 SHA-256 hash）</li>
+            <li>密碼：Node <code className="bg-cream/60 px-1 rounded">scrypt</code>（加鹽 + 等時比對）</li>
+            <li><strong>登入防爆力</strong>：依 client IP 限流（10 次失敗 / 15 分鐘）</li>
+            <li><strong>找回密碼 / 帳號</strong>：一次性 token、1 小時有效、SHA-256 in DB、不洩漏帳號存在</li>
+            <li>邀請碼一次性 + 角色（Guest / Member / Editor / Admin）+ 細粒度權限</li>
+          </ul>
+        </TechCard>
+        <TechCard title="✉️ Email & AI（可選）">
+          <ul className="space-y-1">
+            <li>寄信走 <strong>Resend API</strong>（設 <code className="bg-cream/60 px-1 rounded">RESEND_API_KEY</code>）；不設則寫進 server log，方便自架時手動轉發</li>
+            <li>AI 助手相容 OpenAI 介面：<strong>Anthropic Claude</strong> / 本機 <strong>Ollama</strong> / 任何 OpenAI-compat 端點皆可</li>
+            <li>正式環境環境變數：<code className="bg-cream/60 px-1 rounded">DATABASE_URL</code>、<code className="bg-cream/60 px-1 rounded">SESSION_SECRET</code>、<code className="bg-cream/60 px-1 rounded">APP_URL</code>、<code className="bg-cream/60 px-1 rounded">RESEND_API_KEY</code>、<code className="bg-cream/60 px-1 rounded">MAIL_FROM</code></li>
+          </ul>
+        </TechCard>
+      </div>
+      <p className="mt-4 text-xs text-ink/50">
+        詳細部署說明見 repo 的 <code className="bg-cream/60 px-1 rounded">README.md</code> 與 <code className="bg-cream/60 px-1 rounded">modules/auth/README.md</code>。
+      </p>
+    </section>
+  );
+}
+
+function TechCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-soft border border-sand/60 shadow-card p-5">
+      <h3 className="serif text-lg text-ink mb-3">{title}</h3>
+      <div className="text-sm text-ink/75 leading-relaxed">{children}</div>
+    </div>
   );
 }
 

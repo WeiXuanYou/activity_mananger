@@ -30,7 +30,7 @@ export default async function AppPermissionsPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
-      <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">PERMISSIONS · LIVE DB</p>
+      <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">PERMISSIONS</p>
       <h1 className="serif text-3xl text-ink mb-2">你的權限</h1>
       <p className="text-ink/60 mb-8">
         你目前是 <RoleBadge role={myRole} /> · 你的角色擁有 <strong>{me.role.permissions.length}</strong> 項權限

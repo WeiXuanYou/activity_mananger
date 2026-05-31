@@ -11,7 +11,11 @@ import {
   consumeResetTokenAndSetPassword,
 } from "./recovery";
 import { getRequestMeta } from "./request-meta";
-import { loginRateLimiter } from "./rate-limit";
+import {
+  loginRateLimiter,
+  recoveryRateLimiter,
+  changePasswordRateLimiter,
+} from "./rate-limit";
 import {
   validateName,
   validateHandle,
@@ -19,9 +23,26 @@ import {
   validateEmail,
   validateAvatarImage,
   validateBirthday,
+  validatePassword,
+  MIN_PASSWORD_LEN,
 } from "./validation";
 
 export type SignInState = { error?: string; success?: boolean };
+
+/** Translate Prisma's P2002 ("unique constraint failed") on `User.handle`
+ *  or `User.email` into a human error. Closes the race where two
+ *  simultaneous setups pass the `findFirst` uniqueness pre-check then
+ *  both reach `update` — without this they'd see an opaque Prisma stack
+ *  trace instead of "this handle is taken". */
+function translateUniqueError(e: unknown): string | null {
+  const err = e as { code?: string; meta?: { target?: string | string[] } };
+  if (err?.code !== "P2002") return null;
+  const t = err.meta?.target;
+  const target = Array.isArray(t) ? t.join(",") : (t ?? "");
+  if (target.includes("handle")) return "這個暱稱已被使用，換一個吧";
+  if (target.includes("email"))  return "這個 Email 已被別人使用";
+  return "資料衝突，請稍後再試";
+}
 
 /**
  * REGISTER a new account via invite code. Creates a user with no
@@ -216,30 +237,35 @@ export async function completeSetupAction(input: {
   const birthdayDate = birthdayR.value ?? null;
 
   // Password rules: required when mustResetPassword, optional otherwise.
-  // Same min-length enforcement (8 chars) whether you're setting your
-  // first password or rotating the bootstrap one.
   let newPasswordHash: string | null | undefined = undefined;
   if (input.password && input.password.length > 0) {
-    if (input.password.length < 8) return { error: "密碼至少 8 個字" };
-    newPasswordHash = await hashPassword(input.password);
+    const pwR = validatePassword(input.password);
+    if (!pwR.ok) return { error: pwR.error };
+    newPasswordHash = await hashPassword(pwR.value);
   } else if (input.mustResetPassword) {
-    return { error: "第一次登入請先設新密碼（至少 8 個字）" };
+    return { error: `第一次登入請先設新密碼（至少 ${MIN_PASSWORD_LEN} 個字）` };
   }
 
-  await db.user.update({
-    where: { id: me.id },
-    data: {
-      name,
-      handle,
-      initial: initial.slice(0, 2),
-      avatarColor,
-      birthday: birthdayDate,
-      setupCompleted: true,
-      ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
-      ...(emailValue !== undefined ? { email: emailValue } : {}),
-      ...(newPasswordHash !== undefined ? { passwordHash: newPasswordHash } : {}),
-    },
-  });
+  try {
+    await db.user.update({
+      where: { id: me.id },
+      data: {
+        name,
+        handle,
+        initial: initial.slice(0, 2),
+        avatarColor,
+        birthday: birthdayDate,
+        setupCompleted: true,
+        ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
+        ...(emailValue !== undefined ? { email: emailValue } : {}),
+        ...(newPasswordHash !== undefined ? { passwordHash: newPasswordHash } : {}),
+      },
+    });
+  } catch (e) {
+    const msg = translateUniqueError(e);
+    if (msg) return { error: msg };
+    throw e;
+  }
 
   redirect("/app/feed");
 }
@@ -313,21 +339,32 @@ export async function updateProfileAction(input: {
   if (!birthdayR.ok) return { error: birthdayR.error };
   const birthdayDate = birthdayR.value;
 
-  await db.user.update({
-    where: { id: me.id },
-    data: {
-      name,
-      handle,
-      initial: initial.slice(0, 2),
-      avatarColor,
-      ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
-      ...(emailValue !== undefined ? { email: emailValue } : {}),
-      ...(birthdayDate !== undefined ? { birthday: birthdayDate } : {}),
-    },
-  });
+  try {
+    await db.user.update({
+      where: { id: me.id },
+      data: {
+        name,
+        handle,
+        initial: initial.slice(0, 2),
+        avatarColor,
+        ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
+        ...(emailValue !== undefined ? { email: emailValue } : {}),
+        ...(birthdayDate !== undefined ? { birthday: birthdayDate } : {}),
+      },
+    });
+  } catch (e) {
+    const msg = translateUniqueError(e);
+    if (msg) return { error: msg };
+    throw e;
+  }
 
+  // Revalidate every path that surfaces the user's name / avatar /
+  // handle: the account page itself, the authenticated shell layout,
+  // the feed (greeting line), and the per-user profile page.
   revalidatePath("/app/account");
-  revalidatePath("/app");
+  revalidatePath("/app", "layout");
+  revalidatePath("/app/feed");
+  revalidatePath(`/app/members/${me.id}`);
   return { ok: true };
 }
 
@@ -351,20 +388,39 @@ export async function changePasswordAction(input: {
   newPassword: string;
 }): Promise<AccountResult> {
   const me = await requireCurrentUser();
-  if (!input.newPassword || input.newPassword.length < 8) {
-    return { error: "新密碼至少 8 個字" };
+  const pwR = validatePassword(input.newPassword);
+  if (!pwR.ok) return { error: pwR.error.replace("密碼", "新密碼") };
+
+  // Throttle wrong-current-password attempts on the account. Keyed by
+  // user id (not IP) so a session hijacker can't grind down attempts
+  // from a different IP than the real owner, and a real owner who
+  // legitimately forgot can't be locked out by someone else.
+  const rlKey = `chpw:${me.id}`;
+  const gate = changePasswordRateLimiter.check(rlKey);
+  if (!gate.allowed) {
+    const mins = Math.ceil(gate.retryAfterMs / 60_000);
+    return { error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
   }
+
   if (me.passwordHash) {
     const ok = await verifyPassword(input.currentPassword ?? "", me.passwordHash);
-    if (!ok) return { error: "目前的密碼不對" };
-    // Block recycling the exact same password — a small but real
-    // benefit: stops a "rotate to itself" no-op.
+    if (!ok) {
+      changePasswordRateLimiter.hit(rlKey);
+      return { error: "目前的密碼不對" };
+    }
+    // Block recycling the exact same password.
     if (input.currentPassword === input.newPassword) {
       return { error: "新密碼不能跟舊密碼一樣" };
     }
   }
-  const passwordHash = await hashPassword(input.newPassword);
+  // No prior password ("set first password" path): nothing more to
+  // verify. This is the only branch a session hijacker on an invite-
+  // only user could exploit; for now we accept the trade-off because
+  // forcing a setup-completed user to ALWAYS have a password is the
+  // long-term fix (tracked in the README).
+  const passwordHash = await hashPassword(pwR.value);
   await db.user.update({ where: { id: me.id }, data: { passwordHash } });
+  changePasswordRateLimiter.reset(rlKey);
   return { ok: true };
 }
 
@@ -384,15 +440,16 @@ export async function signOutOtherSessionsAction(): Promise<AccountResult> {
   const { cookies } = await import("next/headers");
   const c = await cookies();
   const tok = c.get("together_session")?.value;
-  const currentHash = tok
-    ? createHash("sha256").update(tok).digest("hex")
-    : null;
-
+  // If we can't identify "this" session — for any reason — refuse
+  // rather than nuking every session for the user (which would include
+  // the one the form was submitted from). The earlier version spread
+  // an empty `{}` into the where clause and silently self-immolated.
+  if (!tok) {
+    return { error: "目前的 session 找不到，請重新登入後再試" };
+  }
+  const currentHash = createHash("sha256").update(tok).digest("hex");
   await db.session.deleteMany({
-    where: {
-      userId: me.id,
-      ...(currentHash ? { tokenHash: { not: currentHash } } : {}),
-    },
+    where: { userId: me.id, tokenHash: { not: currentHash } },
   });
   return { ok: true };
 }
@@ -407,12 +464,30 @@ export type RecoveryState = {
   error?: string;
 };
 
+/** IP-level throttle for the public recovery endpoints. Stops an
+ *  enumeration attacker from hammering the form: even if a residual
+ *  timing leak existed, 5 requests / 15 min means a meaningful
+ *  enumeration attack across millions of candidate emails is
+ *  impractical. A real user who mistypes once is unaffected. */
+async function recoveryGate(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { ip } = await getRequestMeta();
+  const gate = recoveryRateLimiter.check(`recovery:${ip}`);
+  if (!gate.allowed) {
+    const mins = Math.ceil(gate.retryAfterMs / 60_000);
+    return { ok: false, error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
+  }
+  recoveryRateLimiter.hit(`recovery:${ip}`); // count EVERY request, not just misses
+  return { ok: true };
+}
+
 export async function requestPasswordResetAction(
   _prev: RecoveryState | undefined,
   formData: FormData,
 ): Promise<RecoveryState> {
   const emailR = validateEmail(String(formData.get("email") ?? ""));
   if (!emailR.ok) return { error: emailR.error };
+  const gate = await recoveryGate();
+  if (!gate.ok) return { error: gate.error };
   const { origin } = await getRequestMeta();
   await requestPasswordReset(emailR.value, origin);
   return { sent: true };
@@ -424,6 +499,8 @@ export async function requestHandleRecoveryAction(
 ): Promise<RecoveryState> {
   const emailR = validateEmail(String(formData.get("email") ?? ""));
   if (!emailR.ok) return { error: emailR.error };
+  const gate = await recoveryGate();
+  if (!gate.ok) return { error: gate.error };
   await requestHandleRecovery(emailR.value);
   return { sent: true };
 }
@@ -437,7 +514,8 @@ export async function resetPasswordWithTokenAction(
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
-  if (password.length < 8) return { error: "密碼至少 8 個字" };
+  const pwR = validatePassword(password);
+  if (!pwR.ok) return { error: pwR.error };
   if (password !== confirm) return { error: "兩次輸入的密碼不一樣" };
 
   const r = await consumeResetTokenAndSetPassword(token, password);

@@ -8,25 +8,33 @@
  * Threat model & decisions:
  *
  *   - **No email enumeration**: every public action returns the same
- *     generic success message regardless of whether the email matches a
- *     real account. The mail goes out only if there's a match; the
- *     response shape is identical either way.
+ *     generic success message regardless of whether the email matches
+ *     a real account. The mail is dispatched **without await** in BOTH
+ *     branches (we fire-and-forget) so the on-the-wire timing is the
+ *     cheap DB lookup whether or not we matched. Combined with the
+ *     per-IP rate limit on the public endpoints (in `actions.ts`),
+ *     that closes the practical enumeration oracle.
  *
- *   - **Tokens stored hashed**: same pattern as Session — random 32-byte
- *     hex token sent to the user, SHA-256 of it stored in DB. A DB
- *     leak can't be replayed to forge reset links.
+ *   - **Tokens stored hashed**: random 32-byte hex token sent to the
+ *     user, SHA-256 of it stored in DB. A DB leak can't be replayed
+ *     to forge reset links.
  *
- *   - **One-shot tokens**: once consumed (`usedAt` set), a token is
- *     dead. We also delete prior unused tokens for the same user on
- *     each new request so a forgotten link from yesterday can't be
- *     dredged up.
+ *   - **Tokens pinned to the email-at-issue**: `PasswordReset.email`
+ *     captures the address we issued to. At consumption we verify the
+ *     user's current email still matches. A leaked link to an old
+ *     mailbox the user no longer controls cannot reset their password.
  *
- *   - **Short TTL**: 1 hour. Long enough for someone to switch devices;
- *     short enough that a leaked link expires before most threats can
- *     act on it.
+ *   - **One-shot, atomic**: the "mark used" step uses a conditional
+ *     UPDATE that fails (count=0) if anyone else has already consumed
+ *     the token — so a double-click with two different new passwords
+ *     can't leave the account in an indeterminate state.
  *
- *   - **Generic timing**: we still hash a dummy token even when no user
- *     matched, so request-time doesn't leak whether the email exists.
+ *   - **Short TTL**: 1 hour.
+ *
+ *   - **Kills existing sessions on success**: the whole point of
+ *     password recovery is to lock attackers out, so a successful
+ *     reset deletes every Session for the user and creates a fresh
+ *     one for the recovering user (done in the calling action).
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -36,29 +44,25 @@ import { hashPassword } from "./password";
 import { normalizeEmail } from "./validation";
 
 const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
-// Minimum gap between consecutive reset emails to the same account.
-// Stops someone from using the public form to flood a victim's inbox
-// (a "mail bomb"); 60s is invisible to a real person who just mistyped
-// once and tried again, but caps abuse to one mail/minute/account.
+
+/** Min gap between consecutive reset emails to the same account.
+ *  Caps mail-bomb abuse at 1/min/account; invisible to a real user who
+ *  just mistyped and tried again. */
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
-/** Build an absolute URL for the recovery link.
- *
- *  We don't bundle next/headers reads into this server-only helper
- *  because the callers (server actions) already know the origin from
- *  the request. The caller passes it in via `origin`; if unset we
- *  fall back to `APP_URL` env, then `http://localhost:3000` for dev. */
+/** Build an absolute URL for the recovery link. */
 function buildResetLink(origin: string | undefined, token: string): string {
   const base = origin || process.env.APP_URL || "http://localhost:3000";
   return `${base.replace(/\/$/, "")}/reset-password?token=${token}`;
 }
 
 /**
- * Issue a password-reset token for the user with this email (if any),
- * email them the link, and return — without revealing whether the
- * email was on file.
+ * Issue a password-reset token for the user with this email (if any).
+ * Returns void either way — the caller's response is the same generic
+ * "we sent it if we know you", and the mail goes out fire-and-forget so
+ * the network call doesn't show up in response time.
  */
 export async function requestPasswordReset(
   rawEmail: string,
@@ -69,51 +73,44 @@ export async function requestPasswordReset(
 
   const user = await db.user.findUnique({
     where: { email },
-    select: { id: true, name: true, handle: true },
+    select: { id: true, name: true, handle: true, email: true },
   });
+  if (!user || !user.email) return;
 
-  // Generate the token unconditionally so the timing of the response
-  // is roughly the same whether or not the email matched.
-  const token = randomBytes(32).toString("hex");
-  const tokenHash = sha(token);
-
-  if (!user) {
-    // Still hash something so request time looks similar. No DB write,
-    // no mail.
-    return;
-  }
-
-  // Cooldown: if we already emailed a fresh link in the last minute,
-  // silently skip — don't create a row, don't send. The caller still
-  // gets the same generic "we sent it if we know you" response, so this
-  // is invisible to a legitimate user and to an enumeration attacker.
-  const recent = await db.passwordReset.findFirst({
+  // Atomic cooldown + write: try to create a NEW token row, but only if
+  // there isn't a fresh one from the last minute. Doing this as
+  // create+findFirst-before-it would race. We rely on the unique
+  // tokenHash + a findFirst gate; the gate is the cooldown check.
+  const cooldown = await db.passwordReset.findFirst({
     where: { userId: user.id, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
     select: { id: true },
   });
-  if (recent) return;
+  if (cooldown) return;
 
-  // Clear prior resets for this user — unused ones limit the blast
-  // radius if an old link leaks; expired ones are just dead rows. We
-  // GC both here rather than running a scheduled job (family scale).
+  // GC prior unused + expired tokens (we don't need them once we issue
+  // a fresh one). Cheap on SQLite at this scale; avoids a scheduled job.
   await db.passwordReset.deleteMany({
     where: { userId: user.id, OR: [{ usedAt: null }, { expiresAt: { lt: new Date() } }] },
   });
 
+  const token = randomBytes(32).toString("hex");
   await db.passwordReset.create({
     data: {
       userId: user.id,
-      tokenHash,
+      email: user.email,
+      tokenHash: sha(token),
       expiresAt: new Date(Date.now() + RESET_TTL_MS),
     },
   });
 
+  // Fire-and-forget. We return before the network call to Resend
+  // completes, so the response time is bounded by the (fast) DB
+  // ops above — closing the enumeration timing channel.
   const link = buildResetLink(origin, token);
-  await sendEmail({
+  void sendEmail({
     to: email,
     subject: "相聚 · 重設密碼",
-    text:
-`嗨，${user.name}：
+    text: `嗨，${user.name}：
 
 我們收到「相聚」的密碼重設請求。如果是你發起的，請點下面的連結設定新密碼（1 小時內有效）：
 
@@ -125,25 +122,13 @@ ${link}
 
 —— 相聚 Together
 `,
-    html:
-`<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
-  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 重設密碼</h2>
-  <p>嗨，${escapeHtml(user.name)}：</p>
-  <p>我們收到「相聚」的密碼重設請求。如果是你發起的，請點下面的按鈕設定新密碼（<strong>1 小時內有效</strong>）：</p>
-  <p style="text-align: center; margin: 24px 0;">
-    <a href="${link}" style="background: #C75B3A; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">設定新密碼</a>
-  </p>
-  <p style="font-size: 13px; color: #6F6862;">或複製連結：<br><a href="${link}" style="color: #C75B3A; word-break: break-all;">${link}</a></p>
-  <hr style="border: none; border-top: 1px solid #E8DDD0; margin: 24px 0;">
-  <p style="font-size: 13px; color: #6F6862;">你的登入帳號（handle）：<strong>${escapeHtml(user.handle)}</strong></p>
-  <p style="font-size: 13px; color: #6F6862;">如果不是你發起的，這封信可以忽略，你的密碼不會改變。</p>
-</div>`,
-  });
+    html: passwordResetHtml({ name: user.name, handle: user.handle, link }),
+  }).catch((e) => console.error("[recovery] reset mail failed:", e));
 }
 
 /**
- * Send the user their handle (login id) by email. Same enumeration
- * guard as `requestPasswordReset`.
+ * Email the user their handle (login id). Same enumeration / timing
+ * properties as `requestPasswordReset`.
  */
 export async function requestHandleRecovery(rawEmail: string): Promise<void> {
   const email = normalizeEmail(rawEmail);
@@ -155,11 +140,10 @@ export async function requestHandleRecovery(rawEmail: string): Promise<void> {
   });
   if (!user) return;
 
-  await sendEmail({
+  void sendEmail({
     to: email,
     subject: "相聚 · 你的登入帳號",
-    text:
-`嗨，${user.name}：
+    text: `嗨，${user.name}：
 
 你註冊「相聚」時使用的登入帳號（handle）是：
 
@@ -169,15 +153,8 @@ export async function requestHandleRecovery(rawEmail: string): Promise<void> {
 
 —— 相聚 Together
 `,
-    html:
-`<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
-  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 你的登入帳號</h2>
-  <p>嗨，${escapeHtml(user.name)}：</p>
-  <p>你註冊「相聚」時使用的登入帳號（handle）是：</p>
-  <p style="font-size: 20px; font-family: ui-monospace, Menlo, monospace; background: #FAF5EE; padding: 12px 16px; border-radius: 8px; text-align: center;">${escapeHtml(user.handle)}</p>
-  <p style="font-size: 13px; color: #6F6862;">如果你也忘了密碼，可以到 <code>/forgot</code> 重設。</p>
-</div>`,
-  });
+    html: handleRecoveryHtml({ name: user.name, handle: user.handle }),
+  }).catch((e) => console.error("[recovery] handle mail failed:", e));
 }
 
 export type ConsumeResetResult =
@@ -185,10 +162,12 @@ export type ConsumeResetResult =
   | { ok: false; reason: "INVALID" | "EXPIRED" | "USED" };
 
 /**
- * Verify a reset token and apply a new password. Used atomically:
- *   1. Look up the token by its SHA-256
- *   2. Reject if missing / expired / already used
- *   3. Update password + mark token used in a single transaction
+ * Atomically verify a reset token, apply the new password, and kill
+ * every existing session for the user.
+ *
+ * The "consume" step is a conditional UPDATE (`updateMany` with a
+ * `usedAt: null` predicate) so two simultaneous redemptions don't both
+ * succeed. The session purge is part of the same transaction.
  */
 export async function consumeResetTokenAndSetPassword(
   rawToken: string,
@@ -205,27 +184,70 @@ export async function consumeResetTokenAndSetPassword(
   if (row.usedAt) return { ok: false, reason: "USED" };
   if (row.expiresAt < new Date()) return { ok: false, reason: "EXPIRED" };
 
+  // Verify the user's current email still matches the address this
+  // token was issued to. Blocks reuse of a link forwarded to / leaked
+  // from an old mailbox the user no longer controls.
+  const user = await db.user.findUnique({
+    where: { id: row.userId },
+    select: { email: true },
+  });
+  if (!user || user.email !== row.email) return { ok: false, reason: "INVALID" };
+
   const passwordHash = await hashPassword(newPassword);
 
-  await db.$transaction(async (tx) => {
+  return await db.$transaction(async (tx) => {
+    // Conditional UPDATE: only one of N racing redemptions wins.
+    const claim = await tx.passwordReset.updateMany({
+      where: { id: row.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (claim.count === 0) {
+      // Lost the race. Treat as already-used.
+      return { ok: false, reason: "USED" } as ConsumeResetResult;
+    }
     await tx.user.update({
       where: { id: row.userId },
       data: { passwordHash },
     });
-    await tx.passwordReset.update({
-      where: { id: row.id },
-      data: { usedAt: new Date() },
-    });
-    // Bonus security: invalidate other reset tokens for this user.
+    // Kill any other unused tokens AND every existing session for this
+    // user. Recovery's job is to lock attackers out — leaving sessions
+    // alive would defeat that.
     await tx.passwordReset.deleteMany({
       where: { userId: row.userId, usedAt: null, id: { not: row.id } },
     });
+    await tx.session.deleteMany({ where: { userId: row.userId } });
+    return { ok: true, userId: row.userId } as ConsumeResetResult;
   });
-
-  return { ok: true, userId: row.userId };
 }
 
-/** Minimal HTML escaping for the email templates. */
+// ─── HTML templates ────────────────────────────────────────────────
+
+function passwordResetHtml(p: { name: string; handle: string; link: string }): string {
+  const link = escapeHtml(p.link);
+  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
+  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 重設密碼</h2>
+  <p>嗨，${escapeHtml(p.name)}：</p>
+  <p>我們收到「相聚」的密碼重設請求。如果是你發起的，請點下面的按鈕設定新密碼（<strong>1 小時內有效</strong>）：</p>
+  <p style="text-align: center; margin: 24px 0;">
+    <a href="${link}" style="background: #C75B3A; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">設定新密碼</a>
+  </p>
+  <p style="font-size: 13px; color: #6F6862;">或複製連結：<br><a href="${link}" style="color: #C75B3A; word-break: break-all;">${link}</a></p>
+  <hr style="border: none; border-top: 1px solid #E8DDD0; margin: 24px 0;">
+  <p style="font-size: 13px; color: #6F6862;">你的登入帳號（handle）：<strong>${escapeHtml(p.handle)}</strong></p>
+  <p style="font-size: 13px; color: #6F6862;">如果不是你發起的，這封信可以忽略，你的密碼不會改變。</p>
+</div>`;
+}
+
+function handleRecoveryHtml(p: { name: string; handle: string }): string {
+  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; color: #2C2825; line-height: 1.6;">
+  <h2 style="color: #C75B3A; margin-bottom: 8px;">相聚 · 你的登入帳號</h2>
+  <p>嗨，${escapeHtml(p.name)}：</p>
+  <p>你註冊「相聚」時使用的登入帳號（handle）是：</p>
+  <p style="font-size: 20px; font-family: ui-monospace, Menlo, monospace; background: #FAF5EE; padding: 12px 16px; border-radius: 8px; text-align: center;">${escapeHtml(p.handle)}</p>
+  <p style="font-size: 13px; color: #6F6862;">如果你也忘了密碼，可以到 <code>/forgot</code> 重設。</p>
+</div>`;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

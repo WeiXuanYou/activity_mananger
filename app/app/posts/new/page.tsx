@@ -22,7 +22,7 @@ export default async function NewPostPage() {
       </Link>
 
       <div className="mb-6">
-        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">REAL DB · WRITE</p>
+        <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">寫文章</p>
         <h1 className="serif text-3xl text-ink">寫一篇文章</h1>
         <p className="text-ink/60 text-sm mt-1">
           以 <strong className="text-ink/80">{me.name}</strong> 發布 ·

@@ -36,7 +36,7 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
     <main className="max-w-6xl mx-auto px-5 py-8">
       <div className="flex items-end gap-4 mb-6 flex-wrap">
         <div>
-          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">ACTIVITIES · LIVE DB</p>
+          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">ACTIVITIES</p>
           <h1 className="serif text-3xl text-ink">活動</h1>
         </div>
         <Link

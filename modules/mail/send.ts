@@ -54,6 +54,10 @@ export async function sendEmail(msg: MailMessage): Promise<{ ok: true }> {
   }
 
   try {
+    // 5-second cap. Without this, a slow / hanging Resend response keeps
+    // the server-action connection alive for Node's ~5-minute socket
+    // timeout — a DoS surface for the unauth /forgot endpoint. AbortError
+    // is caught below and logged like any other failure.
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
@@ -67,14 +71,16 @@ export async function sendEmail(msg: MailMessage): Promise<{ ok: true }> {
         text: msg.text,
         ...(msg.html ? { html: msg.html } : {}),
       }),
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error("📧 [mail:resend] non-2xx", res.status, body.slice(0, 200));
     }
   } catch (e) {
-    // Network blip or DNS failure — log loudly but don't bubble up. The
-    // user-facing flow already returned "we sent if we have your email".
+    // Network blip, DNS failure, or timeout — log loudly but don't
+    // bubble up. The user-facing flow already returned the generic
+    // "we sent if we have your email" message.
     console.error("📧 [mail:resend] fetch failed:", (e as Error).message);
   }
   return { ok: true };

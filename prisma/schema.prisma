@@ -496,6 +496,11 @@ model PasswordReset {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The email this token was issued to. Pinned at issue time so that
+  /// if the user later changes their address, an old token that leaked
+  /// to the previous mailbox (or was forwarded by mistake) can't be
+  /// redeemed. Verified to match `User.email` at consumption.
+  email     String
   tokenHash String   @unique
   expiresAt DateTime
   usedAt    DateTime?

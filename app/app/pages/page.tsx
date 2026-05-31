@@ -31,7 +31,7 @@ export default async function AppPagesIndex({ searchParams }: Search) {
     <main className="max-w-6xl mx-auto px-5 py-8">
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
-          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CUSTOM PAGES · LIVE DB</p>
+          <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CUSTOM PAGES</p>
           <h1 className="serif text-3xl text-ink">自訂頁面</h1>
           <p className="text-ink/60 text-sm mt-1">
             {activeCategory ? `「${activeCategory.name}」分類 · ${pages.length} 個頁面` : "用 block 堆出自己的小頁面"}
