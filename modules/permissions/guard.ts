@@ -53,6 +53,32 @@ export class PermissionDeniedError extends Error {
 }
 
 /**
+ * Thrown when a user who hasn't finished first-time setup tries to perform
+ * a privileged action. The bootstrap admin ships as `admin`/`admin` with
+ * `setupCompleted=false` and a known-weak password; the setup form forces a
+ * password rotation. Without this guard that rotation was only enforced in
+ * the layout's RENDER — a script could log in with the default creds and
+ * call privileged server actions / API routes directly, never rotating.
+ *
+ * Rule: a user that already has a passwordHash but has NOT completed setup
+ * is mid-rotation and must finish it before doing anything privileged.
+ * (Invite-redeemed users have setupCompleted=false too, but no passwordHash
+ * yet — they're allowed through; their setup is profile-only, not a
+ * security rotation.)
+ */
+export class SetupIncompleteError extends Error {
+  constructor() {
+    super("Setup incomplete: finish first-time setup (and password rotation) first");
+    this.name = "SetupIncompleteError";
+  }
+}
+
+/** True when the user must finish setup before privileged actions. */
+function mustCompleteSetup(user: { setupCompleted: boolean; passwordHash: string | null }): boolean {
+  return user.passwordHash != null && !user.setupCompleted;
+}
+
+/**
  * SERVER-SIDE chokepoint. Call this at the TOP of every server action
  * and every server-component page that reads non-public data.
  *
@@ -66,6 +92,10 @@ export class PermissionDeniedError extends Error {
  */
 export async function requirePermission(permission: PermissionKey): Promise<void> {
   const user = await requireCurrentUser();
+  // Bootstrap admin (or anyone shipped with a password) must finish the
+  // forced first-login setup/rotation before doing ANYTHING privileged —
+  // enforced here, not just in the layout render.
+  if (mustCompleteSetup(user)) throw new SetupIncompleteError();
   const roleName = user.role.name as Role;
   if (roleHas(roleName, permission)) return;
   if (await hasGrantDb(user.id, permission)) return;
@@ -82,6 +112,9 @@ export async function requirePermission(permission: PermissionKey): Promise<void
 export async function canCurrentUser(permission: PermissionKey): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
+  // Mid-rotation bootstrap admin has no effective permissions until setup
+  // is done — keeps UI gating consistent with requirePermission.
+  if (mustCompleteSetup(user)) return false;
   if (roleHas(user.role.name as Role, permission)) return true;
   return hasGrantDb(user.id, permission);
 }

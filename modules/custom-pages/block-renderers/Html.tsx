@@ -37,6 +37,15 @@ const HTML_ALLOWED = {
   allowedSchemes: ["http", "https", "mailto"],
   // Don't drop empty allowed tags — let formatting like <br> survive
   selfClosing: ["br", "hr", "img"],
+  // Force every link to be safe: rel="noopener noreferrer nofollow" stops
+  // reverse-tabnabbing (a target=_blank page reaching back via
+  // window.opener) and leaking the referrer to user-authored URLs.
+  transformTags: {
+    a: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...attribs, rel: "noopener noreferrer nofollow" },
+    }),
+  },
 } satisfies sanitizeHtml.IOptions;
 
 registerBlockRenderer({

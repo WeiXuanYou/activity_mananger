@@ -160,6 +160,18 @@ async function main() {
     // self-hosters, and the forced first-login rotation closes the gap.
     const { hashPassword } = await import("@/modules/auth/password");
     const defaultPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim() || "admin";
+    // Defence in depth: the forced first-login rotation (enforced
+    // server-side in requirePermission via SetupIncompleteError) means the
+    // default `admin` password can't be used for any privileged action
+    // before it's changed. Still, loudly nudge operators to set a real
+    // bootstrap password in production so the very first login isn't a race.
+    if (!process.env.BOOTSTRAP_ADMIN_PASSWORD && process.env.NODE_ENV === "production") {
+      console.warn(
+        "\n⚠️  BOOTSTRAP_ADMIN_PASSWORD is not set — using the weak default 'admin'.\n" +
+        "    The account can't do anything privileged until first-login rotation,\n" +
+        "    but you should set BOOTSTRAP_ADMIN_PASSWORD and log in promptly.\n",
+      );
+    }
     const passwordHash = await hashPassword(defaultPassword);
     await db.user.create({
       data: {

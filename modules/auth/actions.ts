@@ -143,15 +143,25 @@ export async function signInWithPasswordAction(
   const password = String(formData.get("password") ?? "");
   if (!identifier || !password) return { error: "請輸入帳號和密碼" };
 
-  // Brute-force protection: throttle by client IP (NOT by account, which
-  // would let anyone lock a victim out). 10 misses / 15 min — invisible
-  // to a forgetful family member, fatal to online password guessing.
+  // Brute-force protection. We throttle on TWO independent keys:
+  //   - per IP (effective when the IP is trustworthy — see TRUST_PROXY)
+  //   - per target account identifier
+  // Keying by account matters because, without a trusted proxy, every
+  // request collapses to ip="unknown" (one shared bucket). Per-IP-only
+  // would then let a single attacker either lock out everyone OR be
+  // invisible. The per-account key guarantees online guessing against any
+  // single account is throttled regardless of IP trust, and a guesser can
+  // only ever slow down the account they're already attacking (whose
+  // password they don't know anyway) — never a third party's login.
   const { ip } = await getRequestMeta();
-  const key = `login:${ip}`;
-  const gate = loginRateLimiter.check(key);
-  if (!gate.allowed) {
-    const mins = Math.ceil(gate.retryAfterMs / 60_000);
-    return { error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
+  const ipKey = `login:ip:${ip}`;
+  const acctKey = `login:acct:${identifier}`;
+  for (const key of [ipKey, acctKey]) {
+    const gate = loginRateLimiter.check(key);
+    if (!gate.allowed) {
+      const mins = Math.ceil(gate.retryAfterMs / 60_000);
+      return { error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
+    }
   }
 
   // Email lookup if the identifier contains '@', else handle. We compile
@@ -170,10 +180,12 @@ export async function signInWithPasswordAction(
   const stored = user?.passwordHash ?? "scrypt$16384$00$00";
   const ok = await verifyPassword(password, stored);
   if (!user || !ok) {
-    loginRateLimiter.hit(key);
+    loginRateLimiter.hit(ipKey);
+    loginRateLimiter.hit(acctKey);
     return { error: "帳號或密碼錯誤" };
   }
-  loginRateLimiter.reset(key); // clear the window on success
+  loginRateLimiter.reset(ipKey);
+  loginRateLimiter.reset(acctKey); // clear both windows on success
 
   const token = await createSession(user.id);
   await setSessionCookie(token);

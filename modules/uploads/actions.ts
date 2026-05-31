@@ -63,11 +63,34 @@ export async function uploadImageAction(formData: FormData): Promise<UploadResul
 
   try {
     await mkdir(UPLOAD_DIR, { recursive: true });
-    const ext = EXT_BY_MIME[file.type];
     const id = randomBytes(12).toString("hex");
+    const buf = Buffer.from(await file.arrayBuffer());
+
+    // Content sniffing — DON'T trust the client's declared MIME. We decode
+    // the actual bytes with sharp and use the format IT detects, not the
+    // `Content-Type` header. This rejects a non-image payload disguised as
+    // `image/png`, and anchors the on-disk extension to real content so a
+    // polyglot can't be served with a misleading name.
+    let meta: { format?: string };
+    try {
+      meta = await sharp(buf).metadata();
+    } catch {
+      return { ok: false, error: "這個檔案看起來不是有效的圖片" };
+    }
+    // sharp's detected format → our canonical extension. SVG is absent on
+    // purpose (vector + scriptable = XSS risk), so an SVG is rejected here
+    // even if it somehow passed the MIME allow-list.
+    const FORMAT_EXT: Record<string, string> = {
+      jpeg: "jpg", png: "png", webp: "webp", gif: "gif",
+    };
+    const detected = meta.format ?? "";
+    const ext = FORMAT_EXT[detected];
+    if (!ext) {
+      return { ok: false, error: `不支援這個圖片格式（${detected || "未知"}）` };
+    }
+
     const origName = `${id}.${ext}`;
     const thumbName = `${id}.thumb.jpg`;
-    const buf = Buffer.from(await file.arrayBuffer());
 
     // Write the original first — that's what `url` points to.
     await writeFile(path.join(UPLOAD_DIR, origName), buf);
@@ -76,7 +99,7 @@ export async function uploadImageAction(formData: FormData): Promise<UploadResul
     // (sharp's default would freeze them at first frame); we just point
     // the thumb at the original in that case.
     let thumbUrl = `/uploads/${origName}`;
-    if (file.type !== "image/gif") {
+    if (detected !== "gif") {
       try {
         const thumbBuf = await sharp(buf)
           .rotate() // honor EXIF orientation; phone photos are notorious for this

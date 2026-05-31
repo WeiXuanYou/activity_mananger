@@ -30,6 +30,13 @@ const RICHTEXT_ALLOWED = {
     span: ["class"],
   },
   allowedSchemes: ["http", "https", "mailto"],
+  // Force safe links — see Html.tsx for the reverse-tabnabbing rationale.
+  transformTags: {
+    a: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...attribs, rel: "noopener noreferrer nofollow" },
+    }),
+  },
 } satisfies sanitizeHtml.IOptions;
 
 registerBlockRenderer({

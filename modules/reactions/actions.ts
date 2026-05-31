@@ -14,6 +14,18 @@ import { requireCurrentUser } from "@/modules/auth";
 import { emit } from "@/modules/analytics";
 import { isReactionKind, type ReactionKind, type ReactionParentType } from "./types";
 
+/** Does the reaction's target row actually exist? Guards against forged
+ *  client calls creating orphan reactions pointing at arbitrary IDs. */
+async function parentExists(parentType: ReactionParentType, parentId: string): Promise<boolean> {
+  switch (parentType) {
+    case "POST":     return Boolean(await db.post.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "ACTIVITY": return Boolean(await db.activity.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "COMMENT":  return Boolean(await db.comment.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "PAGE":     return Boolean(await db.customPage.findUnique({ where: { id: parentId }, select: { id: true } }));
+    default:         return false;
+  }
+}
+
 export async function setReactionAction(input: {
   parentType: ReactionParentType;
   parentId: string;
@@ -23,6 +35,11 @@ export async function setReactionAction(input: {
 }): Promise<void> {
   const me = await requireCurrentUser();
   if (!isReactionKind(input.kind)) return;
+
+  // Verify the target exists before writing — a forged client call can't
+  // create orphan reactions on arbitrary IDs. (All content is member-
+  // visible in this community, so existence is the right check, not ACL.)
+  if (!(await parentExists(input.parentType, input.parentId))) return;
 
   // The viewer's current reactions on this item. There SHOULD be at most
   // one, but the legacy LIKE-only toggle + the per-kind unique index mean a

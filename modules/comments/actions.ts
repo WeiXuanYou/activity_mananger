@@ -15,6 +15,18 @@ import type { CommentParentType } from "./types";
 
 export type CommentState = { error?: string };
 
+/** Does the comment's target exist? Guards against forged calls attaching
+ *  comments to arbitrary IDs. COMMENT parent = a reply to another comment. */
+async function commentParentExists(parentType: CommentParentType, parentId: string): Promise<boolean> {
+  switch (parentType) {
+    case "POST":     return Boolean(await db.post.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "ACTIVITY": return Boolean(await db.activity.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "PAGE":     return Boolean(await db.customPage.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "COMMENT":  return Boolean(await db.comment.findUnique({ where: { id: parentId }, select: { id: true } }));
+    default:         return false;
+  }
+}
+
 export async function createCommentAction(input: {
   parentType: CommentParentType;
   parentId: string;
@@ -30,6 +42,11 @@ export async function createCommentAction(input: {
   // A comment needs SOMETHING — text or an image.
   if (!body && !image) return { error: "請寫點東西或附上圖片" };
   if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
+
+  // Verify the comment's target exists — don't let a forged call attach
+  // comments to arbitrary / non-existent IDs.
+  const targetOk = await commentParentExists(input.parentType, input.parentId);
+  if (!targetOk) return { error: "找不到要留言的對象" };
 
   await db.comment.create({
     data: {
