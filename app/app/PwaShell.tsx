@@ -28,11 +28,27 @@ export function PwaShell() {
     if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 
-    // Register the SW. Update available? `registration.update()` is
-    // called automatically by the browser when the SW header changes.
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* unsupported / file:// — ignore quietly */
-    });
+    // Register the SW, and ALWAYS check for an updated sw.js on load. When a
+    // new SW takes control (e.g. the deploy-safe one that stops caching app
+    // code), reload once so the page runs against fresh, non-stale assets.
+    // This is what heals browsers stuck on a previous aggressive SW that
+    // was serving stale JS and breaking all interactivity after a deploy.
+    let reloaded = false;
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        reg.update().catch(() => {});
+      })
+      .catch(() => {
+        /* unsupported / file:// — ignore quietly */
+      });
+
+    const onControllerChange = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -47,6 +63,7 @@ export function PwaShell() {
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
     };
   }, []);
 

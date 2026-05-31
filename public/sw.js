@@ -1,9 +1,39 @@
-// Service worker for PWA installability + Web Push.
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
-self.addEventListener("fetch", () => {});
+/* 相聚 Service Worker — minimal + deploy-safe.
+ *
+ * HARD LESSON: a service worker that caches HTML or JS chunks will, after
+ * the next deploy, serve STALE client code against fresh server markup —
+ * causing a hydration mismatch that silently kills ALL interactivity
+ * (comments, edits, menus, forms). So this SW deliberately does NOT cache
+ * any app code. It only:
+ *   1. exists so the app is installable as a PWA, and
+ *   2. handles Web Push (push + notificationclick).
+ *
+ * On activate it DELETES every cache a previous SW version created, so a
+ * browser that still has the old aggressive SW heals itself on next load.
+ */
 
-// Web Push: show the notification the server sent.
+self.addEventListener("install", () => {
+  // Take over as soon as possible so the fix reaches users without a
+  // second reload.
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    (async () => {
+      // Nuke ALL caches — including the old together-static-* / together-img-*
+      // that cached HTML/JS and caused the stale-hydration breakage.
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+      await self.clients.claim();
+    })(),
+  );
+});
+
+// IMPORTANT: no "fetch" handler. Without one, the browser goes straight to
+// the network for every request — always-fresh HTML + JS, no stale cache.
+
+// --- Web Push -------------------------------------------------------------
 self.addEventListener("push", (event) => {
   let payload = {};
   try {
@@ -16,16 +46,12 @@ self.addEventListener("push", (event) => {
     body: payload.body || "",
     icon: "/icon.svg",
     badge: "/icon.svg",
-    // Stash the link so the click handler can open it.
     data: { link: payload.link || "/app/feed" },
-    // Coalesce duplicate notifications about the same thing.
     tag: payload.tag || undefined,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Clicking a push notification focuses an existing tab (navigating it to
-// the link) or opens a new one.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/app/feed";

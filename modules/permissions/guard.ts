@@ -79,6 +79,23 @@ function mustCompleteSetup(user: { setupCompleted: boolean; passwordHash: string
 }
 
 /**
+ * Per-user DENY override. A row in UserPermissionGrant whose key is
+ * `<permission>:deny` removes a permission the user would otherwise have
+ * from their role. Used so admins can turn OFF invite.create for a
+ * specific member even though Members get it by default. Admins themselves
+ * can never be denied (a deny on an Admin is ignored — they manage denies).
+ */
+export const DENY_SUFFIX = ":deny";
+
+async function hasDenyDb(userId: string, permission: PermissionKey): Promise<boolean> {
+  const row = await db.userPermissionGrant.findUnique({
+    where: { userId_permissionKey: { userId, permissionKey: `${permission}${DENY_SUFFIX}` } },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/**
  * SERVER-SIDE chokepoint. Call this at the TOP of every server action
  * and every server-component page that reads non-public data.
  *
@@ -97,6 +114,15 @@ export async function requirePermission(permission: PermissionKey): Promise<void
   // enforced here, not just in the layout render.
   if (mustCompleteSetup(user)) throw new SetupIncompleteError();
   const roleName = user.role.name as Role;
+  // Admins are never subject to deny overrides. For everyone else, an
+  // explicit per-user deny removes a role-granted permission.
+  if (roleName !== "Admin" && (await hasDenyDb(user.id, permission))) {
+    // A direct grant can still re-enable it (grant beats deny only when
+    // explicitly re-granted). Otherwise the deny wins.
+    if (!(await hasGrantDb(user.id, permission))) {
+      throw new PermissionDeniedError(roleName, permission);
+    }
+  }
   if (roleHas(roleName, permission)) return;
   if (await hasGrantDb(user.id, permission)) return;
   throw new PermissionDeniedError(roleName, permission);
@@ -115,6 +141,11 @@ export async function canCurrentUser(permission: PermissionKey): Promise<boolean
   // Mid-rotation bootstrap admin has no effective permissions until setup
   // is done — keeps UI gating consistent with requirePermission.
   if (mustCompleteSetup(user)) return false;
-  if (roleHas(user.role.name as Role, permission)) return true;
+  const roleName = user.role.name as Role;
+  // Mirror requirePermission's deny logic so UI gating matches enforcement.
+  if (roleName !== "Admin" && (await hasDenyDb(user.id, permission))) {
+    if (!(await hasGrantDb(user.id, permission))) return false;
+  }
+  if (roleHas(roleName, permission)) return true;
   return hasGrantDb(user.id, permission);
 }

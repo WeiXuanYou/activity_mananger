@@ -15,13 +15,15 @@ const PERMISSIONS_BY_ROLE: Record<(typeof ROLES)[number], string[]> = {
   Member: [
     "post.create", "comment.create", "page.create", "category.create",
     "activity.create", "poll.create",
+    // Members can invite by default; admins can deny per-user (guard.ts).
+    "invite.create",
   ],
   Editor: [
     "post.create", "post.pin", "post.moderate",
     "activity.create", "activity.moderate",
     "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
-    "category.create",
+    "category.create", "invite.create",
   ],
   Admin: [
     "post.create", "post.pin", "post.moderate",

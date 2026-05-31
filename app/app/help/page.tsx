@@ -28,14 +28,29 @@ export default async function HelpPage() {
 
       <Section title="① 你能做什麼" emoji="🌿">
         <ul className="space-y-2 text-sm text-ink/80 leading-relaxed">
-          <li>📰 <strong>看動態 / 發文</strong>：左邊欄按「動態」，按右上角「+ 寫一篇文章」就能分享。</li>
-          <li>🍖 <strong>辦活動</strong>：上方選單「建立：活動」。設好時間地點，家人朋友會收到通知，可以 RSVP（會去 / 可能 / 不去）。</li>
+          <li>📰 <strong>看動態 / 發文</strong>：左邊欄按「動態」，按右上角「+ 寫一篇文章」就能分享。發文可以<strong>附多張圖片</strong>。點貼文的 💬 進到貼文頁就能留言。</li>
+          <li>🍖 <strong>辦活動</strong>：上方選單「建立：活動」。設好時間地點（地點可以從<strong>常用地點</strong>直接點選），家人朋友會收到通知，可以 RSVP（會去 / 可能 / 不去）。</li>
           <li>📊 <strong>起投票</strong>：選「建立：投票」。支援多選、匿名、家人也能新增選項。也能做 Doodle 風格的「找共同時間」。</li>
-          <li>📅 <strong>行事曆</strong>：所有活動都會出現在月曆上，可以一眼看到下個月的計畫。</li>
-          <li>🏨 <strong>住宿筆記</strong>：把住過或想推薦的飯店民宿存下來，依地區整理。下次在同一個地區辦活動時會自動跳出來給你參考。</li>
-          <li>📄 <strong>自訂頁面</strong>：每個人都可以做自己的頁面（食譜、回憶、清單⋯⋯），可選擇自己看或所有成員看。</li>
-          <li>💬 <strong>留言 + 按讚</strong>：每篇文章 / 活動 / 投票都能留言、按愛心。</li>
+          <li>📅 <strong>行事曆</strong>：所有活動都會出現在月曆上。活動頁可按「🗓️ 加入我的行事曆」下載 .ics 匯入手機行事曆並自動提醒。</li>
+          <li>🏨 <strong>住宿筆記</strong>：把住過或想推薦的飯店民宿存下來，依地區整理。新增後可以再編輯。下次在同一個地區辦活動時會自動跳出來給你參考。</li>
+          <li>🖼 <strong>相簿牆</strong>：所有人發過的照片集中在「相簿」頁，點開看大圖。自己的照片可在「✎ 編輯」模式移除。</li>
+          <li>📄 <strong>自訂頁面</strong>：每個人都可以做自己的頁面（食譜、回憶、清單⋯⋯），可選擇自己看或所有成員看；可開放讓別人一起編輯。</li>
+          <li>💬 <strong>留言 + 表情</strong>：文章 / 活動 / 投票都能留言（留言也能附圖）。按讚升級成<strong>多種表情</strong>（👍❤️😂😮😢🎉）。打 <strong>@某人</strong> 可以標記他，對方會收到通知。</li>
+          <li>💸 <strong>活動分帳</strong>：活動頁記「我付了多少」，系統自動算出<strong>誰該付給誰</strong>（最少筆數的轉帳）。</li>
+          <li>📨 <strong>意見回饋</strong>：選單「意見回饋」直接傳訊息給管理員（問題 / 建議 / 提問）。</li>
+          <li>🏷 <strong>分類</strong>：用分類整理內容，可用 emoji 或自己的圖片當圖示。</li>
           <li>✨ <strong>AI 助手</strong>：寫不出文章開頭？想不到活動點子？選單按「AI」找 AI 聊聊。</li>
+        </ul>
+      </Section>
+
+      <Section title="🔔 開啟手機推播通知" emoji="🔔">
+        <p className="text-sm text-ink/80 leading-relaxed mb-2">
+          想在有人 @你、回你留言、或活動快開始時，<strong>手機鎖定畫面也收到通知</strong>嗎？
+        </p>
+        <ul className="space-y-2 text-sm text-ink/80 leading-relaxed">
+          <li>到 <Link href="/app/account" className="text-terracotta hover:underline">帳戶設定</Link> → 找「🔔 推播通知」→ 點「開啟推播通知」並允許權限。</li>
+          <li>iPhone 要先把網站「加入主畫面」，再從那個圖示打開才能開啟推播。</li>
+          <li>每台裝置各自開關，不想收了隨時可以關掉。</li>
         </ul>
       </Section>
 
@@ -50,25 +65,30 @@ export default async function HelpPage() {
       <Section title="③ 加入家人朋友" emoji="🎁">
         <p className="text-sm text-ink/80 leading-relaxed mb-2">
           這是封閉社群，新成員需要<strong>邀請碼</strong>才能加入。
+          <strong>一般成員預設就能發邀請碼</strong>（管理員可以針對個別成員關閉這個權限）。
         </p>
         <ul className="space-y-2 text-sm text-ink/80 leading-relaxed">
           <li>
             {canInvite ? (
-              <>你目前可以發邀請碼 → <Link href="/app/invites" className="text-terracotta hover:underline">/app/invites</Link></>
+              <>你現在就可以發邀請碼 → <Link href="/app/invites" className="text-terracotta hover:underline">/app/invites</Link>。每個碼只能用一次，但在被使用前<strong>永久有效</strong>，不會因為系統更新而失效。</>
             ) : (
-              <>想邀請朋友？去 <Link href="/app/permissions" className="text-terracotta hover:underline">/app/permissions</Link> 申請發送權限，管理員審核後就可以發。</>
+              <>你目前無法發邀請碼（可能被管理員關閉了）。可以去 <Link href="/app/permissions" className="text-terracotta hover:underline">/app/permissions</Link> 詢問，或請管理員開啟。</>
             )}
           </li>
+          <li>已發出的邀請碼可以隨時<strong>改預設角色</strong>或<strong>撤銷</strong>（在邀請頁 / 管理頁）。</li>
           <li>對方拿到邀請碼後，在登入頁貼上 → 填基本資料就完成註冊。</li>
         </ul>
       </Section>
 
       <Section title="④ 權限怎麼分" emoji="🛡">
         <ul className="space-y-2 text-sm text-ink/80 leading-relaxed">
-          <li><strong>Member</strong>（一般成員）：發文、投票、留言、辦活動、起投票、做自己的頁面。</li>
-          <li><strong>Editor</strong>：上面那些 + 置頂內容、審查留言、刪別人發的東西。</li>
-          <li><strong>Admin</strong>：上面那些 + 邀請碼管理、調整角色、看完整分析。</li>
+          <li><strong>Member</strong>（一般成員）：發文、投票、留言、辦活動、起投票、做自己的頁面、<strong>發邀請碼</strong>、建立分類。</li>
+          <li><strong>Editor</strong>：上面那些 + 置頂內容、審查留言、刪別人發的東西、發布 / 編輯任何頁面與分類。</li>
+          <li><strong>Admin</strong>：上面那些 + 角色調整、邀請碼管理、刪除系統預設分類、資料備份、看完整分析、處理意見回饋。</li>
         </ul>
+        <p className="text-xs text-ink/60 leading-relaxed mt-2">
+          自己建立的內容（貼文 / 活動 / 投票 / 頁面 / 住宿 / 分類）都可以自己編輯、刪除，也能設定是否開放別人一起編輯。管理員一律可以管理所有人的內容。
+        </p>
         <p className="text-sm text-ink/65 leading-relaxed mt-2">
           想升級權限？到 <Link href="/app/permissions" className="text-terracotta hover:underline">/app/permissions</Link> 填申請。
           管理員會在 <Link href="/app/permissions" className="text-terracotta hover:underline">收件夾</Link> 看到。

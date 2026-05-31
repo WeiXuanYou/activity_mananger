@@ -17,6 +17,15 @@ export type WallPhoto = {
   fullUrl: string;
   /** Where it came from, for the caption + link. */
   source: "post" | "comment" | "page";
+  /** Source row id (post id / comment id / page id) — used by the remove
+   *  action to locate the underlying record. */
+  sourceId: string;
+  /** The original (full) URL again — the stable key the remove action
+   *  matches against inside the source's image list. */
+  refUrl: string;
+  /** The author/owner's user id (for the page source this is ownerId).
+   *  Null when unknown. Drives "can I remove this?" in the UI. */
+  ownerId: string | null;
   /** In-app link to open the source. */
   href: string;
   /** Author / context label. */
@@ -47,19 +56,19 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
   const [posts, comments, pages] = await Promise.all([
     db.post.findMany({
       where: { hiddenAt: null, images: { not: null } },
-      select: { id: true, title: true, images: true, createdAt: true, author: { select: { name: true } } },
+      select: { id: true, title: true, images: true, createdAt: true, authorId: true, author: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
     db.comment.findMany({
       where: { image: { not: null }, parentType: "POST" },
-      select: { id: true, image: true, parentId: true, createdAt: true, author: { select: { name: true } } },
+      select: { id: true, image: true, parentId: true, createdAt: true, authorId: true, author: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
     db.customPage.findMany({
       select: {
-        slug: true, title: true, updatedAt: true,
+        id: true, slug: true, title: true, updatedAt: true, ownerId: true,
         blocks: { select: { type: true, data: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -76,6 +85,9 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
         url: img.thumbUrl ?? img.url,
         fullUrl: img.url,
         source: "post",
+        sourceId: p.id,
+        refUrl: img.url,
+        ownerId: p.authorId,
         href: `/app/posts/${p.id}`,
         label: `${p.author.name}${p.title ? ` · ${p.title}` : ""}`,
         createdAt: p.createdAt.toISOString(),
@@ -89,6 +101,9 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
       url: c.image,
       fullUrl: c.image,
       source: "comment",
+      sourceId: c.id,
+      refUrl: c.image,
+      ownerId: c.authorId,
       href: `/app/posts/${c.parentId}`,
       label: `${c.author.name} 的留言`,
       createdAt: c.createdAt.toISOString(),
@@ -106,6 +121,9 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
             url: ph.thumbUrl ?? ph.url,
             fullUrl: ph.url,
             source: "page",
+            sourceId: pg.id,
+            refUrl: ph.url,
+            ownerId: pg.ownerId,
             href: `/app/pages/${pg.slug}`,
             label: `頁面 · ${pg.title}`,
             createdAt: pg.updatedAt.toISOString(),
@@ -116,6 +134,9 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
           url: data.url,
           fullUrl: data.url,
           source: "page",
+          sourceId: pg.id,
+          refUrl: data.url,
+          ownerId: pg.ownerId,
           href: `/app/pages/${pg.slug}`,
           label: `頁面 · ${pg.title}`,
           createdAt: pg.updatedAt.toISOString(),

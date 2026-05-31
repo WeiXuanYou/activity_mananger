@@ -157,3 +157,52 @@ export async function revokePermissionAction(input: {
   });
   revalidatePath("/app/admin");
 }
+
+/**
+ * Admin: toggle whether a specific member is ALLOWED to send invites.
+ *
+ * Members hold `invite.create` by default (their role). To turn it OFF for
+ * one person we write a `invite.create:deny` grant that the guard honors;
+ * to turn it back ON we delete that deny row. Idempotent on both sides.
+ *
+ * (We use a deny row rather than removing the role permission because the
+ * role matrix is shared by everyone — per-user control has to live in the
+ * grant table.)
+ */
+export async function setMemberInviteAllowedAction(input: {
+  userId: string;
+  allowed: boolean;
+}): Promise<void> {
+  await requirePermission("admin.approve");
+  const me = await requireCurrentUser();
+  const allowKey = "invite.create";
+  const denyKey = "invite.create:deny";
+
+  if (input.allowed) {
+    // ALLOW: drop any deny, and add an explicit grant. The grant is
+    // harmless for Members (who already have it by role) and is what
+    // actually enables a Guest. guard.ts lets a grant override a deny, and
+    // we removed the deny anyway, so the effective state is "can invite".
+    await db.$transaction([
+      db.userPermissionGrant.deleteMany({ where: { userId: input.userId, permissionKey: denyKey } }),
+      db.userPermissionGrant.upsert({
+        where: { userId_permissionKey: { userId: input.userId, permissionKey: allowKey } },
+        update: { grantedById: me.id, grantedAt: new Date() },
+        create: { userId: input.userId, permissionKey: allowKey, grantedById: me.id },
+      }),
+    ]);
+  } else {
+    // DENY: remove any explicit grant AND write a deny. For a Member the
+    // deny overrides their role default; for a Guest removing the grant is
+    // enough but the deny is harmless. Net effect: "cannot invite".
+    await db.$transaction([
+      db.userPermissionGrant.deleteMany({ where: { userId: input.userId, permissionKey: allowKey } }),
+      db.userPermissionGrant.upsert({
+        where: { userId_permissionKey: { userId: input.userId, permissionKey: denyKey } },
+        update: { grantedById: me.id, grantedAt: new Date() },
+        create: { userId: input.userId, permissionKey: denyKey, grantedById: me.id },
+      }),
+    ]);
+  }
+  revalidatePath("/app/admin");
+}

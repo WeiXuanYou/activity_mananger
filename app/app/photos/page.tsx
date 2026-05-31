@@ -1,15 +1,20 @@
 import { requireCurrentUser } from "@/modules/auth";
+import { canCurrentUser } from "@/modules/permissions";
 import { listWallPhotosDb } from "@/modules/core/photos";
 import { PhotoGrid } from "./PhotoGrid";
 
 /**
  * /app/photos — the "family album" wall. Aggregates every uploaded image
  * across posts, comments, and custom pages into one reverse-chron gallery
- * with a lightbox. Read-only; tapping a photo jumps to its source.
+ * with a lightbox. Tapping a photo opens it; an edit mode lets you remove
+ * your own photos (moderators can remove any).
  */
 export default async function PhotosPage() {
-  await requireCurrentUser();
-  const photos = await listWallPhotosDb();
+  const me = await requireCurrentUser();
+  const [photos, canModerate] = await Promise.all([
+    listWallPhotosDb(),
+    canCurrentUser("post.moderate"),
+  ]);
 
   return (
     <main className="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
@@ -28,10 +33,7 @@ export default async function PhotosPage() {
           <p className="text-sm text-ink/55">在貼文、留言或頁面裡加上圖片，就會出現在這裡。</p>
         </div>
       ) : (
-        <>
-          <p className="text-xs text-ink/40 mb-3">{photos.length} 張照片</p>
-          <PhotoGrid photos={photos} />
-        </>
+        <PhotoGrid photos={photos} currentUserId={me.id} canModerate={canModerate} />
       )}
     </main>
   );

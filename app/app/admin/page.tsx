@@ -24,20 +24,20 @@ export default async function AdminPage() {
   const isAdmin = await canCurrentUser("admin.approve");
   if (!isAdmin) redirect("/app/feed?denied=admin");
 
-  const [invites, members, decided, recentReminders, allInviteGrants, openFeedback] = await Promise.all([
+  const [invites, members, decided, recentReminders, inviteDenies, openFeedback] = await Promise.all([
     listInviteCodesDb(),
     listAllMembersDb(),
     listDecidedRequestsDb(),
     listRecentReminders(8),
-    // Surface who has been granted `invite.create` so we can show the
-    // current toggle state without a per-row roundtrip.
+    // Members can invite by default now; surface who has been DENIED so the
+    // toggle shows the right state. (deny key = "invite.create:deny")
     db.userPermissionGrant.findMany({
-      where: { permissionKey: "invite.create" },
+      where: { permissionKey: "invite.create:deny" },
       select: { userId: true },
     }),
     countOpenFeedbackDb(),
   ]);
-  const inviteGrantSet = new Set(allInviteGrants.map((g) => g.userId));
+  const inviteDeniedSet = new Set(inviteDenies.map((g) => g.userId));
 
   return (
     <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
@@ -168,13 +168,15 @@ export default async function AdminPage() {
                   ) : (
                     <>
                       <RoleSelect userId={m.id} current={m.role} disabled={isReserved} />
-                      {/* invite.create grant is meaningless when role already
-                          has it (Editor / Admin) — only surface for Guest /
-                          Member where it's a real delegation. */}
+                      {/* Members can invite by default; the toggle lets an
+                          admin turn it OFF for this person. Editor/Admin always
+                          can invite (and aren't shown a toggle). Guests don't
+                          have the Member role default, but admins can still
+                          allow them here. */}
                       {(m.role === "Guest" || m.role === "Member") && (
                         <InviteGrantToggle
                           userId={m.id}
-                          granted={inviteGrantSet.has(m.id)}
+                          allowed={m.role === "Member" && !inviteDeniedSet.has(m.id)}
                         />
                       )}
                       {isReserved ? (
