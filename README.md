@@ -56,7 +56,32 @@ npm run dev
 - 登入後的 `/app/account`（header `⚙ 設定`）可改：頭像、名字、暱稱、Email、生日、密碼。
 - 改密碼成功後，可用「🚪 把其他裝置登出」一次清掉其他所有 session。
 
-### 部署資料庫（重要）
+### ⚠️ 資料持久化：「更新後資料不見」怎麼解（最重要）
+
+**如果你發現每次更新 / 重新部署後，之前的操作（發文、刪除、改密碼）都不見了，幾乎一定是這兩個原因之一：**
+
+**原因 A — 資料庫檔案放在「會被重建的」容器裡（最常見）**
+SQLite 的 `dev.db` 如果放在容器內（例如 `./prisma/dev.db`），每次重新部署容器都是全新的、檔案是空的——**任何 script 都救不回來**。解法二選一：
+
+- **SQLite + 持久化磁碟**：把 DB 放在重新部署也會保留的掛載磁碟上，例如
+  ```bash
+  DATABASE_URL="file:/data/together.db"   # /data 是掛載的持久化 volume，不是 repo 裡的路徑
+  ```
+- **改用 Postgres（推薦正式環境）**：DB 在容器外，重新部署完全不碰資料。見下方「從 SQLite 平移到 PostgreSQL」。
+
+**原因 B — 啟動時跑了會洗資料的指令**
+啟動指令**不能**用 `db:reset` / `prisma migrate reset`（那是開發專用、會砍掉重建）。
+
+✅ **正確的啟動指令**：用內附的 `npm run start:prod`（= `scripts/start.sh`），它只做安全的事：
+1. `prisma migrate deploy` —— 套用新 migration，**不刪任何資料**
+2. `prisma db seed` —— **create-only**：只在沒有 admin 時建立，已存在就完全不碰（不會重設你改過的密碼 / 名字 / 內容）
+3. 啟動 Next.js
+
+> seed 現在是 create-only 的：重跑（每次部署）**不會**覆寫你的操作。已實測：改過密碼 + 發過文 + 設定完成的 admin，重跑 seed 後全部原封不動。
+
+---
+
+### 部署資料庫指令
 
 正式環境一律用 **`npm run db:deploy`**（= `prisma migrate deploy`）— 它只**套用**未跑過的 migration，**不會刪資料**。
 

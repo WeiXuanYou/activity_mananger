@@ -128,22 +128,41 @@ async function main() {
   }
 
   // ───────────────────────────────────────────────────────────────
-  // PRODUCTION MODE — stop here with one admin/admin user.
+  // PRODUCTION MODE — bootstrap one admin/admin user, then stop.
+  //
+  // CREATE-ONLY by design. This seed is safe to re-run on EVERY deploy:
+  // roles/permissions are config (upserted from code), but the admin
+  // user is only CREATED when missing — never updated. That's the whole
+  // fix for "my data resets when I update": re-seeding an existing
+  // install must never touch the operator's chosen password, role, or
+  // any other row they've changed since first login.
   // ───────────────────────────────────────────────────────────────
   if (IS_PRODUCTION_SEED) {
-    // Default credentials: handle="admin", password="admin". `setupCompleted`
-    // is FALSE so the first login flow forces them through the setup form,
-    // which itself REQUIRES a new password (see `mustResetPassword` in
-    // completeSetupAction). We're shipping a known-weak default deliberately
-    // because the alternative (random per-install codes) creates a worse UX
-    // for self-hosters.
+    const existingAdmin = await db.user.findUnique({
+      where: { handle: "admin" },
+      select: { id: true },
+    });
+
+    if (existingAdmin) {
+      // Already bootstrapped. Do NOT overwrite — the operator may have
+      // changed the password, role, name, etc. Leave everything alone.
+      console.log("\n✅ Production seed: admin already exists — left untouched.");
+      console.log("   (roles + permission matrix were refreshed from code; no user data changed)\n");
+      return;
+    }
+
+    // First-ever bootstrap on an empty install. Default credentials:
+    // handle="admin", password="admin". `setupCompleted` is FALSE so the
+    // first login flow forces them through the setup form, which itself
+    // REQUIRES a new password (see `mustResetPassword` in
+    // completeSetupAction). We ship a known-weak default deliberately —
+    // the alternative (random per-install codes) is a worse UX for
+    // self-hosters, and the forced first-login rotation closes the gap.
     const { hashPassword } = await import("@/modules/auth/password");
     const defaultPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim() || "admin";
     const passwordHash = await hashPassword(defaultPassword);
-    await db.user.upsert({
-      where: { handle: "admin" },
-      update: { passwordHash, roleId: roleRows.Admin.id },
-      create: {
+    await db.user.create({
+      data: {
         handle: "admin",
         name: "Admin",
         avatarColor: "#C75B3A",
@@ -154,7 +173,7 @@ async function main() {
       },
     });
 
-    console.log("\n✅ Production seed complete.");
+    console.log("\n✅ Production seed complete (fresh install).");
     console.log("\n   Default admin login:");
     console.log(`\n     handle: admin`);
     console.log(`     password: ${defaultPassword}\n`);
@@ -166,38 +185,63 @@ async function main() {
   }
 
   // ───────────────────────────────────────────────────────────────
-  // DEMO MODE — full content below this line
+  // DEMO MODE — full sample content below this line.
+  //
+  // ⚠️ DESTRUCTIVE: this path wipes & rebuilds the sample content tables
+  // (posts / activities / polls / pages). It's meant for a FRESH demo
+  // install or a deliberate `db:reset` — NOT for re-running against a DB
+  // someone has been using. To prevent the "my data got wiped on deploy"
+  // bug, we bail out early if the DB already has real content, unless
+  // the operator explicitly forces it with SEED_FORCE=1.
   // ───────────────────────────────────────────────────────────────
+  const existingContent =
+    (await db.post.count()) +
+    (await db.activity.count()) +
+    (await db.poll.count()) +
+    (await db.customPage.count());
+  if (existingContent > 0 && process.env.SEED_FORCE !== "1") {
+    console.log(
+      `\n⏭  Demo seed skipped: DB already has ${existingContent} content rows.\n` +
+      "   Re-seeding would wipe them. Set SEED_FORCE=1 to override (destructive),\n" +
+      "   or use `npm run db:reset` for a clean rebuild.\n",
+    );
+    return;
+  }
 
-  // Demo install ALSO ships an admin/admin login. Same setup-on-first-login
-  // flow as production, so anyone testing can experience the real flow.
+  // Demo install ALSO ships an admin/admin login. Created only when
+  // missing — never overwritten, so a re-seed won't reset the password
+  // of an admin who already finished setup.
   const { hashPassword: hashDemoPw } = await import("@/modules/auth/password");
-  const demoAdminHash = await hashDemoPw("admin");
-  await db.user.upsert({
+  const existingDemoAdmin = await db.user.findUnique({
     where: { handle: "admin" },
-    update: { passwordHash: demoAdminHash, roleId: roleRows.Admin.id },
-    create: {
-      handle: "admin",
-      name: "Admin",
-      avatarColor: "#C75B3A",
-      initial: "A",
-      roleId: roleRows.Admin.id,
-      setupCompleted: false,
-      passwordHash: demoAdminHash,
-    },
+    select: { id: true },
   });
+  if (!existingDemoAdmin) {
+    const demoAdminHash = await hashDemoPw("admin");
+    await db.user.create({
+      data: {
+        handle: "admin",
+        name: "Admin",
+        avatarColor: "#C75B3A",
+        initial: "A",
+        roleId: roleRows.Admin.id,
+        setupCompleted: false,
+        passwordHash: demoAdminHash,
+      },
+    });
+  }
 
-  // Users
+  // Demo users. We use upsert with an EMPTY `update` — i.e. create-only.
+  // If a demo handle already exists (e.g. the operator renamed/edited
+  // "ming"), re-seeding leaves their row exactly as-is. Email is
+  // normalized + pre-verified on first create only (the operator
+  // vouches for demo addresses, so the UI shows the green badge instead
+  // of nagging to verify a fake address).
   const userRows: Record<string, { id: string; handle: string; role: string }> = {};
   for (const m of MEMBERS) {
     const u = await db.user.upsert({
       where: { handle: m.handle },
-      // Normalize email at write time so the invariant "every stored email
-      // matches what `normalizeEmail` would have produced" holds whether
-      // the row came from the form or from the seed. Demo users are
-      // pre-marked verified (the operator vouches for them) so the UI
-      // shows the green badge instead of nagging to verify a fake address.
-      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase(), emailVerifiedAt: new Date() },
+      update: {}, // never overwrite an existing demo user's edits
       create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase(), emailVerifiedAt: new Date() },
     });
     userRows[m.handle] = { id: u.id, handle: u.handle, role: m.role };
