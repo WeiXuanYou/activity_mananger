@@ -21,6 +21,7 @@ export {
   findActivityDb,
   findNextActivityDb,
   findMyRsvpDb,
+  listKnownLocationsDb,
 } from "./db";
 
 // UI components

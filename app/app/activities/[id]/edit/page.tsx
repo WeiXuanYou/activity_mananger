@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
-import { findActivityDb } from "@/modules/core/activities";
+import { findActivityDb, listKnownLocationsDb } from "@/modules/core/activities";
 import { listCategoriesDb } from "@/modules/core/categories";
+import { listLodgingDb } from "@/modules/core/lodging";
 import { NewActivityForm } from "../../new/NewActivityForm";
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,7 +21,18 @@ export default async function EditActivityPage({ params }: Params) {
     redirect(`/app/activity/${id}?denied=edit`);
   }
 
-  const categories = await listCategoriesDb();
+  const [categories, lodgings, knownLocations] = await Promise.all([
+    listCategoriesDb(),
+    listLodgingDb(),
+    listKnownLocationsDb(),
+  ]);
+  const lodgingHints = lodgings.map((l) => ({
+    id: l.id,
+    name: l.name,
+    region: l.region,
+    rating: l.rating ?? null,
+    stayedAt: l.stayedAt ?? null,
+  }));
   const categorySlugs = (activity.categories ?? [])
     .map((c) => c.slug)
     .filter(Boolean);
@@ -36,6 +48,8 @@ export default async function EditActivityPage({ params }: Params) {
       </div>
       <NewActivityForm
         categories={categories}
+        lodgingHints={lodgingHints}
+        knownLocations={knownLocations}
         editing={{
           id: activity.id,
           title: activity.title,

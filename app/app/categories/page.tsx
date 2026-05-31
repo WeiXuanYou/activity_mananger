@@ -5,22 +5,29 @@ import {
   listCategoriesDb,
   CategoryIcon,
   CategoryDeleteButton,
+  CategoryEditButton,
   CreateCategoryButton,
 } from "@/modules/core/categories";
 
 /**
- * /app/categories — lightweight category manager.
+ * /app/categories — category manager.
  *
- * Everyone signed in can see the list. Creating is gated on
- * `category.create` (Member+). Deleting is owner-or-admin (enforced in
- * the action); we only render the delete control when it'll actually work.
+ * - Everyone signed in can SEE the list.
+ * - Creating: `category.create` (Member+).
+ * - Editing: admin OR editor OR creator-of-a-custom-one. The server
+ *   action re-checks; we only render the button when it'll succeed.
+ * - Deleting:
+ *     - Custom categories → admin OR creator (Member can NOT delete others').
+ *     - System default categories → admin ONLY.
  */
 export default async function CategoriesPage() {
   const me = await requireCurrentUser();
-  const [categories, canCreate, isAdmin] = await Promise.all([
+  const [categories, canCreate, isAdmin, isEditor] = await Promise.all([
     listCategoriesDb(),
     canCurrentUser("category.create"),
     canCurrentUser("admin.approve"),
+    // Editor = page.publish in this codebase (same trust level)
+    canCurrentUser("page.publish"),
   ]);
 
   const defaults = categories.filter((c) => c.isDefault);
@@ -53,9 +60,11 @@ export default async function CategoriesPage() {
         ) : (
           <div className="bg-white rounded-soft border border-sand/60 divide-y divide-sand">
             {custom.map((cat) => {
-              const canDelete = isAdmin || cat.createdById === me.id;
+              const isOwner = cat.createdById === me.id;
+              const canEdit = isAdmin || isEditor || isOwner;
+              const canDelete = isAdmin || isOwner;
               return (
-                <div key={cat.id} className="flex items-center gap-3 px-4 py-3">
+                <div key={cat.id} className="flex items-center gap-3 px-4 py-3 flex-wrap">
                   <span className="w-8 h-8 rounded-full bg-cream flex items-center justify-center shrink-0">
                     <CategoryIcon category={cat} px={20} />
                   </span>
@@ -69,6 +78,7 @@ export default async function CategoriesPage() {
                   >
                     看內容 →
                   </Link>
+                  {canEdit && <CategoryEditButton category={cat} />}
                   {canDelete && <CategoryDeleteButton id={cat.id} name={cat.name} />}
                 </div>
               );
@@ -78,18 +88,43 @@ export default async function CategoriesPage() {
       </section>
 
       <section>
-        <h2 className="serif text-lg text-ink mb-2">系統預設分類</h2>
-        <p className="text-xs text-ink/50 mb-3">這些是系統內建的分類，無法刪除。</p>
-        <div className="flex flex-wrap gap-2">
-          {defaults.map((cat) => (
-            <span
-              key={cat.id}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm bg-cream border border-sand text-ink/70"
-            >
-              <CategoryIcon category={cat} px={16} />
-              {cat.name}
-            </span>
-          ))}
+        <div className="flex items-baseline gap-2 mb-2 flex-wrap">
+          <h2 className="serif text-lg text-ink">系統預設分類</h2>
+          <span className="text-xs text-ink/50">
+            {isAdmin || isEditor
+              ? "管理員 / 編輯者可以編輯。只有管理員可以刪除。"
+              : "這些是系統內建的分類。"}
+          </span>
+        </div>
+        <div className="bg-white rounded-soft border border-sand/60 divide-y divide-sand">
+          {defaults.map((cat) => {
+            const canEdit = isAdmin || isEditor;
+            const canDelete = isAdmin;
+            return (
+              <div key={cat.id} className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                <span className="w-8 h-8 rounded-full bg-cream flex items-center justify-center shrink-0">
+                  <CategoryIcon category={cat} px={20} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-ink flex items-center gap-1.5">
+                    {cat.name}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium">
+                      系統
+                    </span>
+                  </div>
+                  {cat.description && <div className="text-xs text-ink/50 truncate">{cat.description}</div>}
+                </div>
+                <Link
+                  href={`/app/feed?cat=${cat.slug}`}
+                  className="text-xs text-terracotta hover:underline shrink-0"
+                >
+                  看內容 →
+                </Link>
+                {canEdit && <CategoryEditButton category={cat} />}
+                {canDelete && <CategoryDeleteButton id={cat.id} name={cat.name} />}
+              </div>
+            );
+          })}
         </div>
       </section>
     </main>

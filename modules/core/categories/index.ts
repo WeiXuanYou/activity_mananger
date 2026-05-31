@@ -27,3 +27,5 @@ export { CategoryPicker } from "./components/CategoryPicker";
 export { CreateCategoryModal } from "./components/CreateCategoryModal";
 export { CreateCategoryButton } from "./components/CreateCategoryButton";
 export { CategoryDeleteButton } from "./components/CategoryDeleteButton";
+export { EditCategoryModal } from "./components/EditCategoryModal";
+export { CategoryEditButton } from "./components/CategoryEditButton";

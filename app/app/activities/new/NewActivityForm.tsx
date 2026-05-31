@@ -53,11 +53,14 @@ export function NewActivityForm({
   editing,
   prefill,
   lodgingHints = [],
+  knownLocations = [],
 }: {
   categories: Category[];
   editing?: EditingActivity;
   prefill?: ActivityPrefill;
   lodgingHints?: LodgingHint[];
+  /** Past locations + lodging regions, most-used first, for the picker. */
+  knownLocations?: string[];
 }) {
   const router = useRouter();
   // Seed initial state from `editing` first (full record), else prefill (hints), else blank
@@ -157,10 +160,41 @@ export function NewActivityForm({
             onChange={(e) => setLocation(e.target.value)}
             required
             placeholder="外公家後院"
+            list="known-locations"
             className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30"
           />
+          {/* Native typeahead — desktop browsers show a dropdown of past
+              values matching what's being typed. */}
+          {knownLocations.length > 0 && (
+            <datalist id="known-locations">
+              {knownLocations.map((loc) => (
+                <option key={loc} value={loc} />
+              ))}
+            </datalist>
+          )}
         </label>
       </div>
+
+      {/* Quick-pick chips: tap a past location instead of retyping. Only
+          shows when the user hasn't typed exactly one of them yet, so the
+          row collapses cleanly after they've made a choice. */}
+      {knownLocations.length > 0 && !knownLocations.includes(location.trim()) && (
+        <div>
+          <div className="text-xs text-ink/55 mb-1.5">常用地點 — 點選即填入：</div>
+          <div className="flex flex-wrap gap-1.5">
+            {knownLocations.slice(0, 12).map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => setLocation(loc)}
+                className="text-xs px-2.5 py-1 rounded-full bg-white border border-sand text-ink/70 hover:bg-cream/40 hover:text-terracotta transition"
+              >
+                📍 {loc}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lodging hints: same-region matches from the lodging knowledge
           base. Helps with "we're going to 宜蘭 again — where did we stay

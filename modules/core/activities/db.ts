@@ -141,3 +141,36 @@ export async function findMyRsvpDb(
   });
   return row ? (row.status as "GOING" | "MAYBE" | "DECLINED") : null;
 }
+
+/**
+ * Distinct list of locations the community has used in the past — drawn
+ * from every activity's `location` plus every lodging's `region`. Used by
+ * the activity form to suggest pickable values instead of forcing the user
+ * to retype "外公家後院" from memory.
+ *
+ * Ordered by usage frequency (most-used first) so the picker surfaces the
+ * locations families actually visit. Capped at `limit` to keep the picker
+ * compact on mobile.
+ */
+export async function listKnownLocationsDb(limit = 30): Promise<string[]> {
+  const [activities, lodgings] = await Promise.all([
+    db.activity.findMany({ select: { location: true } }),
+    db.lodging.findMany({ select: { region: true } }),
+  ]);
+  const counts = new Map<string, number>();
+  for (const a of activities) {
+    const v = a.location.trim();
+    if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  // Lodging regions only contribute the "is a known place" signal, not the
+  // popularity weight (each region adds 0.5 so it ranks after equally-used
+  // activity locations but still shows up).
+  for (const l of lodgings) {
+    const v = l.region.trim();
+    if (v) counts.set(v, (counts.get(v) ?? 0) + 0.5);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([loc]) => loc);
+}
