@@ -38,7 +38,14 @@ export function PushToggle() {
       return;
     }
     if (Notification.permission === "denied") { setState("denied"); return; }
-    // Check whether we already have a subscription.
+    // Only the push flow uses a service worker now (the app itself doesn't
+    // register one — see app/layout.tsx kill-switch). If the user previously
+    // enabled push, there's a registration with a subscription; otherwise
+    // we're simply "off".
+    if (localStorage.getItem("together_push_enabled") !== "1") {
+      setState("off");
+      return;
+    }
     navigator.serviceWorker.ready
       .then((reg) => reg.pushManager.getSubscription())
       .then((sub) => setState(sub ? "on" : "off"))
@@ -51,7 +58,12 @@ export function PushToggle() {
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") { setState("denied"); return; }
-      const reg = await navigator.serviceWorker.ready;
+      // Register the push service worker ON DEMAND (the app no longer
+      // auto-registers one). Mark push as enabled so the layout kill-switch
+      // leaves this SW alone.
+      localStorage.setItem("together_push_enabled", "1");
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
@@ -61,9 +73,15 @@ export function PushToggle() {
         endpoint: json.endpoint ?? "",
         keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" },
       });
-      setState(r.ok ? "on" : "off");
-      if (!r.ok) setError("訂閱失敗，請再試一次");
+      if (r.ok) {
+        setState("on");
+      } else {
+        localStorage.removeItem("together_push_enabled");
+        setState("off");
+        setError("訂閱失敗，請再試一次");
+      }
     } catch (e) {
+      localStorage.removeItem("together_push_enabled");
       setError(e instanceof Error ? e.message : "訂閱失敗");
       setState("off");
     }
@@ -73,12 +91,17 @@ export function PushToggle() {
     setError(null);
     setState("working");
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await deletePushSubscriptionAction(sub.endpoint);
-        await sub.unsubscribe();
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await deletePushSubscriptionAction(sub.endpoint);
+          await sub.unsubscribe();
+        }
+        // Tear the SW down entirely so the kill-switch's "no SW" state holds.
+        await reg.unregister().catch(() => {});
       }
+      localStorage.removeItem("together_push_enabled");
       setState("off");
     } catch {
       setState("on");

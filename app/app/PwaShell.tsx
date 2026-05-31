@@ -24,32 +24,13 @@ export function PwaShell() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
 
+  // NOTE: this component intentionally does NOT register a service worker.
+  // An always-on app-caching SW caused stale JS after deploys (broken
+  // hydration → dead interactivity). The SW is now killed on every load by
+  // the inline kill-switch in app/layout.tsx, and registered ONLY on demand
+  // when the user enables push notifications (PushToggle). The app works
+  // 100% without a service worker.
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
-    if (!("serviceWorker" in navigator)) return;
-
-    // Register the SW, and ALWAYS check for an updated sw.js on load. When a
-    // new SW takes control (e.g. the deploy-safe one that stops caching app
-    // code), reload once so the page runs against fresh, non-stale assets.
-    // This is what heals browsers stuck on a previous aggressive SW that
-    // was serving stale JS and breaking all interactivity after a deploy.
-    let reloaded = false;
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((reg) => {
-        reg.update().catch(() => {});
-      })
-      .catch(() => {
-        /* unsupported / file:// — ignore quietly */
-      });
-
-    const onControllerChange = () => {
-      if (reloaded) return;
-      reloaded = true;
-      window.location.reload();
-    };
-    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-
     const onPrompt = (e: Event) => {
       e.preventDefault();
       // User dismissed before? Don't pester them in this tab.
@@ -63,7 +44,6 @@ export function PwaShell() {
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
-      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
     };
   }, []);
 
