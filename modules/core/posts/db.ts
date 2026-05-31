@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { prismaUserToMember } from "@/modules/core/members";
 import { prismaCategoryToCategory } from "@/modules/core/categories";
 import { visiblePostsWhere } from "@/modules/core/visibility";
-import type { Post, PostKind } from "./types";
+import type { Post, PostKind, BonusKind } from "./types";
 
 type UserWithRole = {
   id: string; name: string; handle: string;
@@ -34,6 +34,8 @@ type PostRow = {
   pinnedById: string | null;
   hiddenAt: Date | null;
   bonus: string | null;
+  bonusKind: string | null;
+  bonusLimit: number | null;
   createdAt: Date;
   categories: { category: CategoryRow }[];
 };
@@ -71,7 +73,17 @@ export function prismaPostToPost(
     categories: row.categories.map((c) => prismaCategoryToCategory(c.category)),
     hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : null,
     bonus: row.bonus,
+    // Cast: the DB stores the kind as a String for migration-flexibility,
+    // but the UI shape is the typed union. Unknown values fall back to
+    // null so legacy rows (or a manual SQL edit with a typo) don't crash
+    // the card renderer.
+    bonusKind: isBonusKind(row.bonusKind) ? row.bonusKind : null,
+    bonusLimit: row.bonusLimit,
   };
+}
+
+function isBonusKind(v: string | null): v is BonusKind {
+  return v === "MEAL" || v === "DRINK" || v === "MONEY" || v === "TASK" || v === "OTHER";
 }
 
 const POST_INCLUDE = {

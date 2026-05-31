@@ -99,34 +99,58 @@ npm run dev
 
 ### 從 SQLite 平移到 PostgreSQL
 
-整個過程 ~15 分鐘，分四步：
+整個過程 ~15 分鐘。**本專案附了現成的 docker-compose、env 範本、JSON 匯出/匯入 script**，下面這份食譜整個跑過、有測過。
 
 ```bash
-# 1. 備份目前的 SQLite 資料
-cp prisma/dev.db prisma/dev.db.backup-$(date +%Y%m%d)
+# ──── 0) 在新分支做（萬一搬一半要回頭）────
+git checkout -b switch-to-postgres
 
-# 2. 把 schema 的 provider 換成 postgresql，DATABASE_URL 改成 Postgres 連線字串
+# ──── 1) 起一個本地 Postgres ────
+docker compose -f docker-compose.postgres.yml up -d
+# 連線字串：postgresql://together:together@localhost:5432/together
+# 不想用 docker？把 .env.postgres.example 改成你自己的 host / pw 即可
+
+# ──── 2) 從現在的 SQLite 把所有資料倒成 JSON ────
+#    （30 個 model 全包，按 parent → child 順序，FK 不會亂）
+npm run db:export-json
+# → tmp/export/{Role,Permission,User,Post,...}.json + manifest.json
+
+# ──── 3) 切換 schema 到 postgresql + 換 DATABASE_URL ────
 #    prisma/schema.prisma:
 #      datasource db { provider = "postgresql"  url = env("DATABASE_URL") }
-#    .env:
-#      DATABASE_URL="postgresql://user:pw@host:5432/together"
+#    .env：複製 .env.postgres.example → .env
+cp .env.postgres.example .env
 
-# 3. 因為 migration 檔是 provider-specific 的（SQLite 用 PRAGMA、表重建；Postgres 用 ALTER），
-#    要重新從目前 schema 產生一份新的 Postgres 基準 migration：
+# ──── 4) 重新產生 migration（Prisma 的 migration 檔是 provider-specific）────
+#    SQLite 版本的 ALTER 用「表重建」、Postgres 用真正的 ALTER COLUMN，
+#    所以要重新建一個 Postgres 基準 migration。SQLite 的 migrations
+#    歷史在 git 裡保留，新 branch 只放 postgres 那一份。
 rm -rf prisma/migrations
 npx prisma migrate dev --name init_postgres
-#    （只在空的 Postgres DB 跑這步；現有 SQLite 資料下一步搬）
+#    （這時 Postgres 是空的，OK 直接套）
 
-# 4. 把資料從 SQLite 倒進 Postgres。推薦工具：
-#    a) pgloader（最簡單）：
-#       pgloader sqlite:///path/to/dev.db postgresql://user:pw@host/together
-#    b) 或用 Prisma seed：寫個 script 從舊 db.json 匯入（適合資料量小）
+# ──── 5) 把 JSON 倒進 Postgres ────
+npm run db:import-json
+#    安全檢查：DB 已有 user → 拒絕，加 --force 才覆寫
+#    輸出每張表的 row 數，方便比對
+
+# ──── 6) 驗證 ────
+npm run dev
+#    用 admin / 你原本的密碼登入；feed 上的 post / activity / poll 應該都在
 ```
 
-注意事項：
-- SQLite 的 `DATETIME` 是字串、Postgres 是 `TIMESTAMP`，pgloader 會自動處理；手刻匯入要記得轉
-- SQLite 沒有 enum，Postgres 有；本專案目前用 `String` 不用 enum，沒問題
-- 換完 Postgres 後，`TRUST_PROXY` / `RESEND_API_KEY` 等環境變數沿用，不用改
+### 這套工具能/不能做什麼
+
+✅ **能做的**：30 個 model 全部 round-trip（在 SQLite → SQLite 上測過 226 列無遺失），JSON 通用、provider-agnostic，FK 順序正確，DATETIME ↔ TIMESTAMP 由 Prisma 自動轉。
+
+⚠️ **要注意的**：
+- `db:import-json` 預設拒絕匯入到「已有 User」的 DB（防呆，避免兩個 admin 對撞）。明知道在做什麼才加 `--force`。
+- SQLite 沒有 `skipDuplicates` 選項；本工具刻意不用，靠上述防呆。Postgres 雖然支援也不開，理由一樣。
+- 換完 Postgres 後，`TRUST_PROXY` / `RESEND_API_KEY` 等環境變數沿用，不用改。
+- 已 commit 的 SQLite migration 歷史**不要刪**——別的分支還會用。在 postgres 分支上才覆寫 `prisma/migrations/`。
+
+### 不想用 docker？
+直接連到任何托管 Postgres（Neon / Supabase / Railway / RDS），把 `DATABASE_URL` 改成它的連線字串，跳過第 1 步。
 
 ## 目錄結構
 
