@@ -27,15 +27,24 @@ export const AVATAR_MAX_BYTES = 600_000;
 /** Minimum password length. Single source of truth — duplicating this
  *  across actions has been a recurring drift hazard. */
 export const MIN_PASSWORD_LEN = 8;
-/** First few bytes of supported image formats. We decode a small prefix
- *  of the base64 and check it actually starts with one of these — so a
- *  client can't claim `data:image/png;base64,` for arbitrary bytes and
- *  smuggle non-image content into the User.avatarImage column. */
-const IMAGE_MAGIC: Record<string, number[][]> = {
-  png:  [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
-  jpeg: [[0xFF, 0xD8, 0xFF]],
-  webp: [[0x52, 0x49, 0x46, 0x46]],          // "RIFF" — webp container
-  gif:  [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]], // GIF87a / GIF89a
+/** Image file signatures. Each format lists one or more acceptable
+ *  signatures; each signature is a set of (offset, bytes) segments that
+ *  must ALL match. This lets us express WebP's split signature — `RIFF`
+ *  at offset 0 AND `WEBP` at offset 8 (with a 4-byte size field between)
+ *  — so a bare `.wav` / `.avi` RIFF container can't pass as a webp.
+ *  We decode a small prefix of the base64 and check it actually matches,
+ *  so a client can't claim `data:image/png;base64,` for arbitrary bytes
+ *  and smuggle non-image content into the User.avatarImage column. */
+type MagicSegment = { offset: number; bytes: number[] };
+const IMAGE_MAGIC: Record<string, MagicSegment[][]> = {
+  png:  [[{ offset: 0, bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] }]],
+  jpeg: [[{ offset: 0, bytes: [0xFF, 0xD8, 0xFF] }]],
+  // RIFF....WEBP — "RIFF" at 0, 4-byte little-endian size at 4-7, "WEBP" at 8.
+  webp: [[{ offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] }, { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] }]],
+  gif:  [
+    [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38, 0x37, 0x61] }], // GIF87a
+    [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61] }], // GIF89a
+  ],
 };
 
 /** The avatar background colors offered in the pickers and used to pick
@@ -110,12 +119,13 @@ export function validateAvatarImage(
   if (v.length > AVATAR_MAX_BYTES) {
     return { ok: false, error: "頭像太大（請壓到 500KB 以下）" };
   }
-  // Magic-bytes check: decode the first ~16 raw bytes and confirm they
-  // match the claimed format's file signature. Blocks a client from
-  // sending text-as-png to slip past the avatar pipeline. Cheap — only
-  // the head of the payload is decoded.
+  // Magic-bytes check: decode the first ~18 raw bytes and confirm they
+  // match the claimed format's file signature (all segments of any one
+  // accepted signature must match). Blocks a client from sending
+  // text-as-png to slip past the avatar pipeline. Cheap — only the head
+  // of the payload is decoded.
   const format = m[1];
-  const head = m[2].slice(0, 24); // 24 base64 chars → 18 raw bytes, enough for every magic above
+  const head = m[2].slice(0, 24); // 24 base64 chars → 18 raw bytes, covers WebP's offset-8 fourCC
   let raw: Buffer;
   try {
     raw = Buffer.from(head, "base64");
@@ -123,7 +133,9 @@ export function validateAvatarImage(
     return { ok: false, error: "頭像資料無法解析" };
   }
   const sigs = IMAGE_MAGIC[format] ?? [];
-  const matches = sigs.some((sig) => sig.every((b, i) => raw[i] === b));
+  const matches = sigs.some((sig) =>
+    sig.every((seg) => seg.bytes.every((b, i) => raw[seg.offset + i] === b)),
+  );
   if (!matches) {
     return { ok: false, error: "頭像不是有效的圖片檔" };
   }

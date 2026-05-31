@@ -14,16 +14,19 @@ import {
   MIN_PASSWORD_LEN,
 } from "./validation";
 
-/** Build a data URL whose body starts with the given file-signature bytes
- *  followed by zero padding. Used to exercise the magic-bytes check. */
-function dataUrlWithMagic(mime: "png" | "jpeg" | "webp" | "gif", magic: number[]): string {
-  const buf = Buffer.concat([Buffer.from(magic), Buffer.alloc(32)]);
+/** Build a data URL from raw header bytes followed by zero padding.
+ *  Used to exercise the magic-bytes check at exact offsets. */
+function dataUrl(mime: "png" | "jpeg" | "webp" | "gif", header: number[]): string {
+  const buf = Buffer.concat([Buffer.from(header), Buffer.alloc(32)]);
   return `data:image/${mime};base64,${buf.toString("base64")}`;
 }
 const PNG_MAGIC  = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 const JPEG_MAGIC = [0xFF, 0xD8, 0xFF];
-const WEBP_MAGIC = [0x52, 0x49, 0x46, 0x46];
 const GIF_MAGIC  = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
+// WebP = "RIFF" + 4-byte size + "WEBP" fourCC at offset 8.
+const WEBP_HEADER = [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50];
+// A bare RIFF container (e.g. .wav/.avi) — RIFF present but NOT "WEBP" at 8.
+const BARE_RIFF   = [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45]; // "WAVE"
 
 /**
  * These rules are the single source of truth for profile-field format,
@@ -92,23 +95,27 @@ describe("validateAvatarImage (tri-state + magic-bytes)", () => {
     expect(validateAvatarImage("")).toEqual({ ok: true, value: null });
   });
   it("accepts a real PNG signature", () => {
-    const v = dataUrlWithMagic("png", PNG_MAGIC);
+    const v = dataUrl("png", PNG_MAGIC);
     expect(validateAvatarImage(v)).toEqual({ ok: true, value: v });
   });
   it("accepts a real JPEG signature", () => {
-    const v = dataUrlWithMagic("jpeg", JPEG_MAGIC);
+    const v = dataUrl("jpeg", JPEG_MAGIC);
     expect(validateAvatarImage(v).ok).toBe(true);
   });
-  it("accepts a real WebP signature", () => {
-    const v = dataUrlWithMagic("webp", WEBP_MAGIC);
+  it("accepts a real WebP signature (RIFF + WEBP fourCC)", () => {
+    const v = dataUrl("webp", WEBP_HEADER);
     expect(validateAvatarImage(v).ok).toBe(true);
+  });
+  it("rejects a bare RIFF container claiming to be WebP (.wav/.avi smuggle)", () => {
+    const v = dataUrl("webp", BARE_RIFF);
+    expect(validateAvatarImage(v).ok).toBe(false);
   });
   it("accepts a real GIF89a signature", () => {
-    const v = dataUrlWithMagic("gif", GIF_MAGIC);
+    const v = dataUrl("gif", GIF_MAGIC);
     expect(validateAvatarImage(v).ok).toBe(true);
   });
   it("rejects mime/magic mismatch (PNG mime + JPEG body)", () => {
-    const v = dataUrlWithMagic("png", JPEG_MAGIC);
+    const v = dataUrl("png", JPEG_MAGIC);
     expect(validateAvatarImage(v).ok).toBe(false);
   });
   it("rejects garbage body claiming to be PNG (smuggling check)", () => {

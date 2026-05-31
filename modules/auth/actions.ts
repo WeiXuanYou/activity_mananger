@@ -468,9 +468,11 @@ export type RecoveryState = {
  *  enumeration attacker from hammering the form: even if a residual
  *  timing leak existed, 5 requests / 15 min means a meaningful
  *  enumeration attack across millions of candidate emails is
- *  impractical. A real user who mistypes once is unaffected. */
-async function recoveryGate(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { ip } = await getRequestMeta();
+ *  impractical. A real user who mistypes once is unaffected.
+ *
+ *  Takes the already-read `ip` so the caller only reads request headers
+ *  (via getRequestMeta) once. */
+function recoveryGate(ip: string): { ok: true } | { ok: false; error: string } {
   const gate = recoveryRateLimiter.check(`recovery:${ip}`);
   if (!gate.allowed) {
     const mins = Math.ceil(gate.retryAfterMs / 60_000);
@@ -486,9 +488,9 @@ export async function requestPasswordResetAction(
 ): Promise<RecoveryState> {
   const emailR = validateEmail(String(formData.get("email") ?? ""));
   if (!emailR.ok) return { error: emailR.error };
-  const gate = await recoveryGate();
+  const { ip, origin } = await getRequestMeta();
+  const gate = recoveryGate(ip);
   if (!gate.ok) return { error: gate.error };
-  const { origin } = await getRequestMeta();
   await requestPasswordReset(emailR.value, origin);
   return { sent: true };
 }
@@ -499,7 +501,8 @@ export async function requestHandleRecoveryAction(
 ): Promise<RecoveryState> {
   const emailR = validateEmail(String(formData.get("email") ?? ""));
   if (!emailR.ok) return { error: emailR.error };
-  const gate = await recoveryGate();
+  const { ip } = await getRequestMeta();
+  const gate = recoveryGate(ip);
   if (!gate.ok) return { error: gate.error };
   await requestHandleRecovery(emailR.value);
   return { sent: true };
