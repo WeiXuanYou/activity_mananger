@@ -16,7 +16,14 @@
  */
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const HANDLE_RE = /^[a-z0-9-]{2,24}$/;
+/** Login id rule. Wider than the original 2-24 a-z0-9- because (a)
+ *  real names rarely fit in 24 chars + dashes, (b) Twitter/GitHub-style
+ *  handles commonly use `_` and `.`. We KEEP it lowercase ASCII — the
+ *  handle can show up in URLs (`@grandma` mentions, sharing links),
+ *  and CJK / uppercase / spaces would surprise users typing it back.
+ *  Length cap aligns with `name` (40) so the two never disagree on
+ *  what "too long" means. */
+export const HANDLE_RE = /^[a-z0-9._-]{2,40}$/;
 export const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 /** Inline avatar data-URLs we accept. http(s)/blob/javascript schemes
  *  are rejected so a profile can't hot-link a tracking pixel or worse. */
@@ -72,7 +79,7 @@ export function validateName(raw: string): FieldResult<string> {
 export function validateHandle(raw: string): FieldResult<string> {
   const handle = normalizeHandle(raw);
   if (!HANDLE_RE.test(handle)) {
-    return { ok: false, error: "暱稱限 2-24 字小寫英數與 -" };
+    return { ok: false, error: "暱稱限 2-40 字小寫英數和 . _ -" };
   }
   return { ok: true, value: handle };
 }

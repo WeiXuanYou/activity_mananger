@@ -158,14 +158,26 @@ function ProfileSection({ initial }: { initial: Initial }) {
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-ink/80">暱稱（網址用 / 登入帳號）</span>
+          <span className="text-sm font-medium text-ink/80">
+            暱稱（網址用 / 登入帳號）
+            {initial.handle === "admin" && (
+              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium">
+                🔒 系統保留
+              </span>
+            )}
+          </span>
           <input
             value={handle}
-            onChange={(e) => setHandle(e.target.value.toLowerCase())}
+            onChange={(e) => initial.handle !== "admin" && setHandle(e.target.value.toLowerCase())}
             minLength={2}
-            maxLength={24}
-            pattern="[a-z0-9-]+"
-            className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+            maxLength={40}
+            pattern="[a-z0-9._-]+"
+            readOnly={initial.handle === "admin"}
+            aria-readonly={initial.handle === "admin"}
+            title={initial.handle === "admin" ? "admin 帳號的暱稱不能更改" : undefined}
+            className={`mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm ${
+              initial.handle === "admin" ? "opacity-70 cursor-not-allowed" : ""
+            }`}
           />
         </label>
 

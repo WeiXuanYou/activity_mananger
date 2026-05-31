@@ -7,6 +7,7 @@ import { fileToCroppedDataUrl } from "@/lib/avatar";
 export function SetupForm({
   initial,
   mustResetPassword = false,
+  handleLocked = false,
 }: {
   initial: {
     name: string;
@@ -21,6 +22,9 @@ export function SetupForm({
    *  swaps to "the default admin/admin password must be replaced". Used
    *  for the bootstrap admin's first login. */
   mustResetPassword?: boolean;
+  /** True when the user is the bootstrap admin — the handle is a
+   *  reserved system value and the field is rendered read-only. */
+  handleLocked?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [handle, setHandle] = useState(initial.handle);
@@ -144,17 +148,34 @@ export function SetupForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-ink/80">暱稱（網址用，限英數和 -）</span>
+        <span className="text-sm font-medium text-ink/80">
+          暱稱（登入帳號 · 限英數和 . _ -）
+          {handleLocked && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium">
+              🔒 系統保留
+            </span>
+          )}
+        </span>
         <input
           value={handle}
-          onChange={(e) => setHandle(e.target.value.toLowerCase())}
+          onChange={(e) => !handleLocked && setHandle(e.target.value.toLowerCase())}
           placeholder="grandma"
           required
           minLength={2}
-          maxLength={24}
-          pattern="[a-z0-9-]+"
-          className="mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm"
+          maxLength={40}
+          pattern="[a-z0-9._-]+"
+          readOnly={handleLocked}
+          aria-readonly={handleLocked}
+          title={handleLocked ? "admin 帳號的暱稱不能更改" : undefined}
+          className={`mt-2 w-full px-3 py-2.5 rounded-soft border border-sand bg-cream/30 font-mono text-sm ${
+            handleLocked ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         />
+        {handleLocked && (
+          <p className="mt-1 text-xs text-ink/55">
+            這是系統保留的管理員帳號 —— 你可以改名字、頭像、密碼，但「admin」這個登入帳號要保留。
+          </p>
+        )}
       </label>
 
       <label className="block">

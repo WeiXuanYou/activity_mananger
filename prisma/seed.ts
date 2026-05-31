@@ -159,7 +159,8 @@ async function main() {
     console.log(`\n     handle: admin`);
     console.log(`     password: ${defaultPassword}\n`);
     console.log("   On first login you'll be required to:");
-    console.log("     1. Pick a real name / handle / avatar");
+    console.log("     1. Pick a real name / avatar / Email");
+    console.log("        (the `admin` handle itself is system-reserved and can't change)");
     console.log("     2. Set a new password (>= 8 chars) to replace the default\n");
     return;
   }

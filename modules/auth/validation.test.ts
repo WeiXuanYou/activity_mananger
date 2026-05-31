@@ -47,18 +47,24 @@ describe("validateName", () => {
 });
 
 describe("validateHandle", () => {
-  it("lowercases and accepts a-z0-9-", () => {
+  it("lowercases and accepts a-z0-9 . _ -", () => {
     expect(validateHandle("  Grandma-01 ")).toEqual({ ok: true, value: "grandma-01" });
+    expect(validateHandle("user.name")).toEqual({ ok: true, value: "user.name" });
+    expect(validateHandle("user_name_99")).toEqual({ ok: true, value: "user_name_99" });
   });
   it("rejects too short", () => {
     expect(validateHandle("a").ok).toBe(false);
   });
   it("rejects illegal chars", () => {
-    expect(validateHandle("hi there").ok).toBe(false);
-    expect(validateHandle("用戶").ok).toBe(false);
+    expect(validateHandle("hi there").ok).toBe(false);  // space
+    expect(validateHandle("用戶").ok).toBe(false);      // CJK
+    expect(validateHandle("user@x").ok).toBe(false);    // @ reserved for email
   });
-  it("rejects > 24 chars", () => {
-    expect(validateHandle("a".repeat(25)).ok).toBe(false);
+  it("accepts long-but-legal handles up to 40", () => {
+    expect(validateHandle("a".repeat(40)).ok).toBe(true);
+  });
+  it("rejects > 40 chars", () => {
+    expect(validateHandle("a".repeat(41)).ok).toBe(false);
   });
 });
 

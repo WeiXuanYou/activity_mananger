@@ -36,7 +36,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SetupForm
           initial={{
             name: user.name === "新成員" || user.name === "Admin" ? "" : user.name,
-            handle: user.handle === "admin" ? "" : user.handle,
+            // The bootstrap admin keeps `handle: "admin"` (reserved, can't
+            // be renamed — see enforceBootstrapAdminHandle in
+            // modules/auth/actions.ts). Show it pre-filled so the user
+            // knows it's locked rather than yanking it out and asking
+            // them to type something the server will then reject.
+            handle: user.handle,
             initial: "",
             avatarColor: user.avatarColor,
             avatarImage: user.avatarImage ?? null,
@@ -47,6 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
              that means they're the bootstrap admin (only path that ships
              with a password but setupCompleted=false). */
           mustResetPassword={Boolean(user.passwordHash)}
+          handleLocked={user.handle === "admin"}
         />
       </main>
     );

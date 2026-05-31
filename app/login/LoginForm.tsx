@@ -69,13 +69,13 @@ function PasswordPanel() {
   return (
     <form action={formAction} className="space-y-3">
       <label className="block">
-        <span className="text-sm font-medium text-ink/80">帳號（handle）</span>
+        <span className="text-sm font-medium text-ink/80">帳號（handle 或 Email）</span>
         <input
-          name="handle"
+          name="identifier"
           type="text"
           required
           autoComplete="username"
-          placeholder="你的 handle"
+          placeholder="grandma 或 you@example.com"
           className="mt-2 w-full px-4 py-3 rounded-soft border border-sand bg-cream/40 focus:outline-none focus:border-terracotta font-mono"
         />
       </label>

@@ -33,6 +33,31 @@ import {
 
 export type SignInState = { error?: string; success?: boolean };
 
+/** The bootstrap admin's handle is reserved. Returns an error message
+ *  if `next` would either claim "admin" without already owning it, or
+ *  rename the owner of "admin" to something else. Returns null when
+ *  the change is allowed.
+ *
+ *  Kept duplicated from `modules/permissions/admin.ts`'s
+ *  `BOOTSTRAP_ADMIN_HANDLE` constant — auth/actions.ts shouldn't import
+ *  from permissions/* (the dependency runs the other way) and inlining
+ *  one string is cheaper than introducing a shared constants module. */
+function enforceBootstrapAdminHandle(current: string, next: string): string | null {
+  const RESERVED = "admin";
+  if (current === next) return null;
+  if (next === RESERVED) {
+    // Someone else trying to take it — including a non-admin renaming
+    // to "admin" would shadow the real super-user.
+    return "「admin」是系統保留帳號，請換一個";
+  }
+  if (current === RESERVED) {
+    // The bootstrap admin trying to rename away — would leave the
+    // install with no `admin` handle.
+    return "admin 帳號的暱稱不能更改（系統保留帳號）";
+  }
+  return null;
+}
+
 /** Translate Prisma's P2002 ("unique constraint failed") on `User.handle`
  *  or `User.email` into a human error. Closes the race where two
  *  simultaneous setups pass the `findFirst` uniqueness pre-check then
@@ -87,9 +112,17 @@ export async function signInWithInviteAction(
 }
 
 /**
- * LOGIN with handle + password. The handle path is case-insensitive
- * (we store handles lowercased) and the error message is intentionally
- * vague — "帳號或密碼錯誤" — to avoid leaking which one was wrong.
+ * LOGIN with handle OR email + password.
+ *
+ * Identifier is whatever the user typed into the single login field.
+ * If it contains an `@` we look up by email; otherwise by handle. Both
+ * stored lowercase, both unique — no ambiguity. We use `findFirst` with
+ * an OR clause to handle the edge where someone's email's local part
+ * (`@`-free) might collide with someone else's handle — extremely
+ * unlikely but cheap to be safe.
+ *
+ * The error message is intentionally vague — "帳號或密碼錯誤" — to
+ * avoid leaking which one was wrong (or whether the account exists).
  *
  * On success: same redirect dance as invite redemption. If the user's
  * setupCompleted is false, the app layout will render the setup form
@@ -99,9 +132,16 @@ export async function signInWithPasswordAction(
   _prev: SignInState | undefined,
   formData: FormData,
 ): Promise<SignInState> {
-  const handle = String(formData.get("handle") ?? "").trim().toLowerCase();
+  // We accept either `identifier` (new name) or `handle` (legacy form
+  // field name) so updating the input doesn't have to land in the same
+  // change as renaming. Whichever the form sent, normalize once.
+  const identifier = String(
+    formData.get("identifier") ?? formData.get("handle") ?? "",
+  )
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!handle || !password) return { error: "請輸入帳號和密碼" };
+  if (!identifier || !password) return { error: "請輸入帳號和密碼" };
 
   // Brute-force protection: throttle by client IP (NOT by account, which
   // would let anyone lock a victim out). 10 misses / 15 min — invisible
@@ -114,8 +154,14 @@ export async function signInWithPasswordAction(
     return { error: `嘗試太多次了，請約 ${mins} 分鐘後再試` };
   }
 
-  const user = await db.user.findUnique({
-    where: { handle },
+  // Email lookup if the identifier contains '@', else handle. We compile
+  // this into one OR so a typo (e.g. `grandma@` with trailing @) still
+  // tries handle as a fallback — slightly more forgiving.
+  const looksLikeEmail = identifier.includes("@");
+  const user = await db.user.findFirst({
+    where: looksLikeEmail
+      ? { OR: [{ email: identifier }, { handle: identifier }] }
+      : { handle: identifier },
     select: { id: true, passwordHash: true },
   });
   // Always compare against SOMETHING — using a dummy hash if the user
@@ -196,6 +242,12 @@ export async function completeSetupAction(input: {
   const name = nameR.value;
   const handle = handleR.value;
   const avatarColor = colorR.value;
+
+  // `admin` is a system-reserved handle. The row currently owning it is
+  // the bootstrap super-user; it cannot be renamed away (would leave
+  // the install with no `admin`), and nobody else can claim it.
+  const adminCheck = enforceBootstrapAdminHandle(me.handle, handle);
+  if (adminCheck) return { error: adminCheck };
 
   // handle uniqueness: skip if this user already owns it
   const taken = await db.user.findFirst({
@@ -326,6 +378,10 @@ export async function updateProfileAction(input: {
   const name = nameR.value;
   const handle = handleR.value;
   const avatarColor = colorR.value;
+
+  // System-reserved `admin` handle — same protection as in setup.
+  const adminCheck = enforceBootstrapAdminHandle(me.handle, handle);
+  if (adminCheck) return { error: adminCheck };
 
   const handleTaken = await db.user.findFirst({
     where: { handle, NOT: { id: me.id } },
