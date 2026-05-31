@@ -14,6 +14,8 @@ import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories
 import type { Post } from "../types";
 import { BONUS_KINDS } from "../types";
 import { LikeButton } from "./LikeButton";
+import { ReactionBar, type ReactionSummary } from "@/modules/reactions";
+import { MentionText } from "@/modules/mentions";
 
 /** Short prefix shown in the top-right kind chip. */
 const KIND_LABEL = {
@@ -25,10 +27,15 @@ const KIND_LABEL = {
 export function PostCard({
   post,
   likedByMe,
+  reactionSummary,
   ownerActions,
 }: {
   post: Post;
   likedByMe?: boolean;
+  /** Multi-emoji reaction state. When provided, the card renders the full
+   *  ReactionBar; otherwise it falls back to the legacy single LikeButton
+   *  (mockup pages / sources without reaction data). */
+  reactionSummary?: ReactionSummary;
   /** Server-rendered owner-actions menu (⋯ Edit/Delete). Caller decides
    *  visibility — present → render, absent → no menu. */
   ownerActions?: React.ReactNode;
@@ -63,7 +70,7 @@ export function PostCard({
         {ownerActions}
       </div>
       {post.title && <h3 className="serif text-xl text-ink mb-2">{post.title}</h3>}
-      <p className="text-ink/75 leading-relaxed mb-3 whitespace-pre-wrap">{post.body}</p>
+      <p className="text-ink/75 leading-relaxed mb-3 whitespace-pre-wrap"><MentionText text={post.body} /></p>
       {post.images && post.images.length > 0 && (
         <div className={`mb-3 grid gap-1.5 ${
           post.images.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
@@ -111,7 +118,14 @@ export function PostCard({
         <div className="mb-3"><CategoryChipList categories={cats} size="xs" /></div>
       )}
       <div className="flex items-center gap-4 text-sm text-ink/60 pt-3 border-t border-sand/70">
-        {likedByMe !== undefined ? (
+        {reactionSummary ? (
+          <ReactionBar
+            parentType="POST"
+            parentId={post.id}
+            summary={reactionSummary}
+            revalidate="/app/feed"
+          />
+        ) : likedByMe !== undefined ? (
           <LikeButton postId={post.id} initialLiked={likedByMe} initialCount={post.likes} />
         ) : (
           <button className="flex items-center gap-1.5 hover:text-terracotta transition">

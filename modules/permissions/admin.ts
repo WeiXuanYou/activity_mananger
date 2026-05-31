@@ -49,6 +49,51 @@ export async function generateInviteCodeAction(roleName: Role): Promise<void> {
   revalidatePath("/app/invites");
 }
 
+/**
+ * Change the default role an UNUSED invite code grants. Same gate as
+ * generation (`invite.create`); bumping a code to Admin needs the higher
+ * `admin.approve` (a non-admin can't mint an Admin invite by editing one).
+ * Used codes are immutable — the role was already conferred on redemption.
+ */
+export async function setInviteRoleAction(code: string, roleName: Role): Promise<{ error?: string }> {
+  await requirePermission("invite.create");
+  if (roleName === "Admin") {
+    await requirePermission("admin.approve");
+  }
+  const invite = await db.inviteCode.findUnique({
+    where: { code },
+    select: { id: true, usedById: true },
+  });
+  if (!invite) return { error: "找不到這個邀請碼" };
+  if (invite.usedById) return { error: "已使用的邀請碼不能修改" };
+
+  const role = await db.role.findUniqueOrThrow({ where: { name: roleName } });
+  await db.inviteCode.update({ where: { id: invite.id }, data: { defaultRoleId: role.id } });
+  revalidatePath("/app/admin");
+  revalidatePath("/app/invites");
+  return {};
+}
+
+/**
+ * Revoke (delete) an UNUSED invite code. Gate is `invite.create`.
+ * Used codes are kept — deleting one would orphan the redeemer's
+ * `usedBy` link and erase the audit trail of how they joined.
+ */
+export async function deleteInviteAction(code: string): Promise<{ error?: string }> {
+  await requirePermission("invite.create");
+  const invite = await db.inviteCode.findUnique({
+    where: { code },
+    select: { id: true, usedById: true },
+  });
+  if (!invite) return {};
+  if (invite.usedById) return { error: "已使用的邀請碼不能刪除（保留加入紀錄）" };
+
+  await db.inviteCode.delete({ where: { id: invite.id } });
+  revalidatePath("/app/admin");
+  revalidatePath("/app/invites");
+  return {};
+}
+
 /** Directly set a user's role (admin override — bypasses the request flow). */
 export async function setUserRoleAction(userId: string, roleName: Role): Promise<void> {
   await requirePermission("admin.approve");

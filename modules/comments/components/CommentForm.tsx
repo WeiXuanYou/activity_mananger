@@ -60,7 +60,7 @@ export function CommentForm({
             ref={textareaRef}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="寫一則留言..."
+            placeholder="寫一則留言...（用 @帳號 標記某人）"
             rows={2}
             className="w-full px-4 py-3 rounded-soft border border-sand bg-cream/30 focus:outline-none focus:border-terracotta text-sm resize-none"
             onKeyDown={(e) => {

@@ -13,6 +13,7 @@ import { useState, useRef, useTransition, useEffect } from "react";
 import { Avatar, findMember, type Member } from "@/modules/core/members";
 import { createCommentAction, editCommentAction, deleteCommentAction } from "../actions";
 import { uploadImageAction } from "@/modules/uploads/actions";
+import { MentionText } from "@/modules/mentions";
 import type { Comment, CommentParentType } from "../types";
 
 export function CommentItem({
@@ -107,7 +108,7 @@ export function CommentItem({
             </div>
             {comment.body && (
               <p className="text-ink/80 text-sm leading-relaxed whitespace-pre-wrap">
-                {comment.body}
+                <MentionText text={comment.body} />
               </p>
             )}
             {comment.image && (

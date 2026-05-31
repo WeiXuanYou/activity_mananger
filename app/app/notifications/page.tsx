@@ -8,6 +8,8 @@ const KIND_EMOJI: Record<string, string> = {
   "permission.rejected": "🔕",
   "activity.rsvp": "📅",
   "post.pinned": "📌",
+  "feedback.received": "📨",
+  mention: "💬",
   welcome: "👋",
 };
 

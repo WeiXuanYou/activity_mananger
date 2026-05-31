@@ -91,6 +91,18 @@ export async function createPostFormAction(
 
   void emit("post.created", { type: "post", id: created.id }, { kind, isPinned }, me.id);
 
+  // Notify anyone @mentioned in the title/body. Fire-and-forget.
+  void (async () => {
+    const { notifyMentions } = await import("@/modules/mentions/notify");
+    await notifyMentions({
+      text: `${title}\n${body}`,
+      authorId: me.id,
+      authorName: me.name,
+      title: "有人在貼文中提到你",
+      link: "/app/feed",
+    }).catch(() => {});
+  })();
+
   revalidatePath("/app/feed");
   // Redirect throws under the hood — must not be inside try/catch
   redirect("/app/feed");

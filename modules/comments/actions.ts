@@ -76,6 +76,20 @@ export async function createCommentAction(input: {
           link,
         });
       }
+
+      // Notify anyone @mentioned in the comment body — but not the content
+      // owner (they already got the "new comment" ping above) or the author.
+      if (body) {
+        const { notifyMentions } = await import("@/modules/mentions/notify");
+        await notifyMentions({
+          text: body,
+          authorId: me.id,
+          authorName: me.name,
+          title: "有人在留言中提到你",
+          link,
+          excludeUserIds: ownerId ? [ownerId] : [],
+        });
+      }
     } catch {
       // Notification failure must never break commenting
     }

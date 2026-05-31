@@ -4,6 +4,7 @@ import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "../admin/GenerateInviteButtons";
+import { InviteEditControls } from "./InviteEditControls";
 
 /**
  * Personal invite manager for any user who holds `invite.create`.
@@ -16,7 +17,10 @@ import { GenerateInviteButtons } from "../admin/GenerateInviteButtons";
  */
 export default async function InvitesPage() {
   const me = await requireCurrentUser();
-  const canInvite = await canCurrentUser("invite.create");
+  const [canInvite, canGrantAdmin] = await Promise.all([
+    canCurrentUser("invite.create"),
+    canCurrentUser("admin.approve"),
+  ]);
   if (!canInvite) redirect("/app/feed?denied=invite");
 
   const mine = await db.inviteCode.findMany({
@@ -67,6 +71,13 @@ export default async function InvitesPage() {
                   <span className="text-sage-dark">● 永久有效（未使用）</span>
                 )}
               </span>
+              {!c.usedById && (
+                <InviteEditControls
+                  code={c.code}
+                  currentRole={c.defaultRole.name as "Guest" | "Member" | "Editor" | "Admin"}
+                  canGrantAdmin={canGrantAdmin}
+                />
+              )}
               <span className="text-[10px] text-ink/40 tabular-nums">
                 {new Date(c.createdAt).toLocaleDateString("zh-TW")}
               </span>

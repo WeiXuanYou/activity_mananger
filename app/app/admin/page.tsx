@@ -17,6 +17,7 @@ import { RoleSelect } from "./RoleSelect";
 import { RunRemindersButton } from "./RunRemindersButton";
 import { InviteGrantToggle } from "./InviteGrantToggle";
 import { DeleteUserButton } from "./DeleteUserButton";
+import { InviteEditControls } from "../invites/InviteEditControls";
 
 export default async function AdminPage() {
   const me = await requireCurrentUser();
@@ -68,6 +69,27 @@ export default async function AdminPage() {
         </Link>
       </section>
 
+      {/* Data backup */}
+      <section className="mb-10">
+        <h2 className="serif text-xl text-ink mb-1">💾 資料備份</h2>
+        <p className="text-sm text-ink/60 mb-4">
+          一鍵下載整個資料庫的 JSON 備份（所有用戶、貼文、活動、留言…）。建議定期下載存檔，
+          萬一伺服器出問題也能還原。
+        </p>
+        <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
+          <a
+            href="/api/admin/backup"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition"
+          >
+            ⬇ 下載完整備份（JSON）
+          </a>
+          <p className="text-xs text-ink/45 mt-3 leading-relaxed">
+            備份檔包含密碼雜湊與 session token，請妥善保管、不要外流。
+            還原可搭配 <code className="text-terracotta bg-cream/60 px-1 rounded">npm run db:import-json</code>。
+          </p>
+        </div>
+      </section>
+
       {/* Invite codes */}
       <section className="mb-10">
         <h2 className="serif text-xl text-ink mb-1">🎟 邀請碼</h2>
@@ -87,8 +109,17 @@ export default async function AdminPage() {
               ) : (
                 <span className="text-xs text-sage-dark">● 可用</span>
               )}
-              <span className="ml-auto text-xs text-ink/40">
-                {new Date(inv.createdAt).toLocaleDateString("zh-TW")}
+              <span className="ml-auto flex items-center gap-2">
+                {!inv.used && (
+                  <InviteEditControls
+                    code={inv.code}
+                    currentRole={inv.roleName as "Guest" | "Member" | "Editor" | "Admin"}
+                    canGrantAdmin
+                  />
+                )}
+                <span className="text-xs text-ink/40">
+                  {new Date(inv.createdAt).toLocaleDateString("zh-TW")}
+                </span>
               </span>
             </div>
           ))}

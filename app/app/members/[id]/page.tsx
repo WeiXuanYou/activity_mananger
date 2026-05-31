@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import { Avatar, findMemberDb } from "@/modules/core/members";
-import { listPostsDb, PostCard, findLikedPostIdsByUserDb } from "@/modules/core/posts";
+import { listPostsDb, PostCard } from "@/modules/core/posts";
+import { getReactionSummariesDb } from "@/modules/reactions";
 import { listActivitiesDb, ActivityCard } from "@/modules/core/activities";
 import { listPollsDb, PollCard } from "@/modules/core/polls";
 import { db } from "@/lib/db";
@@ -44,8 +45,8 @@ export default async function MemberProfilePage({ params }: Params) {
   const myActivities = allActivities.filter((a) => a.hostId === id);
   const myPolls = allPolls.filter((p) => p.authorId === id);
 
-  // Liked-state for the posts we'll render (so the heart shows correctly)
-  const likedIds = await findLikedPostIdsByUserDb(me.id, myPosts.map((p) => p.id));
+  // Reaction summaries for the posts we'll render.
+  const reactionSummaries = await getReactionSummariesDb("POST", myPosts.map((p) => p.id), me.id);
 
   const joinedAt = joinedAtRow?.createdAt
     ? joinedAtRow.createdAt.toLocaleDateString("zh-TW", { year: "numeric", month: "long" })
@@ -132,7 +133,7 @@ export default async function MemberProfilePage({ params }: Params) {
         <Section title="📝 發過的文章">
           <div className="space-y-4">
             {myPosts.map((p) => (
-              <PostCard key={p.id} post={p} likedByMe={likedIds.has(p.id)} />
+              <PostCard key={p.id} post={p} reactionSummary={reactionSummaries.get(p.id)} />
             ))}
           </div>
         </Section>

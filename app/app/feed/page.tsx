@@ -14,7 +14,6 @@ import { canCurrentUser } from "@/modules/permissions";
 import {
   listPostsDb,
   countPostsDb,
-  findLikedPostIdsByUserDb,
   PostCard,
 } from "@/modules/core/posts";
 import { listUpcomingActivitiesDb } from "@/modules/core/activities";
@@ -25,6 +24,7 @@ import { OwnerActions } from "@/modules/core/components/OwnerActions";
 import { deletePostAction, setPostHiddenAction } from "@/modules/core/posts/actions";
 import { listMemoriesForToday, MemoriesCard } from "@/modules/core/memories";
 import { listUpcomingBirthdays, BirthdayWidget } from "@/modules/core/birthdays";
+import { getReactionSummariesDb } from "@/modules/reactions";
 
 /** How many posts the feed shows before "看更多". Tuned for a phone-first
  *  timeline — enough to feel full, not so many that the page is endless. */
@@ -70,9 +70,13 @@ export default async function AppFeedPage({ searchParams }: Search) {
   const filteredPosts = posts;
   const hasMore = totalPosts > filteredPosts.length;
 
-  // One query for "which of these posts has the current user liked" so the
-  // heart renders in the right state.
-  const likedIds = await findLikedPostIdsByUserDb(me.id, filteredPosts.map((p) => p.id));
+  // Reaction summaries (counts per emoji + the viewer's pick) for every
+  // visible post — two queries total via the batch helper.
+  const reactionSummaries = await getReactionSummariesDb(
+    "POST",
+    filteredPosts.map((p) => p.id),
+    me.id,
+  );
 
   // Preserve cat when building the "看更多" link.
   const moreHref = (() => {
@@ -213,7 +217,7 @@ export default async function AppFeedPage({ searchParams }: Search) {
                   )}
                   <PostCard
                     post={p}
-                    likedByMe={likedIds.has(p.id)}
+                    reactionSummary={reactionSummaries.get(p.id)}
                     ownerActions={
                       isOwnerOrMod ? (
                         <OwnerActions

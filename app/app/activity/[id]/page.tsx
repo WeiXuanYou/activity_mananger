@@ -109,6 +109,18 @@ export default async function AppActivityDetailPage({ params }: Params) {
           <p className="text-ink/80 leading-relaxed mb-6">{activity.description}</p>
 
           <RsvpButtons activityId={activity.id} current={myRsvp} counts={activity.rsvp} />
+
+          <div className="mt-4 pt-4 border-t border-sand/70">
+            <a
+              href={`/api/activity/${activity.id}/ics`}
+              className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-soft bg-white border border-sand text-ink/75 hover:bg-cream/40 transition"
+            >
+              🗓️ 加入我的行事曆
+            </a>
+            <p className="text-xs text-ink/45 mt-2">
+              下載 .ics 檔，匯入手機 / 電腦的行事曆（Apple / Google / Outlook），到時候會自動提醒你。
+            </p>
+          </div>
         </div>
       </div>
 
