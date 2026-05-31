@@ -10,6 +10,10 @@ import {
   requestHandleRecovery,
   consumeResetTokenAndSetPassword,
 } from "./recovery";
+import {
+  requestEmailVerification,
+  consumeVerificationToken,
+} from "./verify-email";
 import { getRequestMeta } from "./request-meta";
 import {
   loginRateLimiter,
@@ -246,6 +250,12 @@ export async function completeSetupAction(input: {
     return { error: `第一次登入請先設新密碼（至少 ${MIN_PASSWORD_LEN} 個字）` };
   }
 
+  // If the email is changing (or being set for the first time), reset
+  // emailVerifiedAt so the new address has to prove itself. If it's the
+  // same as what's already on file, preserve the existing verified
+  // status (don't make a verified user re-verify just because they
+  // saved the form).
+  const emailIsNew = emailValue !== undefined && emailValue !== me.email;
   try {
     await db.user.update({
       where: { id: me.id },
@@ -258,6 +268,7 @@ export async function completeSetupAction(input: {
         setupCompleted: true,
         ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
         ...(emailValue !== undefined ? { email: emailValue } : {}),
+        ...(emailIsNew ? { emailVerifiedAt: null } : {}),
         ...(newPasswordHash !== undefined ? { passwordHash: newPasswordHash } : {}),
       },
     });
@@ -265,6 +276,15 @@ export async function completeSetupAction(input: {
     const msg = translateUniqueError(e);
     if (msg) return { error: msg };
     throw e;
+  }
+
+  // Fire-and-forget verification email when an email was set/changed.
+  // (No-op if the user happened to keep the same address.)
+  if (emailIsNew) {
+    const { origin } = await getRequestMeta();
+    void requestEmailVerification(me.id, origin).catch((e) =>
+      console.error("[setup] verification email failed:", e),
+    );
   }
 
   redirect("/app/feed");
@@ -339,6 +359,8 @@ export async function updateProfileAction(input: {
   if (!birthdayR.ok) return { error: birthdayR.error };
   const birthdayDate = birthdayR.value;
 
+  // Same email-change → re-verify policy as completeSetupAction.
+  const emailIsNew = emailValue !== undefined && emailValue !== me.email;
   try {
     await db.user.update({
       where: { id: me.id },
@@ -349,6 +371,7 @@ export async function updateProfileAction(input: {
         avatarColor,
         ...(avatarImageValue !== undefined ? { avatarImage: avatarImageValue } : {}),
         ...(emailValue !== undefined ? { email: emailValue } : {}),
+        ...(emailIsNew ? { emailVerifiedAt: null } : {}),
         ...(birthdayDate !== undefined ? { birthday: birthdayDate } : {}),
       },
     });
@@ -358,13 +381,69 @@ export async function updateProfileAction(input: {
     throw e;
   }
 
+  if (emailIsNew) {
+    const { origin } = await getRequestMeta();
+    void requestEmailVerification(me.id, origin).catch((e) =>
+      console.error("[account] verification email failed:", e),
+    );
+  }
+
   // Revalidate every path that surfaces the user's name / avatar /
-  // handle: the account page itself, the authenticated shell layout,
-  // the feed (greeting line), and the per-user profile page.
+  // handle / verification badge: the account page itself, the
+  // authenticated shell layout, the feed (greeting line), and the
+  // per-user profile page.
   revalidatePath("/app/account");
   revalidatePath("/app", "layout");
   revalidatePath("/app/feed");
   revalidatePath(`/app/members/${me.id}`);
+  return { ok: true };
+}
+
+/**
+ * Send a fresh verification email to the user's current address. Used
+ * from the account-settings "重新寄驗證信" button. No-op if the user
+ * has no email or it's already verified.
+ *
+ * Throttled by user id (5 / 15 min) — same anti-mail-bomb policy as
+ * the password-reset request action, but keyed per user since this is
+ * an authenticated endpoint and the legitimate operator IS the only
+ * one allowed to trigger it.
+ */
+export async function resendVerificationEmailAction(): Promise<AccountResult> {
+  const me = await requireCurrentUser();
+  if (!me.email) return { error: "你還沒設定 Email" };
+  if (me.emailVerifiedAt) return { error: "這個 Email 已經驗證過了" };
+
+  const key = `verify:${me.id}`;
+  const gate = recoveryRateLimiter.check(key);
+  if (!gate.allowed) {
+    const mins = Math.ceil(gate.retryAfterMs / 60_000);
+    return { error: `剛剛寄過了，請約 ${mins} 分鐘後再試` };
+  }
+  recoveryRateLimiter.hit(key);
+
+  const { origin } = await getRequestMeta();
+  void requestEmailVerification(me.id, origin).catch((e) =>
+    console.error("[resend-verify] failed:", e),
+  );
+  return { ok: true };
+}
+
+/**
+ * Public action used by the /verify-email page. Takes the token from
+ * the query string, marks the user's email as verified, returns the
+ * result so the page can render success / failure copy. Idempotent.
+ */
+export type VerifyEmailResult =
+  | { ok: true }
+  | { ok: false; reason: "INVALID" | "EXPIRED" | "USED" | "EMAIL_CHANGED" };
+
+export async function verifyEmailAction(token: string): Promise<VerifyEmailResult> {
+  const r = await consumeVerificationToken(token);
+  if (!r.ok) return { ok: false, reason: r.reason };
+  // Revalidate the account page so the "已驗證" badge updates if the
+  // user happens to be logged in on the same browser they clicked from.
+  revalidatePath("/app/account");
   return { ok: true };
 }
 

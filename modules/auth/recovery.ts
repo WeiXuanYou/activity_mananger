@@ -128,7 +128,9 @@ ${link}
 
 /**
  * Email the user their handle (login id). Same enumeration / timing
- * properties as `requestPasswordReset`.
+ * properties as `requestPasswordReset`, plus a 60s cooldown stored as
+ * `User.lastHandleRecoveryAt` (no token table needed because there's
+ * nothing to revoke — we're just gating mail dispatch).
  */
 export async function requestHandleRecovery(rawEmail: string): Promise<void> {
   const email = normalizeEmail(rawEmail);
@@ -136,9 +138,22 @@ export async function requestHandleRecovery(rawEmail: string): Promise<void> {
 
   const user = await db.user.findUnique({
     where: { email },
-    select: { name: true, handle: true },
+    select: { id: true, name: true, handle: true, lastHandleRecoveryAt: true },
   });
   if (!user) return;
+
+  // 60-second cooldown — same anti-mail-bomb policy as password reset.
+  // Cheap: one indexed column on User; no separate table.
+  if (
+    user.lastHandleRecoveryAt &&
+    user.lastHandleRecoveryAt.getTime() > Date.now() - RESEND_COOLDOWN_MS
+  ) {
+    return;
+  }
+  await db.user.update({
+    where: { id: user.id },
+    data: { lastHandleRecoveryAt: new Date() },
+  });
 
   void sendEmail({
     to: email,

@@ -28,6 +28,7 @@ export default async function AccountSettingsPage() {
     select: {
       id: true, name: true, handle: true, initial: true,
       avatarColor: true, avatarImage: true, email: true,
+      emailVerifiedAt: true,
       birthday: true, passwordHash: true,
     },
   });
@@ -56,6 +57,7 @@ export default async function AccountSettingsPage() {
           avatarColor: user.avatarColor,
           avatarImage: user.avatarImage,
           email: user.email,
+          emailVerified: Boolean(user.emailVerifiedAt),
           birthday: user.birthday ? user.birthday.toISOString().slice(0, 10) : null,
           hasPassword: Boolean(user.passwordHash),
         }}

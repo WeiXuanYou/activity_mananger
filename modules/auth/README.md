@@ -38,8 +38,10 @@
 | `updateProfileAction` | 帳戶設定：改 name/handle/avatar/email/birthday（email 可改不可清空） |
 | `changePasswordAction` | 改密碼，需驗證現有密碼，依使用者限流 |
 | `signOutOtherSessionsAction` | 踢掉除當前以外的所有 session；找不到當前 session 時拒絕（不會誤刪全部） |
-| `requestPasswordResetAction` / `requestHandleRecoveryAction` | 公開找回端點，IP 限流、不洩漏帳號存在 |
+| `requestPasswordResetAction` / `requestHandleRecoveryAction` | 公開找回端點，IP 限流、不洩漏帳號存在；handle recovery 也有 60s 冷卻 |
 | `resetPasswordWithTokenAction` | 用 token 設新密碼，成功後自動登入 |
+| `resendVerificationEmailAction` | 帳戶設定的「重新寄驗證信」按鈕；依使用者限流 |
+| `verifyEmailAction(token)` | `/verify-email` 公開頁用，標記 `User.emailVerifiedAt` |
 
 驗證工具（從 `@/modules/auth/validation` 引用，**同構**，client/server 共用）：
 `validateName` / `validateHandle` / `validateEmail` / `validatePassword` / `validateAvatarColor` / `validateAvatarImage`（含 magic-bytes 檢查）/ `validateBirthday`、常數 `AVATAR_PALETTE` / `AVATAR_MAX_BYTES` / `MIN_PASSWORD_LEN`。
@@ -57,6 +59,7 @@ modules/auth/
   password.ts     scrypt 雜湊 / 驗證（加鹽 + 等時比對）
   invite.ts       邀請碼兌換邏輯：第一次用會自動 create user，之後重複用會復用同一帳號
   recovery.ts     密碼 / handle 找回：雜湊一次性 token、email 綁定、踢 session、防灌信冷卻
+  verify-email.ts Email 驗證流程：設定/變更 email 後自動發確認信、24h TTL、email-pin 防舊連結
   validation.ts   同構欄位驗證（無 next/db 依賴），client + server 共用同一份規則
   rate-limit.ts   in-memory sliding-window 限流（login / recovery / changePassword）
   request-meta.ts getRequestMeta()：從 proxy header 取 origin + client IP（受 TRUST_PROXY 控制）

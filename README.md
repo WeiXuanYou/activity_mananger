@@ -83,6 +83,51 @@ npm run dev
 | `APP_URL` | 用來組重設連結。預設讀 request 的 host header；佈署在反向代理後可手動設成 `https://your.domain`。 |
 | `TRUST_PROXY` | 預設不信任 `X-Forwarded-For`（避免直連的客戶端偽造 IP 繞過登入限流）。**佈署在 Vercel / nginx / Caddy 等反向代理後請設成 `true`**，這樣每個 IP 才能正確區分。 |
 
+## 為什麼用 SQLite？什麼時候該換 PostgreSQL？
+
+預設用 **SQLite + Prisma**，原因：
+
+- 自架版本一個指令就跑起來，不用另外架 DB server
+- 備份 = 複製 `prisma/dev.db` 一個檔案
+- 家人朋友規模（~100 人以內）連 SQLite 的 1% 都用不到
+- Prisma 對 SQLite / Postgres 寫法一致，業務程式不用改
+
+**什麼時候要換 Postgres**：
+- 多實例佈署（Vercel serverless、Kubernetes、多台 VM）—— SQLite 是檔案鎖，多寫者會打架
+- 同時上線使用者破 1000、有重度寫入（每秒數十次以上）
+- 需要 read replica、PITR（point-in-time recovery）等企業級備援
+
+### 從 SQLite 平移到 PostgreSQL
+
+整個過程 ~15 分鐘，分四步：
+
+```bash
+# 1. 備份目前的 SQLite 資料
+cp prisma/dev.db prisma/dev.db.backup-$(date +%Y%m%d)
+
+# 2. 把 schema 的 provider 換成 postgresql，DATABASE_URL 改成 Postgres 連線字串
+#    prisma/schema.prisma:
+#      datasource db { provider = "postgresql"  url = env("DATABASE_URL") }
+#    .env:
+#      DATABASE_URL="postgresql://user:pw@host:5432/together"
+
+# 3. 因為 migration 檔是 provider-specific 的（SQLite 用 PRAGMA、表重建；Postgres 用 ALTER），
+#    要重新從目前 schema 產生一份新的 Postgres 基準 migration：
+rm -rf prisma/migrations
+npx prisma migrate dev --name init_postgres
+#    （只在空的 Postgres DB 跑這步；現有 SQLite 資料下一步搬）
+
+# 4. 把資料從 SQLite 倒進 Postgres。推薦工具：
+#    a) pgloader（最簡單）：
+#       pgloader sqlite:///path/to/dev.db postgresql://user:pw@host/together
+#    b) 或用 Prisma seed：寫個 script 從舊 db.json 匯入（適合資料量小）
+```
+
+注意事項：
+- SQLite 的 `DATETIME` 是字串、Postgres 是 `TIMESTAMP`，pgloader 會自動處理；手刻匯入要記得轉
+- SQLite 沒有 enum，Postgres 有；本專案目前用 `String` 不用 enum，沒問題
+- 換完 Postgres 後，`TRUST_PROXY` / `RESEND_API_KEY` 等環境變數沿用，不用改
+
 ## 目錄結構
 
 ```

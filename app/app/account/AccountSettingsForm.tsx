@@ -11,6 +11,7 @@ import {
   updateProfileAction,
   changePasswordAction,
   signOutOtherSessionsAction,
+  resendVerificationEmailAction,
 } from "@/modules/auth/actions";
 import { AVATAR_PALETTE } from "@/modules/auth/validation";
 import { fileToCroppedDataUrl } from "@/lib/avatar";
@@ -22,6 +23,7 @@ type Initial = {
   avatarColor: string;
   avatarImage: string | null;
   email: string | null;
+  emailVerified: boolean;
   birthday: string | null;
   hasPassword: boolean;
 };
@@ -168,7 +170,14 @@ function ProfileSection({ initial }: { initial: Initial }) {
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-ink/80">Email · 必填（用來找回密碼 / 帳號）</span>
+          <span className="text-sm font-medium text-ink/80 flex items-center gap-2 flex-wrap">
+            Email · 必填（用來找回密碼 / 帳號）
+            <EmailVerifyBadge
+              verified={initial.emailVerified}
+              hasEmail={Boolean(initial.email)}
+              edited={email !== (initial.email ?? "")}
+            />
+          </span>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -180,6 +189,11 @@ function ProfileSection({ initial }: { initial: Initial }) {
           />
           <p className="mt-1 text-xs text-ink/50">
             可以換成別的信箱，但不能留空 —— 這是你忘記密碼 / 帳號時唯一的找回管道。
+            {!initial.emailVerified && initial.email && (
+              <span className="block mt-1">
+                改完按「儲存」後我們會自動寄一封確認信。
+              </span>
+            )}
           </p>
         </label>
 
@@ -351,6 +365,63 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
         {othersFeedback && <span className="text-xs text-sage-dark">{othersFeedback}</span>}
       </div>
     </section>
+  );
+}
+
+/**
+ * Verification badge next to the Email field. Three states:
+ *   - already verified (and the field isn't being edited) → ✓ green pill
+ *   - email present but unverified → orange pill + resend button
+ *   - editing or no email yet → no badge (we'll send a fresh verification
+ *     when they save)
+ */
+function EmailVerifyBadge({
+  verified,
+  hasEmail,
+  edited,
+}: {
+  verified: boolean;
+  hasEmail: boolean;
+  edited: boolean;
+}) {
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // While the user is mid-edit, hide the badge — the value they see
+  // doesn't reflect what's on the server. Re-appears after save.
+  if (edited || !hasEmail) return null;
+
+  if (verified) {
+    return (
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-sage-soft/40 text-sage-dark font-medium">
+        ✓ 已驗證
+      </span>
+    );
+  }
+
+  const resend = () => {
+    setFeedback(null);
+    startTransition(async () => {
+      const r = await resendVerificationEmailAction();
+      setFeedback(r.error ?? "✓ 驗證信已寄出，請去信箱看");
+    });
+  };
+
+  return (
+    <span className="inline-flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-terracotta-soft/40 text-terracotta-dark font-medium">
+        ⚠ 尚未驗證
+      </span>
+      <button
+        type="button"
+        onClick={resend}
+        disabled={pending}
+        className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-sand text-ink/65 hover:bg-cream/40 disabled:opacity-50"
+      >
+        {pending ? "寄送中…" : "重新寄驗證信"}
+      </button>
+      {feedback && <span className="text-[11px] text-ink/60">{feedback}</span>}
+    </span>
   );
 }
 

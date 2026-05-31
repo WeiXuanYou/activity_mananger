@@ -26,13 +26,25 @@ model User {
   /// so a family/friends scale install doesn't need separate blob storage;
   /// the action layer caps incoming size (~500 KB) before write.
   avatarImage String?
-  /// Contact email — optional but unique when present. Drives both the
-  /// password-reset flow and the "I forgot my handle" recovery. We don't
-  /// require email verification yet because for the family/friends scale
-  /// the user-facing trade-off is "one less click on day one" vs. "we
-  /// trust the person who issued the invite". When verification matters
-  /// we can add a verifiedAt column without migrating existing rows.
+  /// Contact email — optional in the DB but required at setup completion
+  /// (the requirement is enforced in `completeSetupAction`, not the
+  /// schema, because the row exists before the user has picked an
+  /// email — invite redemption and the bootstrap admin both create the
+  /// row first). Drives the password-reset and handle-recovery flows.
   email       String?   @unique
+  /// When the user clicked the verification link sent to `email`.
+  /// Null = unverified (just set their email, but we haven't confirmed
+  /// they own the address). The recovery flow currently sends to both
+  /// verified and unverified addresses for backward compatibility; a
+  /// later release may require verification for password reset once
+  /// existing users have had time to verify.
+  emailVerifiedAt DateTime?
+  /// When we last emailed this user their handle (for the "I forgot my
+  /// handle" flow). Used to enforce the same 60-second cooldown as
+  /// password resets, but kept on User instead of in a separate table
+  /// because handle recovery doesn't issue a token — there's nothing
+  /// to revoke, just a "wait a minute" guard against mail-bombing.
+  lastHandleRecoveryAt DateTime?
   /// Birthday. Year is significant for the age-display widget on
   /// profiles; the cron only matches month-day. Optional — users can
   /// leave it blank.
@@ -72,6 +84,7 @@ model User {
   permissionsGranted  UserPermissionGrant[] @relation("PermissionGranter")
   lodgings          Lodging[]             @relation("LodgingAddedBy")
   passwordResets    PasswordReset[]
+  emailVerifications EmailVerification[]
 
   @@index([roleId])
 }
@@ -500,6 +513,27 @@ model PasswordReset {
   /// if the user later changes their address, an old token that leaked
   /// to the previous mailbox (or was forwarded by mistake) can't be
   /// redeemed. Verified to match `User.email` at consumption.
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// =====================================================================
+// EmailVerification — same shape as PasswordReset but for the "prove
+// you own this email" flow. Issued whenever a user sets a new email
+// (at setup, or when they change it in account settings). 24h TTL —
+// longer than password reset because it's convenience, not a security
+// race. Email is pinned at issue so a forwarded link can't verify a
+// later address change.
+// =====================================================================
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   email     String
   tokenHash String   @unique
   expiresAt DateTime

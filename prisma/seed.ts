@@ -193,10 +193,11 @@ async function main() {
       where: { handle: m.handle },
       // Normalize email at write time so the invariant "every stored email
       // matches what `normalizeEmail` would have produced" holds whether
-      // the row came from the form or from the seed. Avoids a future
-      // `Foo@x.com` row that fails to match a lowercased lookup.
-      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase() },
-      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase() },
+      // the row came from the form or from the seed. Demo users are
+      // pre-marked verified (the operator vouches for them) so the UI
+      // shows the green badge instead of nagging to verify a fake address.
+      update: { name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase(), emailVerifiedAt: new Date() },
+      create: { handle: m.handle, name: m.name, avatarColor: m.avatarColor, initial: m.initial, roleId: roleRows[m.role].id, birthday: m.birthday ?? null, email: m.email.toLowerCase(), emailVerifiedAt: new Date() },
     });
     userRows[m.handle] = { id: u.id, handle: u.handle, role: m.role };
   }
