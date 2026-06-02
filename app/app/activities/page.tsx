@@ -35,7 +35,7 @@ export default async function AppActivitiesPage({ searchParams }: Search) {
   const list = tab === "past" ? visiblePast : visibleUpcoming;
 
   return (
-    <main className="max-w-6xl mx-auto px-5 py-8">
+    <main className="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-end gap-4 mb-6 flex-wrap">
         <div>
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">ACTIVITIES</p>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/modules/auth";
 import {
@@ -9,39 +10,85 @@ import {
 } from "@/modules/permissions";
 import { Avatar } from "@/modules/core/members";
 import { listRecentReminders } from "@/modules/core/reminders";
+import { countOpenFeedbackDb } from "@/modules/feedback";
 import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
 import { RunRemindersButton } from "./RunRemindersButton";
 import { InviteGrantToggle } from "./InviteGrantToggle";
 import { DeleteUserButton } from "./DeleteUserButton";
+import { InviteEditControls } from "../invites/InviteEditControls";
 
 export default async function AdminPage() {
   const me = await requireCurrentUser();
   const isAdmin = await canCurrentUser("admin.approve");
   if (!isAdmin) redirect("/app/feed?denied=admin");
 
-  const [invites, members, decided, recentReminders, allInviteGrants] = await Promise.all([
+  const [invites, members, decided, recentReminders, inviteDenies, openFeedback] = await Promise.all([
     listInviteCodesDb(),
     listAllMembersDb(),
     listDecidedRequestsDb(),
     listRecentReminders(8),
-    // Surface who has been granted `invite.create` so we can show the
-    // current toggle state without a per-row roundtrip.
+    // Members can invite by default now; surface who has been DENIED so the
+    // toggle shows the right state. (deny key = "invite.create:deny")
     db.userPermissionGrant.findMany({
-      where: { permissionKey: "invite.create" },
+      where: { permissionKey: "invite.create:deny" },
       select: { userId: true },
     }),
+    countOpenFeedbackDb(),
   ]);
-  const inviteGrantSet = new Set(allInviteGrants.map((g) => g.userId));
+  const inviteDeniedSet = new Set(inviteDenies.map((g) => g.userId));
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-8">
+    <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs bg-ink text-white px-2 py-0.5 rounded-full">ADMIN</span>
         <p className="text-sage-dark text-xs font-medium tracking-widest">MANAGEMENT TOOLS</p>
       </div>
       <h1 className="serif text-3xl text-ink mb-8">管理工具</h1>
+
+      {/* Feedback inbox shortcut */}
+      <section className="mb-10">
+        <Link
+          href="/app/admin/feedback"
+          className="block bg-white rounded-soft shadow-card border border-sand/60 p-5 hover:shadow-soft transition"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📨</span>
+            <div className="flex-1">
+              <div className="serif text-lg text-ink flex items-center gap-2">
+                意見回饋
+                {openFeedback > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-terracotta text-white">{openFeedback} 待處理</span>
+                )}
+              </div>
+              <p className="text-sm text-ink/60">查看成員送出的問題、建議與提問。</p>
+            </div>
+            <span className="text-ink/40">→</span>
+          </div>
+        </Link>
+      </section>
+
+      {/* Data backup */}
+      <section className="mb-10">
+        <h2 className="serif text-xl text-ink mb-1">💾 資料備份</h2>
+        <p className="text-sm text-ink/60 mb-4">
+          一鍵下載整個資料庫的 JSON 備份（所有用戶、貼文、活動、留言…）。建議定期下載存檔，
+          萬一伺服器出問題也能還原。
+        </p>
+        <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5">
+          <a
+            href="/api/admin/backup"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition"
+          >
+            ⬇ 下載完整備份（JSON）
+          </a>
+          <p className="text-xs text-ink/45 mt-3 leading-relaxed">
+            備份檔包含密碼雜湊與 session token，請妥善保管、不要外流。
+            還原可搭配 <code className="text-terracotta bg-cream/60 px-1 rounded">npm run db:import-json</code>。
+          </p>
+        </div>
+      </section>
 
       {/* Invite codes */}
       <section className="mb-10">
@@ -62,8 +109,17 @@ export default async function AdminPage() {
               ) : (
                 <span className="text-xs text-sage-dark">● 可用</span>
               )}
-              <span className="ml-auto text-xs text-ink/40">
-                {new Date(inv.createdAt).toLocaleDateString("zh-TW")}
+              <span className="ml-auto flex items-center gap-2">
+                {!inv.used && (
+                  <InviteEditControls
+                    code={inv.code}
+                    currentRole={inv.roleName as "Guest" | "Member" | "Editor" | "Admin"}
+                    canGrantAdmin
+                  />
+                )}
+                <span className="text-xs text-ink/40">
+                  {new Date(inv.createdAt).toLocaleDateString("zh-TW")}
+                </span>
               </span>
             </div>
           ))}
@@ -112,13 +168,15 @@ export default async function AdminPage() {
                   ) : (
                     <>
                       <RoleSelect userId={m.id} current={m.role} disabled={isReserved} />
-                      {/* invite.create grant is meaningless when role already
-                          has it (Editor / Admin) — only surface for Guest /
-                          Member where it's a real delegation. */}
+                      {/* Members can invite by default; the toggle lets an
+                          admin turn it OFF for this person. Editor/Admin always
+                          can invite (and aren't shown a toggle). Guests don't
+                          have the Member role default, but admins can still
+                          allow them here. */}
                       {(m.role === "Guest" || m.role === "Member") && (
                         <InviteGrantToggle
                           userId={m.id}
-                          granted={inviteGrantSet.has(m.id)}
+                          allowed={m.role === "Member" && !inviteDeniedSet.has(m.id)}
                         />
                       )}
                       {isReserved ? (

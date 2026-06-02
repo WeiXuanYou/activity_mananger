@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
-import { NewLodgingForm } from "./NewLodgingForm";
+import { LodgingForm } from "../LodgingForm";
 
 type Search = { searchParams: Promise<{ region?: string; activity?: string }> };
 
@@ -19,7 +19,7 @@ export default async function NewLodgingPage({ searchParams }: Search) {
           無論是「下次想去」的推薦、還是「上次住過」的紀錄都可以記下來。
         </p>
       </div>
-      <NewLodgingForm
+      <LodgingForm
         defaultRegion={sp.region ?? ""}
         defaultActivityId={sp.activity ?? ""}
       />

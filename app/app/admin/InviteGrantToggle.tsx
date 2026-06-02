@@ -1,23 +1,25 @@
 "use client";
 /**
- * Admin-side toggle: grant or revoke `invite.create` for a specific
- * user. Idempotent on both sides — the underlying server actions are
- * safe to call repeatedly.
+ * Admin-side toggle: control whether ONE member may send invite codes.
  *
- * Visible only for Guest / Member users (Editor/Admin already have the
- * permission via their role).
+ * Members can invite by DEFAULT now. This toggle writes/clears a per-user
+ * `invite.create:deny` override (via setMemberInviteAllowedAction) so an
+ * admin can turn invites off for a specific person and back on anytime.
+ *
+ * Only shown for Guest / Member rows — Editor/Admin always can invite.
  */
 import { useState, useTransition } from "react";
-import { grantPermissionAction, revokePermissionAction } from "@/modules/permissions/actions";
+import { setMemberInviteAllowedAction } from "@/modules/permissions/actions";
 
 export function InviteGrantToggle({
   userId,
-  granted,
+  allowed,
 }: {
   userId: string;
-  granted: boolean;
+  /** Current effective state: is this member allowed to invite? */
+  allowed: boolean;
 }) {
-  const [on, setOn] = useState(granted);
+  const [on, setOn] = useState(allowed);
   const [pending, startTransition] = useTransition();
 
   const toggle = () => {
@@ -25,11 +27,7 @@ export function InviteGrantToggle({
     setOn(next); // optimistic
     startTransition(async () => {
       try {
-        if (next) {
-          await grantPermissionAction({ userId, permissionKey: "invite.create" });
-        } else {
-          await revokePermissionAction({ userId, permissionKey: "invite.create" });
-        }
+        await setMemberInviteAllowedAction({ userId, allowed: next });
       } catch {
         setOn(!next); // roll back on error
       }

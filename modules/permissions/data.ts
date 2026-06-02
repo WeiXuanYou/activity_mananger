@@ -9,13 +9,16 @@ export const ROLE_PERMISSIONS: Record<Role, PermissionKey[]> = {
     // Any signed-in member can host activities / start polls — this isn't
     // a privileged action in a family/friends community.
     "activity.create", "poll.create",
+    // Members can invite family/friends by default. Admins can turn this
+    // OFF for a specific member with a per-user deny (see guard.ts).
+    "invite.create",
   ],
   Editor: [
     "post.create", "post.pin", "post.moderate",
     "activity.create", "activity.moderate",
     "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
-    "category.create",
+    "category.create", "invite.create",
   ],
   Admin: [
     "post.create", "post.pin", "post.moderate",

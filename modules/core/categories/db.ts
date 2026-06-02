@@ -14,6 +14,7 @@ export function prismaCategoryToCategory(row: {
   slug: string;
   name: string;
   emoji: string;
+  iconImage?: string | null;
   color: string;
   isDefault: boolean;
   createdById: string | null;
@@ -24,6 +25,7 @@ export function prismaCategoryToCategory(row: {
     slug: row.slug,
     name: row.name,
     emoji: row.emoji,
+    iconImage: row.iconImage ?? null,
     color: row.color as CategoryColor,
     isDefault: row.isDefault,
     createdById: row.createdById ?? undefined,

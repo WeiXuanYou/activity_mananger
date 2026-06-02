@@ -10,6 +10,7 @@
  */
 import { useState, useTransition, useEffect, useRef } from "react";
 import { createCategoryAction } from "../actions";
+import { uploadImageAction } from "@/modules/uploads/actions";
 import type { Category, CategoryColor } from "../types";
 import { COLOR_CLASSES } from "../types";
 
@@ -36,6 +37,8 @@ export function CreateCategoryModal({
 }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🏷");
+  const [iconImage, setIconImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [color, setColor] = useState<CategoryColor>("terracotta");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -44,11 +47,23 @@ export function CreateCategoryModal({
   // Reset + autofocus when (re)opening.
   useEffect(() => {
     if (open) {
-      setName(""); setEmoji("🏷"); setColor("terracotta"); setError(null);
+      setName(""); setEmoji("🏷"); setIconImage(null); setColor("terracotta"); setError(null);
       // Defer focus until the input is in the DOM and styles are applied.
       requestAnimationFrame(() => nameRef.current?.focus());
     }
   }, [open]);
+
+  const onIconFile = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    const fd = new FormData();
+    fd.set("file", file);
+    const r = await uploadImageAction(fd);
+    setUploading(false);
+    if (r.ok) setIconImage(r.thumbUrl ?? r.url);
+    else setError(r.error);
+  };
 
   // Escape-to-close.
   useEffect(() => {
@@ -63,7 +78,7 @@ export function CreateCategoryModal({
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const r = await createCategoryAction({ name, emoji, color });
+      const r = await createCategoryAction({ name, emoji, color, iconImage });
       if (r.error) {
         setError(r.error);
       } else if (r.created) {
@@ -101,7 +116,12 @@ export function CreateCategoryModal({
         {/* Live preview */}
         <div className="mb-4">
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${c.bg} text-white shadow-card`}>
-            <span className="leading-none">{emoji}</span>
+            {iconImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={iconImage} alt="" className="w-4 h-4 rounded-full object-cover" />
+            ) : (
+              <span className="leading-none">{emoji}</span>
+            )}
             <span>{name.trim() || "預覽"}</span>
           </span>
         </div>
@@ -120,15 +140,15 @@ export function CreateCategoryModal({
         </label>
 
         <div className="mb-3">
-          <span className="text-sm font-medium text-ink/80 block mb-1.5">Emoji 圖示</span>
+          <span className="text-sm font-medium text-ink/80 block mb-1.5">圖示</span>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {EMOJI_SUGGESTIONS.map((e) => (
               <button
                 key={e}
                 type="button"
-                onClick={() => setEmoji(e)}
+                onClick={() => { setEmoji(e); setIconImage(null); }}
                 className={`w-9 h-9 rounded-soft border text-lg transition ${
-                  emoji === e
+                  emoji === e && !iconImage
                     ? "bg-ink/5 border-ink/30"
                     : "bg-white border-sand hover:bg-cream/40"
                 }`}
@@ -137,13 +157,34 @@ export function CreateCategoryModal({
               </button>
             ))}
           </div>
-          <input
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            maxLength={4}
-            placeholder="或自己貼一個 emoji"
-            className="w-32 px-3 py-2 rounded-soft border border-sand bg-cream/30 text-center text-lg"
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              value={emoji}
+              onChange={(e) => { setEmoji(e.target.value); setIconImage(null); }}
+              maxLength={4}
+              placeholder="或貼 emoji"
+              className="w-28 px-3 py-2 rounded-soft border border-sand bg-cream/30 text-center text-lg"
+            />
+            <span className="text-xs text-ink/40">或</span>
+            {iconImage ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-sage-dark">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={iconImage} alt="" className="w-7 h-7 rounded-full object-cover border border-sand" />
+                <button type="button" onClick={() => setIconImage(null)} className="text-terracotta-dark hover:underline">移除圖片</button>
+              </span>
+            ) : (
+              <label className={`text-xs ${uploading ? "opacity-50" : "cursor-pointer"} px-3 py-2 rounded-soft border border-sand bg-white hover:bg-cream/40 text-ink/70`}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={uploading}
+                  onChange={(e) => { onIconFile(e.target.files?.[0]); e.target.value = ""; }}
+                  className="hidden"
+                />
+                {uploading ? "上傳中…" : "🖼 上傳圖片"}
+              </label>
+            )}
+          </div>
         </div>
 
         <div className="mb-4">
@@ -184,7 +225,7 @@ export function CreateCategoryModal({
           <button
             type="button"
             onClick={submit}
-            disabled={pending || !name.trim() || !emoji.trim()}
+            disabled={pending || !name.trim() || (!emoji.trim() && !iconImage)}
             className="ml-auto px-5 py-2 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
           >
             {pending ? "建立中…" : "建立分類"}

@@ -16,15 +16,11 @@ import type { Role } from "@/modules/auth";
 import { getCurrentUser, requireCurrentUser } from "@/modules/auth";
 import { db } from "@/lib/db";
 import type { PermissionKey } from "./types";
-import { ROLE_PERMISSIONS } from "./data";
+// Pure decision logic lives in resolve.ts (no server-only deps) so it's
+// shared + unit-testable. Re-export roleHas so existing imports still work.
+import { roleHas, resolvePermission, DENY_SUFFIX } from "./resolve";
 
-/**
- * Pure check: does the given role hold the given permission?
- * No I/O, no async. Cheap.
- */
-export function roleHas(role: Role, permission: PermissionKey): boolean {
-  return ROLE_PERMISSIONS[role].includes(permission);
-}
+export { roleHas, resolvePermission };
 
 /**
  * Has this user been GRANTED this permission directly by an admin (on
@@ -53,6 +49,46 @@ export class PermissionDeniedError extends Error {
 }
 
 /**
+ * Thrown when a user who hasn't finished first-time setup tries to perform
+ * a privileged action. The bootstrap admin ships as `admin`/`admin` with
+ * `setupCompleted=false` and a known-weak password; the setup form forces a
+ * password rotation. Without this guard that rotation was only enforced in
+ * the layout's RENDER — a script could log in with the default creds and
+ * call privileged server actions / API routes directly, never rotating.
+ *
+ * Rule: a user that already has a passwordHash but has NOT completed setup
+ * is mid-rotation and must finish it before doing anything privileged.
+ * (Invite-redeemed users have setupCompleted=false too, but no passwordHash
+ * yet — they're allowed through; their setup is profile-only, not a
+ * security rotation.)
+ */
+export class SetupIncompleteError extends Error {
+  constructor() {
+    super("Setup incomplete: finish first-time setup (and password rotation) first");
+    this.name = "SetupIncompleteError";
+  }
+}
+
+/** True when the user must finish setup before privileged actions. */
+function mustCompleteSetup(user: { setupCompleted: boolean; passwordHash: string | null }): boolean {
+  return user.passwordHash != null && !user.setupCompleted;
+}
+
+/**
+ * Per-user DENY override lookup. A row in UserPermissionGrant whose key is
+ * `<permission>:deny` removes a permission the user would otherwise have
+ * from their role (admins are exempt — see resolvePermission). Used so
+ * admins can turn OFF invite.create for a specific member.
+ */
+async function hasDenyDb(userId: string, permission: PermissionKey): Promise<boolean> {
+  const row = await db.userPermissionGrant.findUnique({
+    where: { userId_permissionKey: { userId, permissionKey: `${permission}${DENY_SUFFIX}` } },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/**
  * SERVER-SIDE chokepoint. Call this at the TOP of every server action
  * and every server-component page that reads non-public data.
  *
@@ -66,9 +102,18 @@ export class PermissionDeniedError extends Error {
  */
 export async function requirePermission(permission: PermissionKey): Promise<void> {
   const user = await requireCurrentUser();
+  // Bootstrap admin (or anyone shipped with a password) must finish the
+  // forced first-login setup/rotation before doing ANYTHING privileged —
+  // enforced here, not just in the layout render.
+  if (mustCompleteSetup(user)) throw new SetupIncompleteError();
   const roleName = user.role.name as Role;
-  if (roleHas(roleName, permission)) return;
-  if (await hasGrantDb(user.id, permission)) return;
+  // Only look up grant/deny when the role itself doesn't already grant it
+  // (Admins skip deny entirely inside resolvePermission).
+  const [hasGrant, hasDeny] = await Promise.all([
+    hasGrantDb(user.id, permission),
+    roleName === "Admin" ? Promise.resolve(false) : hasDenyDb(user.id, permission),
+  ]);
+  if (resolvePermission({ role: roleName, permission, hasGrant, hasDeny })) return;
   throw new PermissionDeniedError(roleName, permission);
 }
 
@@ -82,6 +127,14 @@ export async function requirePermission(permission: PermissionKey): Promise<void
 export async function canCurrentUser(permission: PermissionKey): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
-  if (roleHas(user.role.name as Role, permission)) return true;
-  return hasGrantDb(user.id, permission);
+  // Mid-rotation bootstrap admin has no effective permissions until setup
+  // is done — keeps UI gating consistent with requirePermission.
+  if (mustCompleteSetup(user)) return false;
+  const roleName = user.role.name as Role;
+  // Mirror requirePermission EXACTLY via the shared pure resolver.
+  const [hasGrant, hasDeny] = await Promise.all([
+    hasGrantDb(user.id, permission),
+    roleName === "Admin" ? Promise.resolve(false) : hasDenyDb(user.id, permission),
+  ]);
+  return resolvePermission({ role: roleName, permission, hasGrant, hasDeny });
 }

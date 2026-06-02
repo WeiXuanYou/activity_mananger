@@ -9,11 +9,14 @@
  * Like button: pass `likedByMe` to render the live optimistic-UI
  * LikeButton. Omit it (mockup pages) and a static heart is shown instead.
  */
+import Link from "next/link";
 import { Avatar, findMember } from "@/modules/core/members";
 import { CategoryChipList, findCategoriesByIds } from "@/modules/core/categories";
 import type { Post } from "../types";
 import { BONUS_KINDS } from "../types";
 import { LikeButton } from "./LikeButton";
+import { ReactionBar, type ReactionSummary } from "@/modules/reactions";
+import { MentionText } from "@/modules/mentions";
 
 /** Short prefix shown in the top-right kind chip. */
 const KIND_LABEL = {
@@ -25,13 +28,22 @@ const KIND_LABEL = {
 export function PostCard({
   post,
   likedByMe,
+  reactionSummary,
   ownerActions,
+  showCommentLink = true,
 }: {
   post: Post;
   likedByMe?: boolean;
+  /** Multi-emoji reaction state. When provided, the card renders the full
+   *  ReactionBar; otherwise it falls back to the legacy single LikeButton
+   *  (mockup pages / sources without reaction data). */
+  reactionSummary?: ReactionSummary;
   /** Server-rendered owner-actions menu (⋯ Edit/Delete). Caller decides
    *  visibility — present → render, absent → no menu. */
   ownerActions?: React.ReactNode;
+  /** When true (default), the 💬 count links to the post detail page where
+   *  comments live. Set false on the detail page itself to avoid a self-link. */
+  showCommentLink?: boolean;
 }) {
   // Prefer pre-resolved fields (DB source); fall back to sync mock lookup
   const author = post.author ?? findMember(post.authorId);
@@ -63,7 +75,32 @@ export function PostCard({
         {ownerActions}
       </div>
       {post.title && <h3 className="serif text-xl text-ink mb-2">{post.title}</h3>}
-      <p className="text-ink/75 leading-relaxed mb-3">{post.body}</p>
+      <p className="text-ink/75 leading-relaxed mb-3 whitespace-pre-wrap"><MentionText text={post.body} /></p>
+      {post.images && post.images.length > 0 && (
+        <div className={`mb-3 grid gap-1.5 ${
+          post.images.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+        }`}>
+          {post.images.map((img, i) => (
+            <a
+              key={`${i}-${img.url}`}
+              href={img.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`block overflow-hidden rounded-soft border border-sand/60 bg-cream/30 ${
+                post.images!.length === 1 ? "" : "aspect-square"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.thumbUrl ?? img.url}
+                alt=""
+                className={post.images!.length === 1 ? "w-full max-h-[28rem] object-cover" : "w-full h-full object-cover"}
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
       {post.bonus && (() => {
         const meta = post.bonusKind ? BONUS_KINDS[post.bonusKind] : null;
         const emoji = meta?.emoji ?? "🎁";
@@ -86,16 +123,32 @@ export function PostCard({
         <div className="mb-3"><CategoryChipList categories={cats} size="xs" /></div>
       )}
       <div className="flex items-center gap-4 text-sm text-ink/60 pt-3 border-t border-sand/70">
-        {likedByMe !== undefined ? (
+        {reactionSummary ? (
+          <ReactionBar
+            parentType="POST"
+            parentId={post.id}
+            summary={reactionSummary}
+            revalidate="/app/feed"
+          />
+        ) : likedByMe !== undefined ? (
           <LikeButton postId={post.id} initialLiked={likedByMe} initialCount={post.likes} />
         ) : (
           <button className="flex items-center gap-1.5 hover:text-terracotta transition">
             ❤️ <span>{post.likes}</span>
           </button>
         )}
-        <span className="flex items-center gap-1.5 text-ink/60">
-          💬 <span>{post.comments}</span>
-        </span>
+        {showCommentLink ? (
+          <Link
+            href={`/app/posts/${post.id}`}
+            className="flex items-center gap-1.5 text-ink/60 hover:text-terracotta transition"
+          >
+            💬 <span>{post.comments}</span>
+          </Link>
+        ) : (
+          <span className="flex items-center gap-1.5 text-ink/60">
+            💬 <span>{post.comments}</span>
+          </span>
+        )}
         <span className="ml-auto text-xs text-ink/40">公開於相聚內</span>
       </div>
     </article>

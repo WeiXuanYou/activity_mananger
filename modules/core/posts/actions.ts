@@ -6,10 +6,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
-import { requirePermission } from "@/modules/permissions";
+import { requirePermission, canCurrentUser } from "@/modules/permissions";
 import { emit } from "@/modules/analytics";
-import type { PostKind, BonusKind } from "./types";
-import { BONUS_KINDS } from "./types";
+import type { PostKind, BonusKind, PostImage } from "./types";
+import { BONUS_KINDS, MAX_POST_IMAGES, parsePostImages } from "./types";
+
+/** Normalise a raw images value (FormData JSON or a passed array) into a
+ *  capped, validated PostImage[] ready for storage. Thin wrapper over the
+ *  shared parser with the per-post cap applied. */
+const normalizePostImages = (raw: unknown) => parsePostImages(raw, MAX_POST_IMAGES);
 
 export type CreatePostState = { error?: string; createdId?: string };
 
@@ -29,6 +34,8 @@ export async function createPostFormAction(
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const isPinned = formData.get("pin") === "on";
+  const allowCollab = formData.get("allowCollab") === "on";
+  const images = normalizePostImages(formData.get("images"));
   const categorySlugs = formData.getAll("category").map(String).filter(Boolean);
   // Bonus is opt-in via a checkbox. When the toggle's off we ignore the
   // companion fields. `bonus` (description) is the required one;
@@ -74,6 +81,8 @@ export async function createPostFormAction(
       bonus,
       bonusKind,
       bonusLimit,
+      images: images.length ? JSON.stringify(images) : null,
+      allowCollab,
       isPinned,
       pinnedById: isPinned ? me.id : null,
       categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
@@ -81,6 +90,18 @@ export async function createPostFormAction(
   });
 
   void emit("post.created", { type: "post", id: created.id }, { kind, isPinned }, me.id);
+
+  // Notify anyone @mentioned in the title/body. Fire-and-forget.
+  void (async () => {
+    const { notifyMentions } = await import("@/modules/mentions/notify");
+    await notifyMentions({
+      text: `${title}\n${body}`,
+      authorId: me.id,
+      authorName: me.name,
+      title: "有人在貼文中提到你",
+      link: "/app/feed",
+    }).catch(() => {});
+  })();
 
   revalidatePath("/app/feed");
   // Redirect throws under the hood — must not be inside try/catch
@@ -122,14 +143,23 @@ export async function updatePostAction(input: {
   kind?: PostKind;
   isPinned?: boolean;
   categorySlugs?: string[];
+  images?: PostImage[];
+  allowCollab?: boolean;
 }): Promise<void> {
   const me = await requireCurrentUser();
   const existing = await db.post.findUnique({
     where: { id: input.id },
-    select: { authorId: true, isPinned: true },
+    select: { authorId: true, isPinned: true, allowCollab: true },
   });
   if (!existing) throw new Error("找不到文章");
-  await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+  // Author + moderators can always edit. When the author opted into
+  // collaboration, any signed-in member may edit the CONTENT too — but
+  // toggling allowCollab itself, plus delete/hide, stay owner-or-moderator.
+  if (existing.authorId !== me.id && !existing.allowCollab) {
+    await requirePermission("post.moderate");
+  }
+  const isOwnerOrMod =
+    existing.authorId === me.id || (await canCurrentUser("post.moderate"));
 
   // Pinning is a privileged action even for the owner — only post.pin holders
   // can change pin state.
@@ -142,6 +172,15 @@ export async function updatePostAction(input: {
   if (input.body !== undefined) data.body = input.body.trim();
   if (input.kind !== undefined) data.kind = input.kind;
   if (input.isPinned !== undefined) data.isPinned = input.isPinned;
+  if (input.images !== undefined) {
+    const imgs = normalizePostImages(input.images);
+    data.images = imgs.length ? JSON.stringify(imgs) : null;
+  }
+  // Only the owner / a moderator may flip the collaboration switch — a
+  // collaborator editing the body can't open the door wider (or shut it).
+  if (input.allowCollab !== undefined && isOwnerOrMod) {
+    data.allowCollab = input.allowCollab;
+  }
 
   // Categories — only touch the join table if explicitly provided
   if (input.categorySlugs) {
@@ -174,7 +213,14 @@ export async function deletePostAction(id: string): Promise<void> {
   const existing = await db.post.findUnique({ where: { id }, select: { authorId: true } });
   if (!existing) return;
   await ensureOwnerOrModerator(me.id, existing.authorId, "post.moderate");
+  // Reactions ON the post's comments are polymorphic (parentType:"COMMENT")
+  // and don't get swept by the POST-scoped deletes — gather the comment ids
+  // first so we can clear their reactions too, or they'd orphan.
+  const commentIds = (
+    await db.comment.findMany({ where: { parentType: "POST", parentId: id }, select: { id: true } })
+  ).map((c) => c.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: commentIds } } }),
     db.comment.deleteMany({ where: { parentType: "POST", parentId: id } }),
     db.reaction.deleteMany({ where: { parentType: "POST", parentId: id } }),
     db.post.delete({ where: { id } }),

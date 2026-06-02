@@ -28,6 +28,7 @@ type LodgingRow = {
   rating: number | null;
   addedById: string;
   addedBy: UserWithRole;
+  allowCollab: boolean;
   stayedAt: Date | null;
   activityId: string | null;
   activity: { title: string } | null;
@@ -47,6 +48,7 @@ function adapt(row: LodgingRow): Lodging {
     rating: row.rating,
     addedById: row.addedById,
     addedBy: prismaUserToMember(row.addedBy),
+    allowCollab: row.allowCollab,
     stayedAt: row.stayedAt ? row.stayedAt.toISOString() : null,
     activityId: row.activityId,
     activityTitle: row.activity?.title ?? null,

@@ -2,6 +2,7 @@ import { getBlockRenderer } from "../block-renderers";
 import type { CustomPageBlock } from "../types";
 import { BlockToolbar, AddBlockRail } from "./BlockToolbar";
 import { PhotoAlbumEditor } from "./PhotoAlbumEditor";
+import { BlockContentEditor } from "./BlockContentEditor";
 
 /**
  * Render a single block by looking up its renderer in the registry.
@@ -42,13 +43,19 @@ export function Block({
         {renderer.label.toUpperCase()}
       </div>
       {renderer.render(block.data)}
-      {/* Block-type-specific inline editor — only in edit mode */}
+      {/* Block-type-specific inline editor — only in edit mode.
+          photo-album has its own grid editor; every other type (markdown
+          / richtext / html / image) gets the shared content editor so the
+          page owner can actually fill in / change the block's content. */}
       {edit && block.type === "photo-album" && (
         <PhotoAlbumEditor
           blockId={block.id}
           initialPhotos={(Array.isArray(block.data.photos) ? block.data.photos : []) as { url: string; caption?: string }[]}
           initialCols={Number(block.data.cols ?? 3)}
         />
+      )}
+      {edit && block.type !== "photo-album" && block.type !== "embed-poll" && (
+        <BlockContentEditor blockId={block.id} type={block.type} data={block.data} />
       )}
     </section>
   );

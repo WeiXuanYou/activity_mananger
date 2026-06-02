@@ -62,13 +62,17 @@ export default async function LodgingPage() {
                 <span className="text-xs text-ink/40">{items.length} 筆</span>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map((l) => (
-                  <LodgingCard
-                    key={l.id}
-                    lodging={l}
-                    canDelete={isAdmin || l.addedById === me.id}
-                  />
-                ))}
+                {items.map((l) => {
+                  const isOwner = l.addedById === me.id;
+                  return (
+                    <LodgingCard
+                      key={l.id}
+                      lodging={l}
+                      canDelete={isAdmin || isOwner}
+                      canEdit={isAdmin || isOwner || Boolean(l.allowCollab)}
+                    />
+                  );
+                })}
               </div>
             </section>
           ))}
@@ -78,7 +82,7 @@ export default async function LodgingPage() {
   );
 }
 
-function LodgingCard({ lodging: l, canDelete }: { lodging: Lodging; canDelete: boolean }) {
+function LodgingCard({ lodging: l, canDelete, canEdit }: { lodging: Lodging; canDelete: boolean; canEdit: boolean }) {
   const price = l.pricePerNightCents != null
     ? `${l.currency} ${Math.round(l.pricePerNightCents / 100).toLocaleString()}/晚`
     : null;
@@ -122,12 +126,23 @@ function LodgingCard({ lodging: l, canDelete }: { lodging: Lodging; canDelete: b
             🔗 網站
           </a>
         )}
+        {l.allowCollab && (
+          <span className="text-[11px] text-sage-dark bg-sage-soft/50 px-2 py-0.5 rounded-full">🤝 開放協作</span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {l.addedBy && (
             <span className="flex items-center gap-1 text-[11px] text-ink/45">
               <Avatar member={l.addedBy} size={18} />
               {l.addedBy.name}
             </span>
+          )}
+          {canEdit && (
+            <Link
+              href={`/app/lodging/${l.id}/edit`}
+              className="text-xs px-2 py-1 rounded-soft bg-white border border-sand text-ink/60 hover:bg-cream/40"
+            >
+              ✎ 編輯
+            </Link>
           )}
           {canDelete && <DeleteLodgingButton id={l.id} name={l.name} />}
         </div>

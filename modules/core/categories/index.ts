@@ -21,8 +21,11 @@ export {
 } from "./db";
 
 // UI components
-export { CategoryChip, CategoryChipList } from "./components/CategoryChip";
+export { CategoryChip, CategoryChipList, CategoryIcon } from "./components/CategoryChip";
 export { CategoryFilterBar } from "./components/CategoryFilterBar";
 export { CategoryPicker } from "./components/CategoryPicker";
 export { CreateCategoryModal } from "./components/CreateCategoryModal";
 export { CreateCategoryButton } from "./components/CreateCategoryButton";
+export { CategoryDeleteButton } from "./components/CategoryDeleteButton";
+export { EditCategoryModal } from "./components/EditCategoryModal";
+export { CategoryEditButton } from "./components/CategoryEditButton";

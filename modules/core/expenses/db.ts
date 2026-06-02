@@ -78,17 +78,28 @@ export async function getActivityExpenseSummary(activityId: string): Promise<Exp
   const perPersonCents = participantCount > 0 ? Math.round(totalCents / participantCount) : totalCents;
   const currency = expenses[0]?.currency ?? "TWD";
 
+  // Distribute the rounding remainder so the per-person shares sum EXACTLY
+  // to the total (otherwise a 7-way split could leave a few cents
+  // unaccounted for, and the settlement wouldn't fully balance). The first
+  // `remainder` people each owe 1 extra cent.
+  const baseShare = participantCount > 0 ? Math.floor(totalCents / participantCount) : totalCents;
+  let remainder = participantCount > 0 ? totalCents - baseShare * participantCount : 0;
+
   // Build a balance entry for every participant (even if they paid 0)
   const balances: Balance[] = participants.map((p) => {
     const paid = expenses
       .filter((e) => e.payerId === p.userId)
       .reduce((sum, e) => sum + e.amountCents, 0);
+    // Hand out the leftover cents one-at-a-time to the earliest participants
+    // so SUM(owes) === totalCents exactly.
+    const owes = baseShare + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
     return {
       userId: p.userId,
       member: prismaUserToMember(p.user),
       paid,
-      owes: perPersonCents,
-      net: paid - perPersonCents,
+      owes,
+      net: paid - owes,
     };
   });
 

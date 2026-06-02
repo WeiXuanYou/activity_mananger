@@ -48,7 +48,7 @@ export default async function AppAnalyticsPage() {
   const totalVotes = polls.reduce((s, p) => s + p.totalVotes, 0);
 
   return (
-    <main className="max-w-6xl mx-auto px-5 py-8">
+    <main className="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="mb-6">
         <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">ANALYTICS</p>
         <h1 className="serif text-3xl text-ink">活動洞察</h1>

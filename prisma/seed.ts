@@ -15,13 +15,15 @@ const PERMISSIONS_BY_ROLE: Record<(typeof ROLES)[number], string[]> = {
   Member: [
     "post.create", "comment.create", "page.create", "category.create",
     "activity.create", "poll.create",
+    // Members can invite by default; admins can deny per-user (guard.ts).
+    "invite.create",
   ],
   Editor: [
     "post.create", "post.pin", "post.moderate",
     "activity.create", "activity.moderate",
     "poll.create", "poll.moderate",
     "comment.create", "comment.moderate", "page.create", "page.publish",
-    "category.create",
+    "category.create", "invite.create",
   ],
   Admin: [
     "post.create", "post.pin", "post.moderate",
@@ -160,6 +162,18 @@ async function main() {
     // self-hosters, and the forced first-login rotation closes the gap.
     const { hashPassword } = await import("@/modules/auth/password");
     const defaultPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim() || "admin";
+    // Defence in depth: the forced first-login rotation (enforced
+    // server-side in requirePermission via SetupIncompleteError) means the
+    // default `admin` password can't be used for any privileged action
+    // before it's changed. Still, loudly nudge operators to set a real
+    // bootstrap password in production so the very first login isn't a race.
+    if (!process.env.BOOTSTRAP_ADMIN_PASSWORD && process.env.NODE_ENV === "production") {
+      console.warn(
+        "\n⚠️  BOOTSTRAP_ADMIN_PASSWORD is not set — using the weak default 'admin'.\n" +
+        "    The account can't do anything privileged until first-login rotation,\n" +
+        "    but you should set BOOTSTRAP_ADMIN_PASSWORD and log in promptly.\n",
+      );
+    }
     const passwordHash = await hashPassword(defaultPassword);
     await db.user.create({
       data: {
@@ -417,7 +431,9 @@ async function main() {
       isPinned: false, cats: ["family", "gift"] },
     { author: "andy",    kind: "ARTICLE",      title: "畢業十年，我們還是會吵架",
       body: "昨晚同學會結束後，我在回家的路上想了很多。十年了，這群朋友還是會吵會鬧，但散場前還是會擁抱。",
-      isPinned: false, cats: ["friends"] },
+      isPinned: false, cats: ["friends"],
+      // Demo collaborative post — any member can co-edit it.
+      allowCollab: true },
   ];
   for (const p of postSeed) {
     await db.post.create({
@@ -425,6 +441,7 @@ async function main() {
         authorId: userRows[p.author].id,
         kind: p.kind, title: p.title, body: p.body,
         isPinned: p.isPinned, pinnedById: p.isPinned && p.pinnedBy ? userRows[p.pinnedBy].id : null,
+        allowCollab: (p as { allowCollab?: boolean }).allowCollab ?? false,
         categories: { create: p.cats.map((slug) => ({ categoryId: catRows[slug].id })) },
       },
     });

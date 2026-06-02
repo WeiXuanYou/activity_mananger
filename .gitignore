@@ -23,3 +23,15 @@ public/uploads/*
 tmp/
 .env.postgres
 !public/uploads/.gitkeep
+
+# Local backups of previous versions (e.g. ./old). These must NEVER be
+# part of the build: tsconfig's "**/*.ts(x)" glob + the "@/*" → "./*" path
+# alias would otherwise pull a whole second copy of the app into the
+# compile, and Next.js could try to treat its routes as real pages —
+# producing the "works in a clean build but the deployed frontend is dead"
+# failure. Keep your backup, just don't ship or compile it.
+/old/
+/old-*/
+/*-old/
+/backup/
+/backups/

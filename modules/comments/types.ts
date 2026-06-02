@@ -14,6 +14,8 @@ export type Comment = {
   parentType: CommentParentType;
   parentId: string;
   body: string;
+  /** Optional single attached image URL. */
+  image?: string | null;
   parentCommentId?: string;
   createdAt: string; // relative time for UI display
 };

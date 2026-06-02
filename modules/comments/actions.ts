@@ -15,18 +15,38 @@ import type { CommentParentType } from "./types";
 
 export type CommentState = { error?: string };
 
+/** Does the comment's target exist? Guards against forged calls attaching
+ *  comments to arbitrary IDs. COMMENT parent = a reply to another comment. */
+async function commentParentExists(parentType: CommentParentType, parentId: string): Promise<boolean> {
+  switch (parentType) {
+    case "POST":     return Boolean(await db.post.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "ACTIVITY": return Boolean(await db.activity.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "PAGE":     return Boolean(await db.customPage.findUnique({ where: { id: parentId }, select: { id: true } }));
+    case "COMMENT":  return Boolean(await db.comment.findUnique({ where: { id: parentId }, select: { id: true } }));
+    default:         return false;
+  }
+}
+
 export async function createCommentAction(input: {
   parentType: CommentParentType;
   parentId: string;
   body: string;
+  image?: string | null;
   parentCommentId?: string;
 }): Promise<CommentState> {
   await requirePermission("comment.create");
   const me = await requireCurrentUser();
 
   const body = input.body.trim();
-  if (!body) return { error: "請寫點東西" };
+  const image = input.image?.trim() || null;
+  // A comment needs SOMETHING — text or an image.
+  if (!body && !image) return { error: "請寫點東西或附上圖片" };
   if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
+
+  // Verify the comment's target exists — don't let a forged call attach
+  // comments to arbitrary / non-existent IDs.
+  const targetOk = await commentParentExists(input.parentType, input.parentId);
+  if (!targetOk) return { error: "找不到要留言的對象" };
 
   await db.comment.create({
     data: {
@@ -34,6 +54,7 @@ export async function createCommentAction(input: {
       parentType: input.parentType,
       parentId: input.parentId,
       body,
+      image,
       parentCommentId: input.parentCommentId ?? null,
     },
   });
@@ -55,7 +76,7 @@ export async function createCommentAction(input: {
           where: { id: input.parentId },
           select: { authorId: true, title: true },
         });
-        if (p) { ownerId = p.authorId; title = `「${p.title ?? "你的文章"}」有新留言`; link = "/app/feed"; }
+        if (p) { ownerId = p.authorId; title = `「${p.title ?? "你的文章"}」有新留言`; link = `/app/posts/${input.parentId}`; }
       } else if (input.parentType === "PAGE") {
         const pg = await db.customPage.findUnique({
           where: { id: input.parentId },
@@ -68,8 +89,22 @@ export async function createCommentAction(input: {
           userId: ownerId,
           kind: "activity.rsvp", // reusing the social-event kind
           title,
-          body: `${me.name}：${body.slice(0, 60)}${body.length > 60 ? "..." : ""}`,
+          body: `${me.name}：${body ? `${body.slice(0, 60)}${body.length > 60 ? "..." : ""}` : "🖼 傳了一張圖片"}`,
           link,
+        });
+      }
+
+      // Notify anyone @mentioned in the comment body — but not the content
+      // owner (they already got the "new comment" ping above) or the author.
+      if (body) {
+        const { notifyMentions } = await import("@/modules/mentions/notify");
+        await notifyMentions({
+          text: body,
+          authorId: me.id,
+          authorName: me.name,
+          title: "有人在留言中提到你",
+          link,
+          excludeUserIds: ownerId ? [ownerId] : [],
         });
       }
     } catch {
@@ -79,7 +114,7 @@ export async function createCommentAction(input: {
 
   // Revalidate paths that show this comment
   if (input.parentType === "ACTIVITY") revalidatePath(`/app/activity/${input.parentId}`);
-  if (input.parentType === "POST") revalidatePath("/app/feed");
+  if (input.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${input.parentId}`); }
   if (input.parentType === "PAGE") {
     const pg = await db.customPage.findUnique({ where: { id: input.parentId }, select: { slug: true } });
     if (pg) revalidatePath(`/app/pages/${pg.slug}`);
@@ -103,13 +138,20 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
   if (c.authorId !== me.id) {
     await requirePermission("comment.moderate");
   }
+  // Gather the reply ids so we can clear reactions on the comment AND its
+  // replies — reactions are polymorphic (parentType:"COMMENT") with no FK,
+  // so deleting the comment rows alone would orphan them.
+  const replyIds = (
+    await db.comment.findMany({ where: { parentCommentId: commentId }, select: { id: true } })
+  ).map((r) => r.id);
   await db.$transaction([
+    db.reaction.deleteMany({ where: { parentType: "COMMENT", parentId: { in: [commentId, ...replyIds] } } }),
     db.comment.deleteMany({ where: { parentCommentId: commentId } }),
     db.comment.delete({ where: { id: commentId } }),
   ]);
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
-  if (c.parentType === "POST") revalidatePath("/app/feed");
+  if (c.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${c.parentId}`); }
 }
 
 /** Edit a comment's body. Authors only — no moderator override (editing
@@ -118,26 +160,29 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
 export async function editCommentAction(input: {
   id: string;
   body: string;
+  /** undefined = leave image as-is; null = remove; string = set/replace. */
+  image?: string | null;
 }): Promise<CommentState> {
   const me = await requireCurrentUser();
   const c = await db.comment.findUnique({
     where: { id: input.id },
-    select: { id: true, authorId: true, parentType: true, parentId: true },
+    select: { id: true, authorId: true, parentType: true, parentId: true, image: true },
   });
   if (!c) return { error: "找不到這則留言" };
   if (c.authorId !== me.id) return { error: "只能編輯自己的留言" };
 
   const body = input.body.trim();
-  if (!body) return { error: "請寫點東西" };
+  const nextImage = input.image === undefined ? c.image : (input.image?.trim() || null);
+  if (!body && !nextImage) return { error: "請寫點東西或附上圖片" };
   if (body.length > 2000) return { error: "留言太長了（上限 2000 字）" };
 
   await db.comment.update({
     where: { id: input.id },
-    data: { body },
+    data: { body, image: nextImage },
   });
 
   if (c.parentType === "ACTIVITY") revalidatePath(`/app/activity/${c.parentId}`);
-  if (c.parentType === "POST") revalidatePath("/app/feed");
+  if (c.parentType === "POST") { revalidatePath("/app/feed"); revalidatePath(`/app/posts/${c.parentId}`); }
   if (c.parentType === "PAGE") {
     const pg = await db.customPage.findUnique({ where: { id: c.parentId }, select: { slug: true } });
     if (pg) revalidatePath(`/app/pages/${pg.slug}`);

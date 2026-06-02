@@ -1,41 +1,76 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createLodgingAction } from "@/modules/core/lodging/actions";
+import { createLodgingAction, updateLodgingAction } from "@/modules/core/lodging/actions";
+import type { Lodging } from "@/modules/core/lodging";
 
-export function NewLodgingForm({
+/**
+ * Shared create / edit form for lodging entries.
+ *
+ * - No `existing` → create mode (createLodgingAction).
+ * - `existing` set → edit mode (updateLodgingAction), fields pre-filled.
+ *
+ * The collaboration toggle is shown only to the owner / admin (the caller
+ * passes `canToggleCollab`); collaborators editing can't change it.
+ */
+export function LodgingForm({
+  existing,
   defaultRegion = "",
   defaultActivityId = "",
-}: { defaultRegion?: string; defaultActivityId?: string }) {
+  canToggleCollab = true,
+}: {
+  existing?: Lodging;
+  defaultRegion?: string;
+  defaultActivityId?: string;
+  canToggleCollab?: boolean;
+}) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [region, setRegion] = useState(defaultRegion);
-  const [address, setAddress] = useState("");
-  const [notes, setNotes] = useState("");
-  const [pricePerNight, setPricePerNight] = useState(""); // user-facing currency units
-  const [url, setUrl] = useState("");
-  const [rating, setRating] = useState<number | "">("");
-  const [stayedAt, setStayedAt] = useState("");
+  const isEdit = Boolean(existing);
+  const [name, setName] = useState(existing?.name ?? "");
+  const [region, setRegion] = useState(existing?.region ?? defaultRegion);
+  const [address, setAddress] = useState(existing?.address ?? "");
+  const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [pricePerNight, setPricePerNight] = useState(
+    existing?.pricePerNightCents != null ? String(Math.round(existing.pricePerNightCents / 100)) : "",
+  );
+  const [url, setUrl] = useState(existing?.url ?? "");
+  const [rating, setRating] = useState<number | "">(existing?.rating ?? "");
+  const [stayedAt, setStayedAt] = useState(existing?.stayedAt ? existing.stayedAt.slice(0, 10) : "");
+  const [allowCollab, setAllowCollab] = useState(Boolean(existing?.allowCollab));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const submit = () => {
     setError(null);
     startTransition(async () => {
-      const r = await createLodgingAction({
+      const common = {
         name,
         region,
         address: address || undefined,
         notes: notes || undefined,
-        pricePerNightCents: pricePerNight ? Math.round(Number(pricePerNight) * 100) : undefined,
+        pricePerNightCents: pricePerNight ? Math.round(Number(pricePerNight) * 100) : null,
         url: url || undefined,
-        rating: rating === "" ? undefined : Number(rating),
-        stayedAt: stayedAt || undefined,
-        activityId: defaultActivityId || undefined,
-      });
-      if (r.error) { setError(r.error); return; }
-      router.push(defaultActivityId ? `/app/activity/${defaultActivityId}` : "/app/lodging");
-      router.refresh();
+        rating: rating === "" ? null : Number(rating),
+        stayedAt: stayedAt || null,
+        allowCollab,
+      };
+      if (isEdit && existing) {
+        const r = await updateLodgingAction({ id: existing.id, ...common });
+        if (r.error) { setError(r.error); return; }
+        router.push("/app/lodging");
+        router.refresh();
+      } else {
+        const r = await createLodgingAction({
+          ...common,
+          pricePerNightCents: common.pricePerNightCents ?? undefined,
+          rating: common.rating ?? undefined,
+          stayedAt: common.stayedAt ?? undefined,
+          activityId: defaultActivityId || undefined,
+        });
+        if (r.error) { setError(r.error); return; }
+        router.push(defaultActivityId ? `/app/activity/${defaultActivityId}` : "/app/lodging");
+        router.refresh();
+      }
     });
   };
 
@@ -136,6 +171,23 @@ export function NewLodgingForm({
         />
       </label>
 
+      {canToggleCollab && (
+        <label className="flex items-start gap-3 px-3 py-2.5 rounded-soft border bg-cream/30 border-sand cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allowCollab}
+            onChange={(e) => setAllowCollab(e.target.checked)}
+            className="mt-1 rounded text-sage-dark"
+          />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-ink">🤝 允許其他成員一起編輯</div>
+            <div className="text-xs text-ink/55 mt-0.5">
+              打開後，任何成員都能編輯這筆住宿。移除仍然只有你或管理員可以。
+            </div>
+          </div>
+        </label>
+      )}
+
       {error && (
         <p className="text-xs text-terracotta-dark bg-terracotta-soft/40 border border-terracotta/30 rounded-soft px-3 py-2">
           ⚠ {error}
@@ -148,7 +200,7 @@ export function NewLodgingForm({
         disabled={pending || !name.trim() || !region.trim()}
         className="w-full sm:w-auto px-6 py-3 rounded-soft bg-terracotta text-white font-medium shadow-card hover:bg-terracotta-dark transition disabled:opacity-50"
       >
-        {pending ? "儲存中..." : "儲存住宿 →"}
+        {pending ? "儲存中..." : isEdit ? "儲存變更 →" : "儲存住宿 →"}
       </button>
     </div>
   );

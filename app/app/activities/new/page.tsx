@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
 import { listCategoriesDb } from "@/modules/core/categories";
 import { listLodgingDb } from "@/modules/core/lodging";
+import { listKnownLocationsDb } from "@/modules/core/activities";
 import { NewActivityForm, type ActivityPrefill } from "./NewActivityForm";
 
 type Search = { searchParams: Promise<{ prefill?: string }> };
@@ -22,9 +23,10 @@ export default async function NewActivityPage({ searchParams }: Search) {
   const me = await requireCurrentUser();
   const sp = await searchParams;
   const prefill = decodePrefill(sp);
-  const [categories, lodgings] = await Promise.all([
+  const [categories, lodgings, knownLocations] = await Promise.all([
     listCategoriesDb(),
     listLodgingDb(),
+    listKnownLocationsDb(),
   ]);
   // Shrink to just the fields the form needs to render hints — keeps the
   // RSC payload small even when the lodging list grows.
@@ -50,7 +52,12 @@ export default async function NewActivityPage({ searchParams }: Search) {
         </p>
       </div>
 
-      <NewActivityForm categories={categories} prefill={prefill} lodgingHints={lodgingHints} />
+      <NewActivityForm
+        categories={categories}
+        prefill={prefill}
+        lodgingHints={lodgingHints}
+        knownLocations={knownLocations}
+      />
     </main>
   );
 }

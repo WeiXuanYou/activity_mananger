@@ -29,7 +29,7 @@ export default async function AppPagesIndex({ searchParams }: Search) {
   const ownerById = new Map(owners.map((o) => [o.id, o]));
 
   return (
-    <main className="max-w-6xl mx-auto px-5 py-8">
+    <main className="max-w-6xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">CUSTOM PAGES</p>

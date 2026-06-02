@@ -30,6 +30,9 @@ export type Category = {
   slug: string;
   name: string;
   emoji: string;
+  /** Optional uploaded icon image URL. When set, UI shows it instead of
+   *  the emoji. */
+  iconImage?: string | null;
   color: CategoryColor;
   isDefault: boolean;
   createdById?: string;
