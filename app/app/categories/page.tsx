@@ -22,12 +22,10 @@ import {
  */
 export default async function CategoriesPage() {
   const me = await requireCurrentUser();
-  const [categories, canCreate, isAdmin, isEditor] = await Promise.all([
+  const [categories, canCreate, isAdmin] = await Promise.all([
     listCategoriesDb(),
     canCurrentUser("category.create"),
     canCurrentUser("admin.approve"),
-    // Editor = page.publish in this codebase (same trust level)
-    canCurrentUser("page.publish"),
   ]);
 
   const defaults = categories.filter((c) => c.isDefault);
@@ -61,7 +59,10 @@ export default async function CategoriesPage() {
           <div className="bg-white rounded-soft border border-sand/60 divide-y divide-sand">
             {custom.map((cat) => {
               const isOwner = cat.createdById === me.id;
-              const canEdit = isAdmin || isEditor || isOwner;
+              // Custom categories: admin OR creator. Edit + delete have the
+              // same rule now (Editors no longer get an automatic pass — kept
+              // symmetric so people can predict what they can do).
+              const canEdit = isAdmin || isOwner;
               const canDelete = isAdmin || isOwner;
               return (
                 <div key={cat.id} className="flex items-center gap-3 px-4 py-3 flex-wrap">
@@ -91,14 +92,16 @@ export default async function CategoriesPage() {
         <div className="flex items-baseline gap-2 mb-2 flex-wrap">
           <h2 className="serif text-lg text-ink">系統預設分類</h2>
           <span className="text-xs text-ink/50">
-            {isAdmin || isEditor
-              ? "管理員 / 編輯者可以編輯。只有管理員可以刪除。"
-              : "這些是系統內建的分類。"}
+            {isAdmin
+              ? "只有管理員可以編輯 / 刪除預設分類。"
+              : "這些是系統內建的分類，只有管理員能修改。"}
           </span>
         </div>
         <div className="bg-white rounded-soft border border-sand/60 divide-y divide-sand">
           {defaults.map((cat) => {
-            const canEdit = isAdmin || isEditor;
+            // Defaults: admin-only for BOTH edit and delete (Editor no longer
+            // has an automatic pass — matches updateCategoryAction).
+            const canEdit = isAdmin;
             const canDelete = isAdmin;
             return (
               <div key={cat.id} className="flex items-center gap-3 px-4 py-3 flex-wrap">

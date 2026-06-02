@@ -79,7 +79,7 @@ auth  → 引用 modules/core/members（僅 types，用於匿名兌換流程）
 
 ## 安全注意事項
 
-- Cookie：`httpOnly`、`sameSite=lax`、production 開 `secure`
+- Cookie：`httpOnly`、`sameSite=lax`、`secure` 依「實際是否走 HTTPS」自動判斷（看 `x-forwarded-proto`，可用環境變數 `COOKIE_SECURE` 強制）。**不要**改回用 `NODE_ENV` 判斷——純 HTTP 部署會讓每次點擊都被要求重新登入
 - Session token 用 `crypto.randomBytes(32)` 產生，DB 只存 SHA-256 hash（即便 DB 外洩也無法回推 token）
 - TTL 30 天，目前 expire 後 `getCurrentUser` 回 null（沒有自動 refresh）
 - 邀請碼長度短，僅供 demo；正式產品應該至少 32-bit 加長

@@ -16,17 +16,52 @@
  *     cookies — only the legitimate plaintext token (held by the browser)
  *     can hit a matching row.
  *   - Cookie is `httpOnly` (no JS access), `sameSite=lax` (no cross-site
- *     CSRF), and `secure` in production.
+ *     CSRF), and `secure` only when the request is actually HTTPS (see
+ *     `shouldUseSecureCookie` — keying it off NODE_ENV instead breaks
+ *     logins on plain-HTTP deployments).
  *
  * This file is **server-only** — it imports `next/headers`. Don't import
  * it from a client component; import from `./actions.ts` instead.
  */
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 
 const COOKIE_NAME = "together_session";
 const SESSION_TTL_DAYS = 30;
+
+/**
+ * Should the session cookie carry the `Secure` flag?
+ *
+ * CRITICAL: a `Secure` cookie is only ever sent over HTTPS. If we set it on
+ * a deployment that's actually served over plain HTTP (self-hosted on an IP
+ * or a domain without TLS), the browser silently drops it — so every page
+ * load arrives with NO cookie, the middleware bounces the user to /login,
+ * and it looks like "I have to log in again on every click".
+ *
+ * So we key Secure off the REAL request protocol, not `NODE_ENV`:
+ *   - COOKIE_SECURE=true|false → explicit override (set on a known setup)
+ *   - else the reverse proxy's x-forwarded-proto / Forwarded header
+ *   - else assume HTTP. A non-Secure cookie still works fine over HTTPS;
+ *     a Secure cookie does NOT work over HTTP — so "off when unsure" is the
+ *     choice that keeps logins working everywhere. Operators on real HTTPS
+ *     can set COOKIE_SECURE=true to harden it.
+ */
+async function shouldUseSecureCookie(): Promise<boolean> {
+  const override = process.env.COOKIE_SECURE;
+  if (override === "true") return true;
+  if (override === "false") return false;
+  try {
+    const h = await headers();
+    const xfProto = h.get("x-forwarded-proto");
+    if (xfProto) return xfProto.split(",")[0].trim().toLowerCase() === "https";
+    const forwarded = h.get("forwarded");
+    if (forwarded && /proto=https/i.test(forwarded)) return true;
+  } catch {
+    // headers() unavailable outside a request scope — fall through to false.
+  }
+  return false;
+}
 
 /** SHA-256 of the plaintext token. Constant-time comparison not needed
  *  because the lookup is by indexed unique column (DB engine handles it). */
@@ -50,9 +85,9 @@ export async function createSession(userId: string, userAgent?: string): Promise
 export async function setSessionCookie(token: string) {
   const c = await cookies();
   c.set(COOKIE_NAME, token, {
-    httpOnly: true,                                  // unreachable by document.cookie
-    sameSite: "lax",                                  // safe default for nav
-    secure: process.env.NODE_ENV === "production",    // HTTPS-only in prod
+    httpOnly: true,                       // unreachable by document.cookie
+    sameSite: "lax",                      // safe default for nav
+    secure: await shouldUseSecureCookie(), // true only over real HTTPS — see note above
     path: "/",
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60,
   });
