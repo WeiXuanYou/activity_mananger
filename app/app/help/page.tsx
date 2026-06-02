@@ -83,11 +83,12 @@ export default async function HelpPage() {
       <Section title="④ 權限怎麼分" emoji="🛡">
         <ul className="space-y-2 text-sm text-ink/80 leading-relaxed">
           <li><strong>Member</strong>（一般成員）：發文、投票、留言、辦活動、起投票、做自己的頁面、<strong>發邀請碼</strong>、建立分類。</li>
-          <li><strong>Editor</strong>：上面那些 + 置頂內容、審查留言、刪別人發的東西、發布 / 編輯任何頁面與分類。</li>
-          <li><strong>Admin</strong>：上面那些 + 角色調整、邀請碼管理、刪除系統預設分類、資料備份、看完整分析、處理意見回饋。</li>
+          <li><strong>Editor</strong>：上面那些 + 置頂內容、審查留言、刪別人發的東西、發布 / 編輯任何頁面。</li>
+          <li><strong>Admin</strong>：上面那些 + 角色調整、邀請碼管理、<strong>編輯 / 刪除系統預設分類</strong>、資料備份、看完整分析、處理意見回饋。</li>
         </ul>
         <p className="text-xs text-ink/60 leading-relaxed mt-2">
-          自己建立的內容（貼文 / 活動 / 投票 / 頁面 / 住宿 / 分類）都可以自己編輯、刪除，也能設定是否開放別人一起編輯。管理員一律可以管理所有人的內容。
+          自己建立的內容（貼文 / 活動 / 投票 / 頁面 / 住宿 / 自訂分類）都可以自己編輯、刪除，也能設定是否開放別人一起編輯。
+          <strong className="text-ink/80">系統預設分類</strong>只有管理員能編輯或刪除（避免大家共用的名稱被一個人改掉）。管理員一律可以管理所有人的內容。
         </p>
         <p className="text-sm text-ink/65 leading-relaxed mt-2">
           想升級權限？到 <Link href="/app/permissions" className="text-terracotta hover:underline">/app/permissions</Link> 填申請。

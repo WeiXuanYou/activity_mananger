@@ -158,15 +158,18 @@ export async function deleteCategoryAction(id: string): Promise<{ error?: string
 
 /**
  * Edit a category's display fields (name / emoji / iconImage / color /
- * description). Authorization mirrors content moderation in spirit:
+ * description). Mirror-symmetric with deleteCategoryAction so the rules
+ * read identically in both directions:
  *
- *   - Admins (`admin.approve`) can edit ANY category, default or custom.
- *   - Editors (`category.edit`, i.e. anyone with page.publish in this
- *     codebase — Editor+) can also edit any category.
- *   - The creator can edit their OWN custom category (default
- *     categories have no `createdById` so this branch never fires for
- *     them, which is intentional).
- *   - Plain Members can NOT edit categories they didn't create.
+ *   System default categories (isDefault):
+ *     - ONLY admins (`admin.approve`) can edit. Editors and Members are
+ *       deliberately locked out — these are shipped names everyone shares,
+ *       changing them is a community-wide decision.
+ *
+ *   User-created categories:
+ *     - Admins can edit ANY.
+ *     - The creator can edit their OWN.
+ *     - Everyone else is locked out (matching the delete rule).
  *
  * Slug is immutable — renaming it would break every existing URL like
  * `/app/feed?cat=food`. If the user really wants a different slug they
@@ -187,14 +190,19 @@ export async function updateCategoryAction(input: {
   });
   if (!cat) return { error: "找不到分類" };
 
-  const [isAdmin, isEditor] = await Promise.all([
-    canCurrentUser("admin.approve"),
-    // Editor+ also gates page.publish in this codebase — same trust level.
-    canCurrentUser("page.publish"),
-  ]);
-  const isOwner = !cat.isDefault && cat.createdById === me.id;
-  if (!isAdmin && !isEditor && !isOwner) {
-    return { error: "只有管理員 / 編輯者 / 建立者可以編輯分類" };
+  const isAdmin = await canCurrentUser("admin.approve");
+
+  // System defaults: admin-only. The slug + name people see everywhere
+  // shouldn't change because one Editor felt like it.
+  if (cat.isDefault) {
+    if (!isAdmin) return { error: "系統預設分類只有管理員可以編輯" };
+  } else {
+    // Custom categories: admin OR the creator. Editors don't get a pass
+    // here either — keeps edit + delete authorisation symmetric.
+    const isOwner = cat.createdById === me.id;
+    if (!isAdmin && !isOwner) {
+      return { error: "只有管理員或建立者可以編輯這個分類" };
+    }
   }
 
   const data: Record<string, unknown> = {};
