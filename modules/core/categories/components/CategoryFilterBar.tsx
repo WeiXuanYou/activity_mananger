@@ -9,9 +9,9 @@ import { CreateCategoryButton } from "./CreateCategoryButton";
  * page passes searchParams.cat) and renders Links that update the query
  * string. Server-component-friendly — no client state.
  *
- * Pass `canCreate` to render the "+ 新分類" pill (gated by the caller
- * on the `category.create` permission so we don't show a button the
- * user can't actually use).
+ * Pass `canCreate` to render the "+ 新分類" pill + a "✎ 管理分類" link to
+ * the full management page (both gated by the caller on the
+ * `category.create` permission so we don't show controls the user can't use).
  */
 export function CategoryFilterBar({
   categories,
@@ -58,6 +58,15 @@ export function CategoryFilterBar({
         );
       })}
       {canCreate && <CreateCategoryButton basePath={basePath} />}
+      {canCreate && (
+        <Link
+          href="/app/categories"
+          title="管理分類（編輯 / 刪除）"
+          className="shrink-0 ml-1 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm text-ink/50 hover:text-terracotta border border-dashed border-sand"
+        >
+          ✎ 管理分類
+        </Link>
+      )}
     </div>
   );
 }
