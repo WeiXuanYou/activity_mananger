@@ -21,6 +21,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { PUBLIC_BASE_URL } from "@/lib/config";
 import { sendEmail, renderEmailLayout, renderButton, escapeHtml } from "@/modules/mail";
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +29,7 @@ const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 function buildVerifyLink(origin: string | undefined, token: string): string {
-  const base = origin || process.env.APP_URL || "http://localhost:3000";
+  const base = origin || PUBLIC_BASE_URL;
   return `${base.replace(/\/$/, "")}/verify-email?token=${token}`;
 }
 

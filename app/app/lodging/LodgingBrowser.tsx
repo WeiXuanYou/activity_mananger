@@ -1,13 +1,13 @@
 "use client";
 /**
- * Searchable lodging browser. Receives the full list (small — a family's
- * trips) + per-row permission flags from the server, then filters in the
- * browser by:
- *   - free-text (name / region / address / notes)
- *   - region chips (distinct regions present)
- *   - price range (min / max per night, in whole currency units)
- *   - "住過 / 推薦" kind
- * Results stay grouped by region so the page reads the same as before.
+ * Smart, searchable lodging browser. Receives the full list (small — a
+ * family's trips) + per-row permission flags from the server, then in the
+ * browser:
+ *   - filters by text / region / price range / 住過-or-推薦
+ *   - sorts by 推薦度 (value) / 價格 / 評分 / 最新
+ *   - flags "超值" (good rating + below-average price) entries
+ *   - shows a per-region summary (count, price range, avg, top pick)
+ * Results stay grouped by region.
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -16,6 +16,25 @@ import type { Lodging } from "@/modules/core/lodging";
 import { DeleteLodgingButton } from "./DeleteLodgingButton";
 
 type Row = { lodging: Lodging; canEdit: boolean; canDelete: boolean };
+type SortKey = "value" | "priceAsc" | "priceDesc" | "rating" | "recent";
+
+/**
+ * "Value" score for smart sorting + the 超值 badge. Higher = better deal.
+ * Rating (1-5) dominates; price pulls it down relative to the dataset's
+ * cheapest. Entries with no rating get a neutral 3; no price → treated as
+ * mid so they still rank but don't win on "cheap".
+ */
+function valueScore(l: Lodging, minCents: number, maxCents: number): number {
+  const rating = l.rating ?? 3;
+  // Normalise price into 0..1 (0 = cheapest, 1 = priciest). Flat 0.5 when
+  // there's no price or no spread.
+  let priceNorm = 0.5;
+  if (l.pricePerNightCents != null && maxCents > minCents) {
+    priceNorm = (l.pricePerNightCents - minCents) / (maxCents - minCents);
+  }
+  // rating weight 2, cheapness weight 1 → 0..12-ish range.
+  return rating * 2 + (1 - priceNorm) * 2;
+}
 
 export function LodgingBrowser({ rows }: { rows: Row[] }) {
   const [q, setQ] = useState("");
@@ -23,17 +42,34 @@ export function LodgingBrowser({ rows }: { rows: Row[] }) {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [kind, setKind] = useState<"all" | "stayed" | "rec">("all");
+  const [sort, setSort] = useState<SortKey>("value");
 
   // Distinct regions for the chip row (sorted, stable).
   const regions = useMemo(() => {
     return Array.from(new Set(rows.map((r) => r.lodging.region).filter(Boolean))).sort();
   }, [rows]);
 
+  // Price span across ALL priced rows — anchors the value score + 超值 badge.
+  const priceStats = useMemo(() => {
+    const prices = rows.map((r) => r.lodging.pricePerNightCents).filter((p): p is number => p != null);
+    if (prices.length === 0) return { min: 0, max: 0, avg: 0, count: 0 };
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+    return { min, max, avg, count: prices.length };
+  }, [rows]);
+
+  /** "超值": rating ≥ 4 AND price at or below the dataset average. */
+  const isGreatValue = (l: Lodging) =>
+    (l.rating ?? 0) >= 4 && l.pricePerNightCents != null && priceStats.avg > 0 && l.pricePerNightCents <= priceStats.avg;
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const min = minPrice ? Number(minPrice) * 100 : null;
-    const max = maxPrice ? Number(maxPrice) * 100 : null;
-    return rows.filter(({ lodging: l }) => {
+    const minN = Number(minPrice);
+    const maxN = Number(maxPrice);
+    const min = minPrice.trim() && Number.isFinite(minN) ? minN * 100 : null;
+    const max = maxPrice.trim() && Number.isFinite(maxN) ? maxN * 100 : null;
+    const out = rows.filter(({ lodging: l }) => {
       if (region && l.region !== region) return false;
       if (kind === "stayed" && !l.stayedAt) return false;
       if (kind === "rec" && l.stayedAt) return false;
@@ -49,7 +85,31 @@ export function LodgingBrowser({ rows }: { rows: Row[] }) {
       }
       return true;
     });
-  }, [rows, q, region, minPrice, maxPrice, kind]);
+
+    // Sort. Rows without the relevant field sort last (so a missing price
+    // doesn't masquerade as "cheapest").
+    const byPrice = (a: Row, b: Row, dir: 1 | -1) => {
+      const pa = a.lodging.pricePerNightCents, pb = b.lodging.pricePerNightCents;
+      if (pa == null && pb == null) return 0;
+      if (pa == null) return 1;
+      if (pb == null) return -1;
+      return (pa - pb) * dir;
+    };
+    const sorted = [...out];
+    if (sort === "value") {
+      sorted.sort((a, b) => valueScore(b.lodging, priceStats.min, priceStats.max) - valueScore(a.lodging, priceStats.min, priceStats.max));
+    } else if (sort === "priceAsc") {
+      sorted.sort((a, b) => byPrice(a, b, 1));
+    } else if (sort === "priceDesc") {
+      sorted.sort((a, b) => byPrice(a, b, -1));
+    } else if (sort === "rating") {
+      sorted.sort((a, b) => (b.lodging.rating ?? 0) - (a.lodging.rating ?? 0));
+    } else {
+      // recent
+      sorted.sort((a, b) => (a.lodging.createdAt < b.lodging.createdAt ? 1 : -1));
+    }
+    return sorted;
+  }, [rows, q, region, minPrice, maxPrice, kind, sort, priceStats]);
 
   // Group filtered results by region (same visual as the static page).
   const byRegion = useMemo(() => {
@@ -64,6 +124,8 @@ export function LodgingBrowser({ rows }: { rows: Row[] }) {
 
   const hasFilter = Boolean(q || region || minPrice || maxPrice || kind !== "all");
   const clear = () => { setQ(""); setRegion(""); setMinPrice(""); setMaxPrice(""); setKind("all"); };
+
+  const fmtPrice = (cents: number) => `$${Math.round(cents / 100).toLocaleString()}`;
 
   return (
     <div>
@@ -98,7 +160,28 @@ export function LodgingBrowser({ rows }: { rows: Row[] }) {
             />
             <span className="text-xs text-ink/40">/ 晚</span>
           </div>
+          {/* Smart sort */}
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            title="排序方式"
+            className="px-3 py-2 rounded-soft border border-sand bg-cream/30 text-sm focus:outline-none focus:border-terracotta"
+          >
+            <option value="value">🌟 推薦度（性價比）</option>
+            <option value="priceAsc">💰 價格低 → 高</option>
+            <option value="priceDesc">💰 價格高 → 低</option>
+            <option value="rating">⭐ 評分高 → 低</option>
+            <option value="recent">🕑 最新加入</option>
+          </select>
         </div>
+
+        {/* Price insight from the whole dataset */}
+        {priceStats.count > 0 && (
+          <p className="text-xs text-ink/50">
+            💡 已記錄 {priceStats.count} 筆有價格：最低 {fmtPrice(priceStats.min)}、平均 {fmtPrice(priceStats.avg)}、最高 {fmtPrice(priceStats.max)} / 晚。
+            <span className="text-sage-dark">「超值」</span>＝評分 ≥ 4 且價格 ≤ 平均。
+          </p>
+        )}
 
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* kind filter */}
@@ -156,26 +239,39 @@ export function LodgingBrowser({ rows }: { rows: Row[] }) {
         </div>
       ) : (
         <div className="space-y-6">
-          {byRegion.map(([r, items]) => (
+          {byRegion.map(([r, items]) => {
+            // Per-region price summary (only over priced rows in this group).
+            const regionPrices = items
+              .map((it) => it.lodging.pricePerNightCents)
+              .filter((p): p is number => p != null);
+            const rMin = regionPrices.length ? Math.min(...regionPrices) : null;
+            const rMax = regionPrices.length ? Math.max(...regionPrices) : null;
+            return (
             <section key={r}>
-              <h2 className="serif text-xl text-ink mb-2 flex items-baseline gap-2">
+              <h2 className="serif text-xl text-ink mb-2 flex items-baseline gap-2 flex-wrap">
                 <span>📍 {r}</span>
                 <span className="text-xs text-ink/40">{items.length} 筆</span>
+                {rMin != null && (
+                  <span className="text-xs text-ink/45 font-sans">
+                    · {rMin === rMax ? fmtPrice(rMin) : `${fmtPrice(rMin)}–${fmtPrice(rMax!)}`} / 晚
+                  </span>
+                )}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map((row) => (
-                  <LodgingCard key={row.lodging.id} row={row} />
+                  <LodgingCard key={row.lodging.id} row={row} greatValue={isGreatValue(row.lodging)} />
                 ))}
               </div>
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function LodgingCard({ row }: { row: Row }) {
+function LodgingCard({ row, greatValue }: { row: Row; greatValue: boolean }) {
   const { lodging: l, canEdit, canDelete } = row;
   const price = l.pricePerNightCents != null
     ? `${l.currency} ${Math.round(l.pricePerNightCents / 100).toLocaleString()}/晚`
@@ -183,9 +279,16 @@ function LodgingCard({ row }: { row: Row }) {
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-4 flex flex-col">
       <div className="flex items-start gap-2 mb-1">
-        <h3 className="serif text-lg text-ink leading-tight flex-1">{l.name}</h3>
+        <h3 className="serif text-lg text-ink leading-tight flex-1 flex items-center gap-1.5 flex-wrap">
+          {l.name}
+          {greatValue && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sage text-white font-medium" title="評分高且價格在平均以下">
+              ✨ 超值
+            </span>
+          )}
+        </h3>
         {l.rating && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-cream text-ink/70">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-cream text-ink/70 shrink-0">
             {"★".repeat(l.rating)}{"☆".repeat(5 - l.rating)}
           </span>
         )}

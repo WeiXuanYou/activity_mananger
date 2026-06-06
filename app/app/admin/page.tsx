@@ -11,6 +11,7 @@ import {
 import { Avatar } from "@/modules/core/members";
 import { listRecentReminders } from "@/modules/core/reminders";
 import { countOpenFeedbackDb } from "@/modules/feedback";
+import { PUBLIC_BASE_URL } from "@/lib/config";
 import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
@@ -42,7 +43,9 @@ export default async function AdminPage() {
   // Deployment config status — surfaces the env settings whose absence
   // causes the most common "X doesn't work in production" reports.
   const config = {
-    appUrl: Boolean(process.env.APP_URL?.trim()),
+    // APP_URL has a committed default (lib/config.ts PUBLIC_BASE_URL), so
+    // links work even without the env var — show green either way.
+    appUrl: Boolean(process.env.APP_URL?.trim()) || Boolean(PUBLIC_BASE_URL),
     mail: Boolean(process.env.RESEND_API_KEY?.trim()),
     uploadsDir: Boolean(process.env.UPLOADS_DIR?.trim()),
     // The browser subscribe flow needs NEXT_PUBLIC_VAPID_PUBLIC_KEY; the
@@ -69,8 +72,8 @@ export default async function AdminPage() {
           這些環境變數沒設好，是「功能在正式站壞掉」最常見的原因。在 <code className="text-terracotta">.env</code> 設定後重新部署即可。
         </p>
         <div className="bg-white rounded-soft shadow-card border border-sand/60 divide-y divide-sand text-sm">
-          <ConfigRow ok={config.appUrl} label="APP_URL（公開網址）"
-            okHint="Email 連結會指向正確網址" badHint="未設 → 驗證信 / 重設密碼信的連結可能指向 localhost 或內部主機，使用者點不到" />
+          <ConfigRow ok={config.appUrl} label="公開網址（Email 連結用）"
+            okHint={`目前使用：${PUBLIC_BASE_URL}`} badHint="未設定" />
           <ConfigRow ok={config.mail} label="RESEND_API_KEY（寄信）"
             okHint="會寄出真的 Email" badHint="未設 → 驗證信 / 重設密碼信只印在伺服器 log，不會真的寄出" />
           <ConfigRow ok={config.uploadsDir} label="UPLOADS_DIR（圖片存放）"
