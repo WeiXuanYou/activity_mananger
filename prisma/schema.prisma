@@ -88,6 +88,7 @@ model User {
   feedback          Feedback[]            @relation("FeedbackAuthor")
   feedbackHandled   Feedback[]            @relation("FeedbackHandler")
   pushSubscriptions PushSubscription[]
+  albumPhotos       AlbumPhoto[]          @relation("AlbumPhotoUploader")
 
   @@index([roleId])
 }
@@ -553,6 +554,27 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// =====================================================================
+// AlbumPhoto — photos uploaded DIRECTLY to the shared photo wall, not
+// derived from a post/comment/page. Lets people add to the family album
+// freely without writing a post. The wall query unions these with the
+// derived photos. Caption optional; uploader owns it (can remove).
+// =====================================================================
+model AlbumPhoto {
+  id        String   @id @default(cuid())
+  uploaderId String
+  uploader  User     @relation("AlbumPhotoUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  /// Full-size image URL (under /uploads).
+  url       String
+  /// Optional 800px thumbnail URL; falls back to `url`.
+  thumbUrl  String?
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([uploaderId])
 }
 
 // =====================================================================

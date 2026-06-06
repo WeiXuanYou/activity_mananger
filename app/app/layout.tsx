@@ -84,27 +84,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="hidden sm:inline text-xs text-ink/40 font-sans tracking-widest">Together</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-1 overflow-x-auto">
-            <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">動態</Link>
-            <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">活動</Link>
-            <Link href="/app/calendar" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">行事曆</Link>
-            <Link href="/app/lodging" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">住宿</Link>
-            <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">頁面</Link>
-            <Link href="/app/photos" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">相簿</Link>
-            <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">✨ AI</Link>
-            <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">權限</Link>
+            <Link href="/app/feed" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>📰</span>動態</Link>
+            <Link href="/app/activities" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>🍖</span>活動</Link>
+            <Link href="/app/calendar" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>📅</span>行事曆</Link>
+            <Link href="/app/lodging" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>🏨</span>住宿</Link>
+            <Link href="/app/pages" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>📄</span>頁面</Link>
+            <Link href="/app/photos" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>🖼</span>相簿</Link>
+            <Link href="/app/assistant" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>✨</span>AI</Link>
+            <Link href="/app/permissions" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>🔐</span>權限</Link>
             {canInvite && (
-              <Link href="/app/invites" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">邀請</Link>
+              <Link href="/app/invites" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>🎁</span>邀請</Link>
             )}
-            <Link href="/app/analytics" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">分析</Link>
+            <Link href="/app/analytics" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>📊</span>分析</Link>
             {isAdmin && (
-              <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">管理</Link>
+              <Link href="/app/admin" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>⚙️</span>管理</Link>
             )}
-            <Link href="/app/feedback" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">回饋</Link>
-            <Link href="/app/help" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60">說明</Link>
+            <Link href="/app/feedback" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>📨</span>回饋</Link>
+            <Link href="/app/help" className="shrink-0 px-3 py-1.5 rounded-soft text-sm text-ink/70 hover:bg-sand/60 inline-flex items-center gap-1.5"><span>❓</span>說明</Link>
             {/* 建立：文章在動態頁面上方已有「+ 寫一篇文章」按鈕，這裡只放活動 / 投票 */}
             <span className="shrink-0 ml-2 text-xs text-ink/40">建立：</span>
-            <Link href="/app/activities/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">活動</Link>
-            <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">投票</Link>
+            <Link href="/app/activities/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">🍖 活動</Link>
+            <Link href="/app/polls/new" className="shrink-0 px-2 py-1 rounded text-xs text-ink/65 hover:bg-sand/60">📊 投票</Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5 md:gap-2 shrink-0">
             {/* Search: full bar on md+, just an icon on mobile that jumps to the search page */}

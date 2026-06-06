@@ -16,7 +16,7 @@ export type WallPhoto = {
   /** Full-size URL for the lightbox. */
   fullUrl: string;
   /** Where it came from, for the caption + link. */
-  source: "post" | "comment" | "page";
+  source: "post" | "comment" | "page" | "album";
   /** Source row id (post id / comment id / page id) — used by the remove
    *  action to locate the underlying record. */
   sourceId: string;
@@ -53,7 +53,7 @@ function isRealImage(url: string): boolean {
 }
 
 export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
-  const [posts, comments, pages] = await Promise.all([
+  const [posts, comments, album, pages] = await Promise.all([
     db.post.findMany({
       where: { hiddenAt: null, images: { not: null } },
       select: { id: true, title: true, images: true, createdAt: true, authorId: true, author: { select: { name: true } } },
@@ -63,6 +63,11 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
     db.comment.findMany({
       where: { image: { not: null }, parentType: "POST" },
       select: { id: true, image: true, parentId: true, createdAt: true, authorId: true, author: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    }),
+    db.albumPhoto.findMany({
+      select: { id: true, url: true, thumbUrl: true, caption: true, createdAt: true, uploaderId: true, uploader: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 300,
     }),
@@ -107,6 +112,22 @@ export async function listWallPhotosDb(limit = 200): Promise<WallPhoto[]> {
       href: `/app/posts/${c.parentId}`,
       label: `${c.author.name} 的留言`,
       createdAt: c.createdAt.toISOString(),
+    });
+  }
+
+  // Photos uploaded directly to the album wall (no post/comment/page).
+  for (const a of album) {
+    if (!isRealImage(a.url)) continue;
+    photos.push({
+      url: a.thumbUrl ?? a.url,
+      fullUrl: a.url,
+      source: "album",
+      sourceId: a.id,
+      refUrl: a.url,
+      ownerId: a.uploaderId,
+      href: "/app/photos",
+      label: a.caption ? `${a.uploader.name} · ${a.caption}` : a.uploader.name,
+      createdAt: a.createdAt.toISOString(),
     });
   }
 

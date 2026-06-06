@@ -22,9 +22,22 @@ export async function getRequestMeta(): Promise<{ origin?: string; ip: string }>
   const trustProxy = process.env.TRUST_PROXY === "true";
   try {
     const h = await headers();
-    const proto = h.get("x-forwarded-proto") || "http";
-    const host = h.get("host");
-    const origin = host ? `${proto}://${host}` : process.env.APP_URL || undefined;
+    // Origin derivation order, most-trustworthy first:
+    //   1. APP_URL — if the operator set it, ALWAYS use it. This is the one
+    //      thing that's guaranteed to be the real public URL, so email
+    //      verification / password-reset links can't end up pointing at an
+    //      internal hostname or localhost. (Common email-link bug.)
+    //   2. x-forwarded-host (set by reverse proxies) + x-forwarded-proto
+    //   3. the Host header
+    const appUrl = process.env.APP_URL?.trim();
+    let origin: string | undefined;
+    if (appUrl) {
+      origin = appUrl.replace(/\/$/, "");
+    } else {
+      const proto = h.get("x-forwarded-proto")?.split(",")[0]?.trim() || "http";
+      const host = h.get("x-forwarded-host")?.split(",")[0]?.trim() || h.get("host");
+      origin = host ? `${proto}://${host}` : undefined;
+    }
     let ip = "unknown";
     if (trustProxy) {
       const fwd = h.get("x-forwarded-for");
@@ -36,6 +49,6 @@ export async function getRequestMeta(): Promise<{ origin?: string; ip: string }>
     // limiter caller treats "unknown" as one shared bucket; it's the
     // safe-but-noisy default. Log so a real misconfiguration is visible.
     console.warn("[request-meta] headers() failed:", (e as Error).message);
-    return { origin: process.env.APP_URL || undefined, ip: "unknown" };
+    return { origin: process.env.APP_URL?.trim()?.replace(/\/$/, "") || undefined, ip: "unknown" };
   }
 }

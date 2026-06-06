@@ -1,32 +1,32 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
-import { Avatar } from "@/modules/core/members";
 import { listLodgingDb } from "@/modules/core/lodging";
-import type { Lodging } from "@/modules/core/lodging";
-import { DeleteLodgingButton } from "./DeleteLodgingButton";
+import { LodgingBrowser } from "./LodgingBrowser";
 
 /**
  * /app/lodging — community lodging knowledge base.
  *
- * Groups entries by region so a glance at "下次去宜蘭" lights up every
- * place we've stayed or recommended in that area. Each row carries
- * past-stay context (which activity, when) when available so the list
- * doubles as travel history.
+ * Records past stays + recommendations, searchable by region and price.
+ * The server fetches everything (small dataset — a family's trips) and
+ * hands per-row edit/delete flags to a client browser that filters in the
+ * browser and groups results by region.
  */
 export default async function LodgingPage() {
   const me = await requireCurrentUser();
-  const isAdmin = await canCurrentUser("admin.approve");
-  const all = await listLodgingDb();
+  const [isAdmin, all] = await Promise.all([
+    canCurrentUser("admin.approve"),
+    listLodgingDb(),
+  ]);
 
-  // Group by region. listLodgingDb already orders by region asc, so
-  // this loop preserves a stable visual order.
-  const byRegion = new Map<string, Lodging[]>();
-  for (const x of all) {
-    const arr = byRegion.get(x.region) ?? [];
-    arr.push(x);
-    byRegion.set(x.region, arr);
-  }
+  const rows = all.map((l) => {
+    const isOwner = l.addedById === me.id;
+    return {
+      lodging: l,
+      canEdit: isAdmin || isOwner || Boolean(l.allowCollab),
+      canDelete: isAdmin || isOwner,
+    };
+  });
 
   return (
     <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
@@ -35,7 +35,7 @@ export default async function LodgingPage() {
           <p className="text-sage-dark text-xs font-medium tracking-widest mb-1">LODGING</p>
           <h1 className="serif text-3xl text-ink">住宿筆記</h1>
           <p className="text-sm text-ink/60 mt-1">
-            記錄住過的地方 + 推薦清單。下次在同一個地區辦活動時會自動跳出來給你參考。
+            記錄住過的地方 + 推薦清單。可以依地區和價格搜尋；下次在同一個地區辦活動時也會自動跳出來給你參考。
           </p>
         </div>
         <Link
@@ -54,99 +54,8 @@ export default async function LodgingPage() {
           <Link href="/app/lodging/new" className="text-sm text-terracotta hover:underline">+ 新增第一筆</Link>
         </div>
       ) : (
-        <div className="space-y-6">
-          {Array.from(byRegion.entries()).map(([region, items]) => (
-            <section key={region}>
-              <h2 className="serif text-xl text-ink mb-2 flex items-baseline gap-2">
-                <span>📍 {region}</span>
-                <span className="text-xs text-ink/40">{items.length} 筆</span>
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map((l) => {
-                  const isOwner = l.addedById === me.id;
-                  return (
-                    <LodgingCard
-                      key={l.id}
-                      lodging={l}
-                      canDelete={isAdmin || isOwner}
-                      canEdit={isAdmin || isOwner || Boolean(l.allowCollab)}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+        <LodgingBrowser rows={rows} />
       )}
     </main>
-  );
-}
-
-function LodgingCard({ lodging: l, canDelete, canEdit }: { lodging: Lodging; canDelete: boolean; canEdit: boolean }) {
-  const price = l.pricePerNightCents != null
-    ? `${l.currency} ${Math.round(l.pricePerNightCents / 100).toLocaleString()}/晚`
-    : null;
-  return (
-    <div className="bg-white rounded-soft shadow-card border border-sand/60 p-4 flex flex-col">
-      <div className="flex items-start gap-2 mb-1">
-        <h3 className="serif text-lg text-ink leading-tight flex-1">{l.name}</h3>
-        {l.rating && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-cream text-ink/70">
-            {"★".repeat(l.rating)}{"☆".repeat(5 - l.rating)}
-          </span>
-        )}
-      </div>
-      {l.address && <p className="text-xs text-ink/55 mb-1">📌 {l.address}</p>}
-      {price && <p className="text-xs text-ink/55 mb-1">💰 {price}</p>}
-      {l.notes && <p className="text-sm text-ink/75 mt-2 whitespace-pre-wrap">{l.notes}</p>}
-
-      <div className="mt-3 pt-3 border-t border-sand flex items-center gap-2 flex-wrap">
-        {l.stayedAt ? (
-          <span className="text-[11px] text-sage-dark bg-sage-soft/60 px-2 py-0.5 rounded-full">
-            ✓ 住過 · {new Date(l.stayedAt).toLocaleDateString("zh-TW")}
-          </span>
-        ) : (
-          <span className="text-[11px] text-ink/55 bg-cream px-2 py-0.5 rounded-full">推薦</span>
-        )}
-        {l.activityId && l.activityTitle && (
-          <Link
-            href={`/app/activity/${l.activityId}`}
-            className="text-[11px] text-terracotta hover:underline truncate max-w-[12rem]"
-          >
-            ⇢ {l.activityTitle}
-          </Link>
-        )}
-        {l.url && (
-          <a
-            href={l.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] text-terracotta hover:underline"
-          >
-            🔗 網站
-          </a>
-        )}
-        {l.allowCollab && (
-          <span className="text-[11px] text-sage-dark bg-sage-soft/50 px-2 py-0.5 rounded-full">🤝 開放協作</span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {l.addedBy && (
-            <span className="flex items-center gap-1 text-[11px] text-ink/45">
-              <Avatar member={l.addedBy} size={18} />
-              {l.addedBy.name}
-            </span>
-          )}
-          {canEdit && (
-            <Link
-              href={`/app/lodging/${l.id}/edit`}
-              className="text-xs px-2 py-1 rounded-soft bg-white border border-sand text-ink/60 hover:bg-cream/40"
-            >
-              ✎ 編輯
-            </Link>
-          )}
-          {canDelete && <DeleteLodgingButton id={l.id} name={l.name} />}
-        </div>
-      </div>
-    </div>
   );
 }

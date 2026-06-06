@@ -19,14 +19,54 @@ import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
 
 export type RemovePhotoInput = {
-  source: "post" | "comment" | "page";
+  source: "post" | "comment" | "page" | "album";
   sourceId: string;
   /** The full (original) image URL to remove — matched against the source. */
   refUrl: string;
 };
 
+/**
+ * Add one or more photos DIRECTLY to the shared album wall (not via a
+ * post). Any signed-in member can do this. `images` are already-uploaded
+ * { url, thumbUrl } pairs from uploadImageAction.
+ */
+export async function addAlbumPhotosAction(input: {
+  images: { url: string; thumbUrl?: string; caption?: string }[];
+}): Promise<{ error?: string; added?: number }> {
+  const me = await requireCurrentUser();
+  const rows = (input.images ?? [])
+    .filter((i) => i && typeof i.url === "string" && i.url.startsWith("/uploads/"))
+    .slice(0, 30) // sane cap per submit
+    .map((i) => ({
+      uploaderId: me.id,
+      url: i.url,
+      thumbUrl: typeof i.thumbUrl === "string" ? i.thumbUrl : null,
+      caption: typeof i.caption === "string" && i.caption.trim() ? i.caption.trim().slice(0, 200) : null,
+    }));
+  if (rows.length === 0) return { error: "沒有可加入的照片" };
+  await db.albumPhoto.createMany({ data: rows });
+  revalidatePath("/app/photos");
+  return { added: rows.length };
+}
+
 export async function removeWallPhotoAction(input: RemovePhotoInput): Promise<{ error?: string }> {
   const me = await requireCurrentUser();
+
+  // Album photos: uploaded directly to the wall. Owner or moderator.
+  if (input.source === "album") {
+    const photo = await db.albumPhoto.findUnique({
+      where: { id: input.sourceId },
+      select: { uploaderId: true },
+    });
+    if (!photo) return {};
+    const isOwner = photo.uploaderId === me.id;
+    if (!isOwner && !(await canCurrentUser("post.moderate"))) {
+      return { error: "只能移除自己的照片" };
+    }
+    await db.albumPhoto.delete({ where: { id: input.sourceId } });
+    revalidatePath("/app/photos");
+    return {};
+  }
 
   if (input.source === "post") {
     const post = await db.post.findUnique({

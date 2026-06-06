@@ -13,6 +13,7 @@ const SOURCE_BADGE: Record<WallPhoto["source"], string> = {
   post: "📝 貼文",
   comment: "💬 留言",
   page: "📄 頁面",
+  album: "🖼 相簿",
 };
 
 export function PhotoGrid({
