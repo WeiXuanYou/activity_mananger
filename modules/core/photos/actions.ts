@@ -17,16 +17,65 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
+import { deleteUploadFiles } from "@/modules/uploads/paths";
 
 export type RemovePhotoInput = {
-  source: "post" | "comment" | "page";
+  source: "post" | "comment" | "page" | "album";
   sourceId: string;
   /** The full (original) image URL to remove — matched against the source. */
   refUrl: string;
 };
 
+/**
+ * Add one or more photos DIRECTLY to the shared album wall (not via a
+ * post). Gated on `post.create` — same trust level as posting content, so
+ * Guests can't flood the shared album. `images` are already-uploaded
+ * { url, thumbUrl } pairs from uploadImageAction.
+ */
+export async function addAlbumPhotosAction(input: {
+  images: { url: string; thumbUrl?: string; caption?: string }[];
+}): Promise<{ error?: string; added?: number }> {
+  const me = await requireCurrentUser();
+  if (!(await canCurrentUser("post.create"))) {
+    return { error: "你目前沒有上傳到相簿的權限" };
+  }
+  const rows = (input.images ?? [])
+    .filter((i) => i && typeof i.url === "string" && i.url.startsWith("/uploads/"))
+    .slice(0, 30) // sane cap per submit
+    .map((i) => ({
+      uploaderId: me.id,
+      url: i.url,
+      thumbUrl: typeof i.thumbUrl === "string" ? i.thumbUrl : null,
+      caption: typeof i.caption === "string" && i.caption.trim() ? i.caption.trim().slice(0, 200) : null,
+    }));
+  if (rows.length === 0) return { error: "沒有可加入的照片" };
+  await db.albumPhoto.createMany({ data: rows });
+  revalidatePath("/app/photos");
+  return { added: rows.length };
+}
+
 export async function removeWallPhotoAction(input: RemovePhotoInput): Promise<{ error?: string }> {
   const me = await requireCurrentUser();
+
+  // Album photos: uploaded directly to the wall. Owner or moderator.
+  if (input.source === "album") {
+    const photo = await db.albumPhoto.findUnique({
+      where: { id: input.sourceId },
+      select: { uploaderId: true, url: true, thumbUrl: true },
+    });
+    if (!photo) return {};
+    const isOwner = photo.uploaderId === me.id;
+    if (!isOwner && !(await canCurrentUser("post.moderate"))) {
+      return { error: "只能移除自己的照片" };
+    }
+    await db.albumPhoto.delete({ where: { id: input.sourceId } });
+    // Album photos are uploaded then can be deleted freely by the owner, so
+    // this is the path most likely to accumulate orphaned files on the
+    // (possibly small) uploads disk. Best-effort unlink the backing files.
+    await deleteUploadFiles([photo.url, photo.thumbUrl]);
+    revalidatePath("/app/photos");
+    return {};
+  }
 
   if (input.source === "post") {
     const post = await db.post.findUnique({

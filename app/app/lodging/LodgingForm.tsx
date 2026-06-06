@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createLodgingAction, updateLodgingAction } from "@/modules/core/lodging/actions";
+import { fetchLodgingMetaAction } from "@/modules/core/lodging/fetch-meta";
 import type { Lodging } from "@/modules/core/lodging";
 
 /**
@@ -40,6 +41,41 @@ export function LodgingForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // "Paste a link, auto-fill" — fetch a hotel/B&B page's metadata and
+  // pre-fill the fields. Only what's empty gets filled (don't clobber what
+  // the user already typed); price/region are suggestions they can tweak.
+  const [importUrl, setImportUrl] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
+
+  const importFromUrl = () => {
+    const u = importUrl.trim();
+    if (!u) return;
+    setImportMsg(null);
+    setImportBusy(true);
+    startTransition(async () => {
+      const r = await fetchLodgingMetaAction(u);
+      setImportBusy(false);
+      if (!r.ok) { setImportMsg(r.error); return; }
+      const m = r.meta;
+      const filled: string[] = [];
+      if (m.name && !name.trim()) { setName(m.name); filled.push("名稱"); }
+      if (m.region && !region.trim()) { setRegion(m.region); filled.push("地區"); }
+      if (m.address && !address.trim()) { setAddress(m.address); filled.push("地址"); }
+      if (m.pricePerNight != null && !pricePerNight.trim()) { setPricePerNight(String(m.pricePerNight)); filled.push("價格"); }
+      if (m.description && !notes.trim()) { setNotes(m.description); filled.push("備註"); }
+      // Always remember the source link in the URL field.
+      if (!url.trim()) setUrl(r.sourceUrl);
+      if (m.imageUrl) setPreviewImg(m.imageUrl);
+      setImportMsg(
+        filled.length
+          ? `✓ 已自動帶入：${filled.join("、")}。請確認後再儲存。`
+          : "已讀取連結，但你填的欄位都保留了（沒有覆蓋）。",
+      );
+    });
+  };
+
   const submit = () => {
     setError(null);
     startTransition(async () => {
@@ -76,6 +112,41 @@ export function LodgingForm({
 
   return (
     <div className="bg-white rounded-soft shadow-card border border-sand/60 p-5 sm:p-6 space-y-4">
+      {/* Paste-a-link auto-fill */}
+      <div className="rounded-soft border border-sage/30 bg-sage-soft/20 p-3">
+        <div className="text-sm font-medium text-ink/80 mb-1.5 flex items-center gap-1.5">
+          <span>🔗</span> 貼上飯店 / 民宿連結，自動帶入資料
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={importUrl}
+            onChange={(e) => setImportUrl(e.target.value)}
+            placeholder="https://… （訂房網站、官網都可以）"
+            className="flex-1 px-3 py-2 rounded-soft border border-sand bg-white text-sm focus:outline-none focus:border-terracotta"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); importFromUrl(); } }}
+          />
+          <button
+            type="button"
+            onClick={importFromUrl}
+            disabled={importBusy || !importUrl.trim()}
+            className="px-4 py-2 rounded-soft bg-sage-dark text-cream text-sm font-medium hover:opacity-90 transition disabled:opacity-50 shrink-0"
+          >
+            {importBusy ? "讀取中…" : "自動帶入"}
+          </button>
+        </div>
+        {importMsg && <p className="text-xs mt-2 text-ink/70">{importMsg}</p>}
+        {previewImg && (
+          <div className="mt-2 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewImg} alt="預覽" className="w-16 h-16 object-cover rounded-soft border border-sand" />
+            <span className="text-xs text-ink/50">這是連結的封面圖（僅預覽，不會自動存）</span>
+          </div>
+        )}
+        <p className="text-[11px] text-ink/45 mt-2">
+          只會讀取連結頁面公開的預覽資訊（標題 / 價格 / 地址），你填過的欄位不會被覆蓋。
+        </p>
+      </div>
+
       <label className="block">
         <span className="text-sm font-medium text-ink/80">名稱 *</span>
         <input

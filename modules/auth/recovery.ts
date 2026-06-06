@@ -39,6 +39,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { PUBLIC_BASE_URL } from "@/lib/config";
 import { sendEmail, renderEmailLayout, renderButton, escapeHtml } from "@/modules/mail";
 import { hashPassword } from "./password";
 import { normalizeEmail } from "./validation";
@@ -54,7 +55,7 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** Build an absolute URL for the recovery link. */
 function buildResetLink(origin: string | undefined, token: string): string {
-  const base = origin || process.env.APP_URL || "http://localhost:3000";
+  const base = origin || PUBLIC_BASE_URL;
   return `${base.replace(/\/$/, "")}/reset-password?token=${token}`;
 }
 

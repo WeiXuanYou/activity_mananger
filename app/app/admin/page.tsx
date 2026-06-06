@@ -11,6 +11,7 @@ import {
 import { Avatar } from "@/modules/core/members";
 import { listRecentReminders } from "@/modules/core/reminders";
 import { countOpenFeedbackDb } from "@/modules/feedback";
+import { PUBLIC_BASE_URL } from "@/lib/config";
 import { db } from "@/lib/db";
 import { GenerateInviteButtons } from "./GenerateInviteButtons";
 import { RoleSelect } from "./RoleSelect";
@@ -39,6 +40,23 @@ export default async function AdminPage() {
   ]);
   const inviteDeniedSet = new Set(inviteDenies.map((g) => g.userId));
 
+  // Deployment config status — surfaces the env settings whose absence
+  // causes the most common "X doesn't work in production" reports.
+  const config = {
+    // APP_URL has a committed default (lib/config.ts PUBLIC_BASE_URL), so
+    // links work even without the env var — show green either way.
+    appUrl: Boolean(process.env.APP_URL?.trim()) || Boolean(PUBLIC_BASE_URL),
+    mail: Boolean(process.env.RESEND_API_KEY?.trim()),
+    uploadsDir: Boolean(process.env.UPLOADS_DIR?.trim()),
+    // The browser subscribe flow needs NEXT_PUBLIC_VAPID_PUBLIC_KEY; the
+    // server send needs the private key. Check BOTH or the panel would show
+    // green while clients still can't subscribe.
+    push: Boolean(
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() &&
+      process.env.VAPID_PRIVATE_KEY?.trim(),
+    ),
+  };
+
   return (
     <main className="max-w-5xl mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <div className="flex items-center gap-2 mb-2">
@@ -46,6 +64,24 @@ export default async function AdminPage() {
         <p className="text-sage-dark text-xs font-medium tracking-widest">MANAGEMENT TOOLS</p>
       </div>
       <h1 className="serif text-3xl text-ink mb-8">管理工具</h1>
+
+      {/* Deployment config status */}
+      <section className="mb-10">
+        <h2 className="serif text-xl text-ink mb-1">⚙️ 部署設定檢查</h2>
+        <p className="text-sm text-ink/60 mb-4">
+          這些環境變數沒設好，是「功能在正式站壞掉」最常見的原因。在 <code className="text-terracotta">.env</code> 設定後重新部署即可。
+        </p>
+        <div className="bg-white rounded-soft shadow-card border border-sand/60 divide-y divide-sand text-sm">
+          <ConfigRow ok={config.appUrl} label="公開網址（Email 連結用）"
+            okHint={`目前使用：${PUBLIC_BASE_URL}`} badHint="未設定" />
+          <ConfigRow ok={config.mail} label="RESEND_API_KEY（寄信）"
+            okHint="會寄出真的 Email" badHint="未設 → 驗證信 / 重設密碼信只印在伺服器 log，不會真的寄出" />
+          <ConfigRow ok={config.uploadsDir} label="UPLOADS_DIR（圖片存放）"
+            okHint="圖片存到指定持久磁碟" badHint="未設 → 存在 public/uploads，容器 / Serverless 上重新部署可能消失或無法顯示" />
+          <ConfigRow ok={config.push} label="VAPID 金鑰（推播通知）"
+            okHint="可開啟手機推播" badHint="未設 → 推播停用（站內鈴鐺仍正常）；跑 npm run gen-vapid 產生" />
+        </div>
+      </section>
 
       {/* Feedback inbox shortcut */}
       <section className="mb-10">
@@ -274,5 +310,21 @@ export default async function AdminPage() {
         非 Admin 直接被重導離開。
       </div>
     </main>
+  );
+}
+
+function ConfigRow({ ok, label, okHint, badHint }: { ok: boolean; label: string; okHint: string; badHint: string }) {
+  return (
+    <div className="flex items-start gap-3 p-3">
+      <span className={`shrink-0 mt-0.5 ${ok ? "text-sage-dark" : "text-terracotta-dark"}`}>
+        {ok ? "✅" : "⚠️"}
+      </span>
+      <div className="min-w-0">
+        <div className="text-ink font-medium">{label}</div>
+        <div className={`text-xs mt-0.5 ${ok ? "text-ink/55" : "text-terracotta-dark"}`}>
+          {ok ? okHint : badHint}
+        </div>
+      </div>
+    </div>
   );
 }
