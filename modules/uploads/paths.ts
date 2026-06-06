@@ -16,3 +16,29 @@ import path from "node:path";
 export const UPLOADS_DIR = process.env.UPLOADS_DIR?.trim()
   ? path.resolve(process.env.UPLOADS_DIR.trim())
   : path.join(process.cwd(), "public", "uploads");
+
+/**
+ * Best-effort delete of uploaded files, given their public URLs
+ * (`/uploads/<name>`). Used when content that owns uploaded images is
+ * deleted, to stop the uploads disk growing forever. Safe by construction:
+ *   - only acts on `/uploads/<basename>` URLs (ignores anything else, e.g.
+ *     gradient placeholders or remote URLs),
+ *   - resolves the basename under UPLOADS_DIR and refuses to touch anything
+ *     that escapes it,
+ *   - never throws (a missing file or read-only disk is fine).
+ */
+export async function deleteUploadFiles(urls: (string | null | undefined)[]): Promise<void> {
+  const { unlink } = await import("node:fs/promises");
+  const root = path.resolve(UPLOADS_DIR);
+  for (const url of urls) {
+    if (!url || !url.startsWith("/uploads/")) continue;
+    const name = path.basename(url); // strip any path; keep just the filename
+    const target = path.resolve(root, name);
+    if (target !== root && !target.startsWith(root + path.sep)) continue;
+    try {
+      await unlink(target);
+    } catch {
+      // missing / read-only — ignore, this is best-effort cleanup
+    }
+  }
+}

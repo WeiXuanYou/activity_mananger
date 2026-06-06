@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireCurrentUser } from "@/modules/auth";
 import { canCurrentUser } from "@/modules/permissions";
+import { deleteUploadFiles } from "@/modules/uploads/paths";
 
 export type RemovePhotoInput = {
   source: "post" | "comment" | "page" | "album";
@@ -27,13 +28,17 @@ export type RemovePhotoInput = {
 
 /**
  * Add one or more photos DIRECTLY to the shared album wall (not via a
- * post). Any signed-in member can do this. `images` are already-uploaded
+ * post). Gated on `post.create` — same trust level as posting content, so
+ * Guests can't flood the shared album. `images` are already-uploaded
  * { url, thumbUrl } pairs from uploadImageAction.
  */
 export async function addAlbumPhotosAction(input: {
   images: { url: string; thumbUrl?: string; caption?: string }[];
 }): Promise<{ error?: string; added?: number }> {
   const me = await requireCurrentUser();
+  if (!(await canCurrentUser("post.create"))) {
+    return { error: "你目前沒有上傳到相簿的權限" };
+  }
   const rows = (input.images ?? [])
     .filter((i) => i && typeof i.url === "string" && i.url.startsWith("/uploads/"))
     .slice(0, 30) // sane cap per submit
@@ -56,7 +61,7 @@ export async function removeWallPhotoAction(input: RemovePhotoInput): Promise<{ 
   if (input.source === "album") {
     const photo = await db.albumPhoto.findUnique({
       where: { id: input.sourceId },
-      select: { uploaderId: true },
+      select: { uploaderId: true, url: true, thumbUrl: true },
     });
     if (!photo) return {};
     const isOwner = photo.uploaderId === me.id;
@@ -64,6 +69,10 @@ export async function removeWallPhotoAction(input: RemovePhotoInput): Promise<{ 
       return { error: "只能移除自己的照片" };
     }
     await db.albumPhoto.delete({ where: { id: input.sourceId } });
+    // Album photos are uploaded then can be deleted freely by the owner, so
+    // this is the path most likely to accumulate orphaned files on the
+    // (possibly small) uploads disk. Best-effort unlink the backing files.
+    await deleteUploadFiles([photo.url, photo.thumbUrl]);
     revalidatePath("/app/photos");
     return {};
   }

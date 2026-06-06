@@ -45,7 +45,13 @@ export default async function AdminPage() {
     appUrl: Boolean(process.env.APP_URL?.trim()),
     mail: Boolean(process.env.RESEND_API_KEY?.trim()),
     uploadsDir: Boolean(process.env.UPLOADS_DIR?.trim()),
-    push: Boolean(process.env.VAPID_PUBLIC_KEY?.trim() && process.env.VAPID_PRIVATE_KEY?.trim()),
+    // The browser subscribe flow needs NEXT_PUBLIC_VAPID_PUBLIC_KEY; the
+    // server send needs the private key. Check BOTH or the panel would show
+    // green while clients still can't subscribe.
+    push: Boolean(
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() &&
+      process.env.VAPID_PRIVATE_KEY?.trim(),
+    ),
   };
 
   return (
